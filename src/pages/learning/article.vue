@@ -1,0 +1,1 @@
+<template><LessonReader :query="query"/></template><script setup>import {ref} from 'vue';import {onLoad} from '@dcloudio/uni-app';import LessonReader from '../../components/LessonReader.vue';const query=ref(null);onLoad(q=>{query.value=q})</script>

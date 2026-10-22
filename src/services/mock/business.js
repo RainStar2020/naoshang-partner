@@ -1,0 +1,65 @@
+import {mockFamily} from './family'
+// TODO(API): replace these mock-only fixtures when business APIs are connected.
+import { emptyContent } from '../../features/content/rich-content'
+const states = new Map()
+const clone = value => value == null ? value : JSON.parse(JSON.stringify(value))
+const stamp = () => new Date().toISOString()
+export function mockBusinessContexts(user) {
+  return [
+    { id:`wholesale:${user.id}`,module:'wholesale',accountId:user.id,label:'批发商',levelName:'联创合伙人',capabilities:[],storeId:null },
+    ...[1,2,3].map(n=>({id:`costore:${user.id}:${n}`,module:'costore',accountId:user.id,label:`合店门店${n}`,contractId:`demo-contract-${n}`,storeId:`demo-store-${n}`,store:{name:`合店门店${n}`,number:`NO.00${n}`,address:'梧桐街成长中心'},validUntil:'2027-10-22T00:00:00+08:00',capabilities:[]})),
+    ...['STORE','COUNTY','CITY','PROVINCE'].map((type,n)=>({id:`agency:${user.id}:${type}`,module:'agency',accountId:user.id,label:`${['单店','区县','市级','省级'][n]}代理`,agencyType:type,assignmentId:`demo-assignment-${type}`,storeId:type==='STORE'?'demo-store-1':null,scopeLabel:`${['单店经营','区县','城市','省份'][n]}范围`,capabilities:[]})),
+  ]
+}
+export function mockBusinessState(user,context) {
+  const key = JSON.stringify([user.id,context.id])
+  if(!states.has(key)) {
+    const categories=['AGENCY_FEE','SERVICE_FEE','COSTORE_FEE','SUPPLY_CHAIN','SOFTWARE_CARD','SPECIAL_PRODUCT','ADMIN_FEE','COLUMN']
+    states.set(key,{version:1,available:200000,pending:5400,quota:20,transferred:0,quotes:new Map(),operations:new Map(),withdrawals:[],quotaLedger:[],
+      people:[{id:'demo-person-1',name:'李志远',levelLabel:'天使合伙人',phone:'',storeId:null,version:1},{id:'demo-person-2',name:'王好梦',levelLabel:'天使合伙人',phone:'',storeId:null,version:1}],
+      entries:categories.map((category,n)=>({id:`demo-income-${n+1}`,title:['代理费：业务','服务费：业务','合店费：业务','供应链：商品','软件卡：业务','特色产品：业务','行政费：业务','专栏课：业务'][n],category,channel:n<3?'B端':n===3?'供应链':'C端',amount:n===5?5400:1200+n*100,baseAmount:10000,rateBps:null,createdAt:stamp(),allocationStatus:n===5?'PENDING':'ALLOCATED',allocationKind:context.module==='agency'&&context.agencyType!=='STORE'?'inspection':'sales',settlementStatus:n===5?'PENDING_ALLOCATION':'SETTLED',version:1,beneficiaryName:context.label,allowedActions:n===5?['allocate']:[]})),
+      staff:[{id:'demo-coach-1',name:'王老师',loginAccount:'demo-coach',status:'ACTIVE',invitationStatus:'PENDING',version:1}],approvals:[{id:'demo-approval-1',title:'转店申请',type:'TRANSFER',status:'PENDING',applicantName:'张大伟',version:1}],store:{id:context.storeId||'demo-store-1',name:context.store?.name||'梧桐街训练中心',address:'本地地址',contact:'',version:1},
+    })
+  }
+  const current=states.get(key);if(!current.restored){current.restored=true;try{const saved=uni.getStorageSync(`naoshang-mock-business-v2:${key}`);if(saved?.schema===2&&saved.accountId===user.id){Object.assign(current,saved.value);current.quotes=new Map(saved.quotes||[]);current.operations=new Map(saved.operations||[])}}catch{}}
+  return current
+}
+export function saveMockBusinessState(user,context){const state=mockBusinessState(user,context),key=JSON.stringify([user.id,context.id]),value={...state};delete value.quotes;delete value.operations;uni.setStorageSync(`naoshang-mock-business-v2:${key}`,{schema:2,accountId:user.id,value:clone(value),quotes:[...state.quotes],operations:[...state.operations]})}
+export function mockBusinessOverview(user,context) {
+  const state=mockBusinessState(user,context)
+  return {accountId:user.id,contextId:context.id,name:user.name||'李志远',inviteCode:user.inviteCode||'',levelName:context.levelName||context.label,teamCount:state.people.length,available:state.available,pending:state.pending,quota:state.quota,transferred:state.transferred,superior:{name:'区域上级',scopeLabel:'仅'},referrer:{name:'推荐人',scopeLabel:'仅'},benefits:context.module==='wholesale'?['小批','中批','大批','总批'].map((label,n)=>({id:`tier-${n+1}`,label,content:emptyContent()})):context.module==='agency'?['单店','区县','市代','省代'].map((label,n)=>({id:`agency-tier-${n+1}`,label,content:emptyContent()})):[{id:'costore',label:'等级权益',content:emptyContent()}],mockOnly:true}
+}
+export function mockBusinessReport(user,context,resource,{month='',filter='',keyword='',parentNodeId=null}={}) {
+  const state=mockBusinessState(user,context);let items=[],metrics=[],columns=[]
+  if(resource.type==='income') {
+    items=state.entries.filter(item=>(filter!=='pending'||item.allocationStatus==='PENDING')&&(!keyword||item.title.includes(keyword)))
+    metrics=[{label:'可提现金额',value:state.available,kind:'money'},{label:'待结算收益',value:state.pending,kind:'money'}]
+  } else if(resource.type==='dividends') {
+    metrics=[{label:'总分红',value:60000,kind:'money'},{label:'加权分红',value:37500,kind:'money'},{label:'业绩分红',value:22500,kind:'money'},{label:'本月业绩',value:100000,kind:'money'},{label:'业绩占比',value:3000,kind:'percent'},{label:'合店老板总数',value:5,kind:'number'}]
+    columns=[{key:'month',label:'月份'},{key:'eligibility',label:'分红资格'},{key:'amount',label:'总分红',kind:'money'},{key:'weightedAmount',label:'加权分红',kind:'money'},{key:'performanceAmount',label:'业绩分红',kind:'money'},{key:'salesAmount',label:'本月业绩',kind:'money'},{key:'shareBps',label:'业绩占比',kind:'percent'},{key:'ownerCount',label:'合店老板总数'},{key:'poolAmount',label:'奖池累计',kind:'money'}]
+    items=[{id:`demo-dividend-${month}`,month,eligibility:'资格',amount:60000,weightedAmount:37500,performanceAmount:22500,salesAmount:100000,shareBps:3000,ownerCount:5,poolAmount:100000}]
+  } else if(resource.id==='quota-batches') {
+    metrics=[{label:'标准名额余额',value:state.quota,kind:'number'},{label:'活动名额',value:0,kind:'number'}];items=[{id:'demo-batch',title:'标准名额批次',remaining:state.quota,quantity:20,expiresAt:null}]
+  } else if(['quota-ledger','quota-transfers'].includes(resource.id)) items=state.quotaLedger
+  else if(resource.id==='experience') items=[{id:'demo-exp',title:'推广经验',quantity:10,sourceLabel:'业务推广',createdAt:stamp()}]
+  else if(resource.id==='global-awards'){metrics=[{label:'资格',value:'资格'},{label:'本月全球奖',value:1000,kind:'money'}];items=[{id:'demo-global',title:`${month}全球奖`,amount:1000,createdAt:stamp()}]}
+  else if(resource.type==='tasks') items=[{id:'demo-task-1',title:'推广任务（）',progressLabel:'1 / 3',description:'仅测试任务进度展示；不自动提升真实等级。'},{id:'demo-task-2',title:'补差价晋升',description:'请使用开通/升级入口获取报价。'}]
+  else if(resource.type==='relations') items=[{id:'demo-superior',title:state.superior?.name||'上级',description:state.superior?.phone||'尚未绑定上级'}]
+  else if(resource.type==='share') return {items:[],metrics:[],columns:[],qrUrl:'',posterUrl:'',shareUrl:'',localPayload:`http://localhost:5173/#/pages/register/index?inviteCode=${encodeURIComponent(user.inviteCode||user.id)}`,hasMore:false,nextCursor:null,mockOnly:true}
+  else if(resource.type==='team') {
+    if(context.module==='wholesale')items=state.people
+    else {const tree=mockAgencyTree(context);if(parentNodeId&&!tree.some(node=>node.id===parentNodeId))throw new Error('无权访问该团队节点');items=tree.filter(node=>node.parentId===(parentNodeId||null))}
+  }
+  if(keyword)items=items.filter(item=>String(item.title||item.name||'').includes(keyword))
+  return clone({items,metrics,columns,hasMore:false,nextCursor:null,mockOnly:true})
+}
+export function mockAgencyTree(context) {
+  const depth={PROVINCE:3,CITY:2,COUNTY:1,STORE:0}[context.agencyType],nodes=[]
+  for(let n=0;n<=depth;n++)nodes.push({id:`node-${n}`,parentId:n===0?null:`node-${n-1}`,name:`${['城市代理','区县代理','单店代理','门店成员'][3-depth+n]||'团队成员'}`,scopeLabel:context.scopeLabel,hasChildren:n<depth,storeCount:1,ownerCount:2,performance:[{label:'本月业绩',value:100000,kind:'money'},{label:'季度业绩',value:200000,kind:'money'},{label:'半年业绩',value:300000,kind:'money'},{label:'本年业绩',value:400000,kind:'money'},{label:'累计业绩',value:500000,kind:'money'}]})
+  return nodes
+}
+export const mockClone=clone
+export function mockStoreWorkspace(user,context){
+  const state=mockBusinessState(user,context)
+  return {store:clone(state.store),staff:clone(state.staff),owners:[{id:'demo-owner',name:'合店老板',status:'ACTIVE',validUntil:'2027-10-22'}],members:clone(mockFamily(user).members),approvals:clone(state.approvals),allowedActions:['edit-store','save-coach','approve'],mockOnly:true}
+}

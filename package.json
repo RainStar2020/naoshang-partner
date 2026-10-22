@@ -1,7 +1,13 @@
 {
-  "name": "uni-preset-vue",
-  "version": "0.0.0",
+  "name": "naoshang-partner",
+  "version": "0.1.0",
   "scripts": {
+    "test:business": "node --experimental-vm-modules --test tests/business.test.cjs",
+    "test:exclusive": "node --experimental-vm-modules --test tests/exclusive.test.cjs",
+    "test:profile": "node --experimental-vm-modules --test tests/profile.test.cjs",
+    "test:materials": "node --experimental-vm-modules --test tests/materials.test.cjs",
+    "test:learning": "node --experimental-vm-modules --test tests/learning.test.cjs",
+    "test:auth": "node --experimental-vm-modules --test tests/auth.test.cjs",
     "dev:custom": "uni -p",
     "dev:h5": "uni",
     "dev:h5:ssr": "uni --ssr",
@@ -33,7 +39,8 @@
     "build:mp-xhs": "uni build -p mp-xhs",
     "build:quickapp-webview": "uni build -p quickapp-webview",
     "build:quickapp-webview-huawei": "uni build -p quickapp-webview-huawei",
-    "build:quickapp-webview-union": "uni build -p quickapp-webview-union"
+    "build:quickapp-webview-union": "uni build -p quickapp-webview-union",
+    "test:commerce": "node --experimental-vm-modules --test tests/commerce.test.cjs"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-5020620260917001",
@@ -52,6 +59,8 @@
     "@dcloudio/uni-mp-weixin": "3.0.0-5020620260917001",
     "@dcloudio/uni-mp-xhs": "3.0.0-5020620260917001",
     "@dcloudio/uni-quickapp-webview": "3.0.0-5020620260917001",
+    "china-area-data": "^5.0.1",
+    "qrcode": "1.5.4",
     "vue": "^3.4.21",
     "vue-i18n": "^9.1.9"
   },
@@ -64,5 +73,6 @@
     "@vue/runtime-core": "^3.4.21",
     "rollup": "4.14.3",
     "vite": "5.2.8"
-  }
+  },
+  "private": true
 }

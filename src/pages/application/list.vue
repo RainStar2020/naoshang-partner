@@ -1,0 +1,22 @@
+<template><view class="account-page feature-page"><FeaturePageState :status="status" :error="error" @retry="load"/><template v-if="status==='ready'"><EmptyState v-if="!items.length" text="暂无申请"/><view v-for="item in items" :key="item.id" class="application-card"><view class="application-heading"><text>{{item.title}}</text><text :class="{rejected:item.applicationStatus==='REJECTED'}">{{applicationStatus(item.applicationStatus)}}</text></view><view class="application-store"><image src="/static/profile/icon-costore-application.png" mode="aspectFit"/><view><view>{{item.store?.name}}</view><text>{{item.store?.number}}</text><view class="account-caption">{{item.store?.address}}</view></view></view><view class="application-row"><text>合店费用</text><text>¥{{money(item.payableAmount)}}</text></view><view class="application-row"><text>申请时间</text><text>{{dateLabel(item.createdAt)}}</text></view><view v-if="item.reviewedAt" class="application-row"><text>审核时间</text><text>{{dateLabel(item.reviewedAt)}}</text></view><view v-if="item.rejectionReason" class="account-error">{{item.rejectionReason}}</view><view class="application-states"><text>支付：{{paymentLabel(item.paymentStatus)}}</text><text>合同：{{item.contractStatus==='SIGNED'?'已签署':item.contractStatus==='NOT_SIGNED'?'未签署':'待确认'}}</text><text>权益：{{item.entitlementStatus==='OPEN'?'已开通':item.entitlementStatus==='NOT_OPEN'?'未开通':'待确认'}}</text></view></view><button v-if="hasMore" class="secondary" :disabled="loadingMore" @click="more">{{loadingMore?'加载中…':'加载更多'}}</button><text v-if="moreError" class="account-error">{{moreError}}</text></template></view></template>
+<script setup>
+import {ref,watch} from 'vue'
+import {onUnload} from '@dcloudio/uni-app'
+import {config} from '../../config'
+import {useAuth} from '../../composables/useAuth'
+import {useAsyncPage} from '../../composables/useAsyncPage'
+import {getMyApplications} from '../../services/exclusive'
+import {money,applicationStatus} from '../../features/exclusive/format'
+import FeaturePageState from '../../components/FeaturePageState.vue'
+import EmptyState from '../../components/EmptyState.vue'
+useAuth();const isMock=config.useMock,items=ref([]),hasMore=ref(false),loadingMore=ref(false),moreError=ref('');let cursor=null,epoch=0
+const {data,status,error,load}=useAsyncPage(()=>getMyApplications())
+watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}})
+watch(data,result=>{if(result){items.value=result.items;hasMore.value=result.hasMore;cursor=result.nextCursor}})
+const dateLabel=value=>value?String(value).replace('T',' ').replace(/\.\d+Z$/,' UTC'):'—'
+const paymentLabel=value=>({NOT_STARTED:'未付款',PENDING:'待付款',PAID:'已付款',CANCELLED:'已取消'}[value]||'待确认')
+async function more(){if(loadingMore.value||!hasMore.value)return;const current=epoch;loadingMore.value=true;try{const result=await getMyApplications(cursor);if(current===epoch){items.value=[...new Map([...items.value,...result.items].map(item=>[item.id,item])).values()];cursor=result.nextCursor;hasMore.value=result.hasMore}}catch(reason){if(current===epoch)moreError.value=reason.message}finally{if(current===epoch)loadingMore.value=false}}
+onUnload(()=>{++epoch})
+</script>
+<style>@import '../../styles/account.css';@import '../../styles/exclusive.css';</style>
+<style scoped>.application-card{padding:28rpx 24rpx;background:#343a5b;border-radius:24rpx;margin-bottom:24rpx}.application-heading{display:flex;justify-content:space-between;gap:16rpx;font-size:calc(var(--feature-font,14px)*1.00000);font-weight:600;line-height:1.7}.application-heading>text:last-child{color:#00baff;white-space:nowrap}.application-heading .rejected{color:#ff4b79}.application-store{display:flex;gap:20rpx;margin:24rpx 0;align-items:center;font-size:calc(var(--feature-font,14px)*1.00000)}.application-store>image{height:90rpx;width:90rpx;flex-shrink:0}.application-store>view{min-width:0;flex:1;overflow-wrap:anywhere}.application-store text{color:#95a9c8;font-size:calc(var(--feature-font,14px)*0.92857)}.application-row{display:flex;justify-content:space-between;gap:20rpx;font-size:calc(var(--feature-font,14px)*0.92857);line-height:2.2}.application-row>text:first-child{color:#a6b7cf}.application-row>text:last-child{text-align:right;overflow-wrap:anywhere}.application-states{display:flex;flex-wrap:wrap;gap:16rpx;font-size:calc(var(--feature-font,14px)*0.92857);color:#99adc9;margin-top:20rpx}</style>

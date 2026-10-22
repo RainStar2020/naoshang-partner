@@ -1,0 +1,100 @@
+{
+  "date": "2026-10-22",
+  "scope": "首批会员学习导航与后台富文本展示基础",
+  "sourceAuthorization": "用户要求素材模板/等级权益暂留空并按AI任务卡开发，后续授权自行安排模块",
+  "taskIds": [
+    "BASE-01",
+    "BASE-02",
+    "BASE-03",
+    "BASE-04",
+    "PAGE-004",
+    "PAGE-005",
+    "PAGE-006",
+    "PAGE-007"
+  ],
+  "status": "mock-complete-with-follow-ups",
+  "userConfirmed": [
+    "素材模板与等级权益正文暂留空，客户后台后续上传文字图片；不照搬截图样品图和正文"
+  ],
+  "changedFiles": [
+    "src/pages/member/index.vue",
+    "src/pages/learning/level-detail.vue",
+    "src/pages/learning/announcements.vue",
+    "src/pages/learning/announcement-detail.vue",
+    "src/components/IdentityPicker.vue",
+    "src/components/ManagedRichContent.vue",
+    "src/features/content/rich-content.js",
+    "src/services/learning.js",
+    "src/services/mock/learning.js",
+    "src/services/api.js",
+    "src/pages.json",
+    "package.json",
+    "tests/learning.test.cjs",
+    "src/static/tabs/*(8 PNG)",
+    "docs/ai-frontend-v1/00,02,03,04,07及execution记录"
+  ],
+  "designRefs": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "implementation": {
+    "ui": "implemented with visual differences documented",
+    "mockFlow": "tested",
+    "remoteIntegration": "not-integrated",
+    "h5": "browser-tested",
+    "mpWeixin": "build-passed-device-not-tested"
+  },
+  "contractStatus": "proposed + mock-only；现有126项API仍未获后端确认",
+  "verification": [
+    {
+      "command": "npm run test:learning",
+      "result": "passed",
+      "tests": 6,
+      "scope": "空正文、家长/孩子权益隔离、跨账号拒绝、Mock激活幂等、富文本过滤、真实接口不回退Mock、迟到响应账号校验"
+    },
+    {
+      "command": "npm run test:auth",
+      "result": "passed",
+      "tests": 4,
+      "scope": "现有认证回归"
+    },
+    {
+      "command": "npm run build:h5",
+      "result": "passed"
+    },
+    {
+      "command": "npm run build:mp-weixin",
+      "result": "passed",
+      "limitation": "没有微信开发者工具/真机验证"
+    },
+    {
+      "method": "H5 browser",
+      "result": "passed",
+      "scope": "375x812移动尺寸/默认桌面尺寸；家长和孩子切换、等级导航、空权益正文、目录空状态、激活受益人确认及成功后刷新、公告空状态",
+      "limitation": "未有后台发布内容，未验证真实上传与已发布公告"
+    }
+  ],
+  "knownDifferences": [
+    "8张Tab图标为临时简化PNG，未做自定义胶囊Tab",
+    "缺少星空背景和正式头像，采用CSS背景与文字头像",
+    "空权益正文不填样品内容；课程目录当前为空",
+    "字体、完整视觉源稿尚未冻结"
+  ],
+  "followUps": [
+    "真实bootstrap/等级/公告/激活接口联调",
+    "后台富文本编辑、发布与上传能力不在本轮前端范围",
+    "素材库/素材模板页面按后续任务卡实现，正文遵守07约定",
+    "实际课程正文/播放器及受保护媒体访问待PAGE-008/009任务",
+    "确认会员等级正式命名与激活规则Q-002/Q-003/Q-017"
+  ],
+  "correctionsDuringVerification": [
+    "补充迟到bootstrap响应测试时发现同一user对象原地更新可能绕过账号对比，已改为请求时账号快照并通过回归"
+  ]
+}

@@ -1,0 +1,177 @@
+﻿id,originalName,destination,runtimePath,canonicalId,duplicate,sha256,referencedBy
+I001,icon／13／未选中_灰备份@2x(1).png,src/static/login/icon-checked.png,src/static/login/icon-checked.png,I001,False,a5a22e7bf103970ace4a3269a952060062b9decceadced47ad7df6e7a3946a65,src/pages/login/index.vue
+I002,icon／13／未选中_灰备份@2x.png,docs/design-assets/icon-duplicates/icon-checked-i002.png,src/static/login/icon-checked.png,I001,True,a5a22e7bf103970ace4a3269a952060062b9decceadced47ad7df6e7a3946a65,src/pages/login/index.vue
+I003,icon／16／切换@2x.png,src/static/common/icon-switch-arrows.png,src/static/common/icon-switch-arrows.png,I003,False,d3fce6c213a1cbacbe0df9e90ec4c31167e3755c277bd8c61020dd05f988a555,
+I004,icon／16／删除@2x.png,src/static/common/icon-remove-image.png,src/static/common/icon-remove-image.png,I004,False,322aa034a3ccb80f00a11cac18350ffae881a553d7469c0769c5552ad92e13f8,
+I005,icon／16／复制@2x.png,src/static/common/icon-copy.png,src/static/common/icon-copy.png,I005,False,40a4ef4b1884b57da6ce977c68d3b1216143cfd9b78dc6505783144380c43ec5,src/pages/partners/index.vue;src/pages/profile/index.vue;src/pages/settings/profile.vue
+I006,icon／16／更多@2x.png,src/static/common/icon-chevron-right-muted.png,src/static/common/icon-chevron-right-muted.png,I006,False,349a926f09ffc85d0f8f47c5da5ceccba84a91cda8207c04b4c7526e21424576,
+I007,icon／16／更多备份 2@2x(1).png,src/static/common/icon-chevron-right-soft.png,src/static/common/icon-chevron-right-soft.png,I007,False,b05d7dad990102e49fc3c90e249621524e8aab3606b8c4cf8ccfe35deef1e224,
+I008,icon／16／更多备份 2@2x(2).png,docs/design-assets/icon-duplicates/icon-chevron-right-soft-i008.png,src/static/common/icon-chevron-right-soft.png,I007,True,b05d7dad990102e49fc3c90e249621524e8aab3606b8c4cf8ccfe35deef1e224,
+I009,icon／16／更多备份 2@2x(3).png,docs/design-assets/icon-duplicates/icon-chevron-right-soft-i009.png,src/static/common/icon-chevron-right-soft.png,I007,True,b05d7dad990102e49fc3c90e249621524e8aab3606b8c4cf8ccfe35deef1e224,
+I010,icon／16／更多备份 2@2x(4).png,docs/design-assets/icon-duplicates/icon-chevron-right-soft-i010.png,src/static/common/icon-chevron-right-soft.png,I007,True,b05d7dad990102e49fc3c90e249621524e8aab3606b8c4cf8ccfe35deef1e224,
+I011,icon／16／更多备份 2@2x(5).png,src/static/common/icon-chevron-right.png,src/static/common/icon-chevron-right.png,I011,False,6215390f111d9a089319ee79f30e8ff526b29650a88ecf51b5eb39f44800a439,src/components/RegionPicker.vue;src/pages/profile/index.vue;src/pages/settings/index.vue;src/pages/settings/profile.vue
+I012,icon／16／更多备份 2@2x(6).png,docs/design-assets/icon-duplicates/icon-chevron-right-i012.png,src/static/common/icon-chevron-right.png,I011,True,6215390f111d9a089319ee79f30e8ff526b29650a88ecf51b5eb39f44800a439,src/components/RegionPicker.vue;src/pages/profile/index.vue;src/pages/settings/index.vue;src/pages/settings/profile.vue
+I013,icon／16／更多备份 2@2x.png,docs/design-assets/icon-duplicates/icon-chevron-right-soft-i013.png,src/static/common/icon-chevron-right-soft.png,I007,True,b05d7dad990102e49fc3c90e249621524e8aab3606b8c4cf8ccfe35deef1e224,
+I014,icon／16／更多备份 8@2x(1).png,src/static/common/icon-caret-right-accent.png,src/static/common/icon-caret-right-accent.png,I014,False,205b895beb01262485bf3b40f53a2fec0de22ccec39b171d8d469cc74373a94e,
+I015,icon／16／更多备份 8@2x(2).png,docs/design-assets/icon-duplicates/icon-caret-right-accent-i015.png,src/static/common/icon-caret-right-accent.png,I014,True,205b895beb01262485bf3b40f53a2fec0de22ccec39b171d8d469cc74373a94e,
+I016,icon／16／更多备份 8@2x(3).png,docs/design-assets/icon-duplicates/icon-caret-right-accent-i016.png,src/static/common/icon-caret-right-accent.png,I014,True,205b895beb01262485bf3b40f53a2fec0de22ccec39b171d8d469cc74373a94e,
+I017,icon／16／更多备份 8@2x(4).png,docs/design-assets/icon-duplicates/icon-caret-right-accent-i017.png,src/static/common/icon-caret-right-accent.png,I014,True,205b895beb01262485bf3b40f53a2fec0de22ccec39b171d8d469cc74373a94e,
+I018,icon／16／更多备份 8@2x(5).png,docs/design-assets/icon-duplicates/icon-caret-right-accent-i018.png,src/static/common/icon-caret-right-accent.png,I014,True,205b895beb01262485bf3b40f53a2fec0de22ccec39b171d8d469cc74373a94e,
+I019,icon／16／更多备份 8@2x.png,src/static/common/icon-caret-right.png,src/static/common/icon-caret-right.png,I019,False,a05ab8ff4893afd10b4a80e3488d50ef0ac9f2e7ca626a2cf2eabb58cc8f58d1,
+I020,icon／18／未选中备份@2x.png,src/static/common/icon-radio-unchecked-small.png,src/static/common/icon-radio-unchecked-small.png,I020,False,9c3273601be7ed7fd4978fd7cf8bc15cacd05c48ecfdaaed486ed85d2007ad41,
+I021,icon／18／选中@2x.png,src/static/common/icon-radio-checked-small.png,src/static/common/icon-radio-checked-small.png,I021,False,a134bddad9d386d6a8bf4e79cf6f0fc707b0e7001eccc30604f3aacdd0c4ee94,
+I022,icon／20／会员@2x.png,src/static/tabs/member.png,src/static/tabs/member.png,I022,False,7d7770560210128e9c22444354ef453bfdd38b659cb6ac25a6dba65c7ab4e09d,src/pages.json;src/components/AppTabBar.vue (dynamic)
+I023,icon／20／商城备份@2x.png,src/static/tabs/selection.png,src/static/tabs/selection.png,I023,False,2fb81bb8e4c76be2e4bac079bbe139f08c24c13a6931dd759b58651d2ddf9338,src/pages.json;src/components/AppTabBar.vue (dynamic)
+I024,icon／20／我的@2x.png,src/static/tabs/profile-active.png,src/static/tabs/profile-active.png,I024,False,bac05e042159bd0e4cce20c3d5ab723e14ad6cfe0bb06c39e9b07a2d575b90c6,src/pages.json;src/components/AppTabBar.vue (dynamic)
+I025,icon／20／我的备份@2x.png,src/static/tabs/profile.png,src/static/tabs/profile.png,I025,False,4ed4dbf22e68e2158027263c8401f7d45e2bf8d10f1d5f4419ed8bb55f1fb917,src/pages.json;src/components/AppTabBar.vue (dynamic)
+I026,icon／20／批发@2x.png,src/static/tabs/partners-active.png,src/static/tabs/partners-active.png,I026,False,04eb1b6ec08d574797d9c2cc774957d0a97f363484ee1ef99f00ef023300bbde,src/pages.json;src/components/AppTabBar.vue (dynamic)
+I027,icon／20／批发备份@2x.png,src/static/tabs/partners.png,src/static/tabs/partners.png,I027,False,15bdbc6465d808dec4beff274b836501d4b91f18a7c6d04fbb85d8151bddd077,src/pages.json;src/components/AppTabBar.vue (dynamic)
+I028,icon／24／修改密码@2x.png,src/static/common/icon-change-password.png,src/static/common/icon-change-password.png,I028,False,6391933e1d40967d35c21ca9e91006f94c240cc80ca41683bdc29d66366e565e,
+I029,icon／24／切换模块@2x.png,src/static/common/icon-switch.png,src/static/common/icon-switch.png,I029,False,b3bcf5b8452c13c63b97f4a2f6620f70a32d8064e52c1b1f2b90284224b2551b,src/pages/member/index.vue;src/pages/partners/index.vue
+I030,icon／24／删除@2x(1).png,src/static/common/icon-delete.png,src/static/common/icon-delete.png,I030,False,be8c94e2248ce133dae8a7cc18dec941ccf933781824dfd2cd96483a9606a570,src/pages/address/list.vue
+I031,icon／24／删除@2x(2).png,docs/design-assets/icon-duplicates/icon-delete-i031.png,src/static/common/icon-delete.png,I030,True,be8c94e2248ce133dae8a7cc18dec941ccf933781824dfd2cd96483a9606a570,src/pages/address/list.vue
+I032,icon／24／删除@2x(3).png,docs/design-assets/icon-duplicates/icon-delete-i032.png,src/static/common/icon-delete.png,I030,True,be8c94e2248ce133dae8a7cc18dec941ccf933781824dfd2cd96483a9606a570,src/pages/address/list.vue
+I033,icon／24／删除@2x.png,docs/design-assets/icon-duplicates/icon-delete-i033.png,src/static/common/icon-delete.png,I030,True,be8c94e2248ce133dae8a7cc18dec941ccf933781824dfd2cd96483a9606a570,src/pages/address/list.vue
+I034,icon／24／图片@2x.png,src/static/common/icon-image.png,src/static/common/icon-image.png,I034,False,a04fd4e49d3f22ab3cb119c501847d8f3141d64d8e90eebcf0fa77c3d303902f,src/pages/support/feedback.vue
+I035,icon／24／定位@2x(1).png,src/static/common/icon-location-accent.png,src/static/common/icon-location-accent.png,I035,False,01f4a3f202dcfb168ca1d7be034d456ee6e4e2678fab4824494b9a3bb350eaad,
+I036,icon／24／定位@2x(2).png,docs/design-assets/icon-duplicates/icon-location-accent-i036.png,src/static/common/icon-location-accent.png,I035,True,01f4a3f202dcfb168ca1d7be034d456ee6e4e2678fab4824494b9a3bb350eaad,
+I037,icon／24／定位@2x(3).png,docs/design-assets/icon-duplicates/icon-location-accent-i037.png,src/static/common/icon-location-accent.png,I035,True,01f4a3f202dcfb168ca1d7be034d456ee6e4e2678fab4824494b9a3bb350eaad,
+I038,icon／24／定位@2x(4).png,docs/design-assets/icon-duplicates/icon-location-accent-i038.png,src/static/common/icon-location-accent.png,I035,True,01f4a3f202dcfb168ca1d7be034d456ee6e4e2678fab4824494b9a3bb350eaad,
+I039,icon／24／定位@2x.png,docs/design-assets/icon-duplicates/icon-location-accent-i039.png,src/static/common/icon-location-accent.png,I035,True,01f4a3f202dcfb168ca1d7be034d456ee6e4e2678fab4824494b9a3bb350eaad,
+I040,icon／24／密码@2x(1).png,src/static/login/icon-password.png,src/static/login/icon-password.png,I040,False,8bcc002e7f39e20ec28567dba4d69a8d66d069f7d4a94e339c05f09386c13b13,src/pages/forgot-password/index.vue;src/pages/login/index.vue;src/pages/register/index.vue
+I041,icon／24／密码@2x(2).png,docs/design-assets/icon-duplicates/icon-password-i041.png,src/static/login/icon-password.png,I040,True,8bcc002e7f39e20ec28567dba4d69a8d66d069f7d4a94e339c05f09386c13b13,src/pages/forgot-password/index.vue;src/pages/login/index.vue;src/pages/register/index.vue
+I042,icon／24／密码@2x.png,docs/design-assets/icon-duplicates/icon-password-i042.png,src/static/login/icon-password.png,I040,True,8bcc002e7f39e20ec28567dba4d69a8d66d069f7d4a94e339c05f09386c13b13,src/pages/forgot-password/index.vue;src/pages/login/index.vue;src/pages/register/index.vue
+I043,icon／24／手机号@2x.png,src/static/login/icon-phone.png,src/static/login/icon-phone.png,I043,False,015dedc31a2ca43aef5a67e251f969128051748da55035d2d069b96f77b8f28d,src/pages/forgot-password/index.vue;src/pages/login/index.vue;src/pages/register/index.vue
+I044,icon／24／搜索@2x.png,src/static/common/icon-search.png,src/static/common/icon-search.png,I044,False,2aa5796f3d73f2e0a6644f881f0611a894a430d638aa8fd20bd1ff3df1b7488b,src/pages/order/list.vue
+I045,icon／24／文件@2x.png,src/static/common/icon-folder.png,src/static/common/icon-folder.png,I045,False,91a25f85666e51feb9c43afc560409b120a2ed1f188bef1affdcdd948232950d,
+I046,icon／24／未选中@2x(1).png,src/static/common/icon-radio-unchecked.png,src/static/common/icon-radio-unchecked.png,I046,False,4190b7df2077d29ec8da7c98136e88d8f0eb9d1225364b08d2c563f6dc700774,src/pages/address/list.vue
+I047,icon／24／未选中@2x.png,docs/design-assets/icon-duplicates/icon-radio-unchecked-i047.png,src/static/common/icon-radio-unchecked.png,I046,True,4190b7df2077d29ec8da7c98136e88d8f0eb9d1225364b08d2c563f6dc700774,src/pages/address/list.vue
+I048,icon／24／激活@2x(1).png,src/static/common/icon-activate.png,src/static/common/icon-activate.png,I048,False,2bcea19940163aa31aacedf0569e9b80b4168859166fd7ceac325fd851a5e270,
+I049,icon／24／激活@2x.png,docs/design-assets/icon-duplicates/icon-activate-i049.png,src/static/common/icon-activate.png,I048,True,2bcea19940163aa31aacedf0569e9b80b4168859166fd7ceac325fd851a5e270,
+I050,icon／24／登出@2x.png,src/static/common/icon-logout.png,src/static/common/icon-logout.png,I050,False,b1bf41c6af35b24735addbf731ed1514320fbd0621c28bd29aa81c14b146d509,
+I051,icon／24／编辑@2x(1).png,src/static/common/icon-edit.png,src/static/common/icon-edit.png,I051,False,ec2987b9ee7e648187f0be59466dc60f44d423ff9e3efb77a1327bde962a7d42,src/pages/address/list.vue
+I052,icon／24／编辑@2x(2).png,docs/design-assets/icon-duplicates/icon-edit-i052.png,src/static/common/icon-edit.png,I051,True,ec2987b9ee7e648187f0be59466dc60f44d423ff9e3efb77a1327bde962a7d42,src/pages/address/list.vue
+I053,icon／24／编辑@2x(3).png,docs/design-assets/icon-duplicates/icon-edit-i053.png,src/static/common/icon-edit.png,I051,True,ec2987b9ee7e648187f0be59466dc60f44d423ff9e3efb77a1327bde962a7d42,src/pages/address/list.vue
+I054,icon／24／编辑@2x.png,docs/design-assets/icon-duplicates/icon-edit-i054.png,src/static/common/icon-edit.png,I051,True,ec2987b9ee7e648187f0be59466dc60f44d423ff9e3efb77a1327bde962a7d42,src/pages/address/list.vue
+I055,icon／24／视频@2x.png,src/static/common/icon-video.png,src/static/common/icon-video.png,I055,False,9a05d633fb8dd051c10cdbf029c40c812707ef4cf5b0dc65935e9a0f52349692,
+I056,icon／24／选中@2x.png,src/static/common/icon-radio-checked.png,src/static/common/icon-radio-checked.png,I056,False,818f7338fd698de395cc11310aef12d3f5c62a85cabf3c9cd31b353accd9e0aa,src/pages/address/list.vue
+I057,icon／24／门店信息@2x.png,src/static/common/icon-store.png,src/static/common/icon-store.png,I057,False,5e2deec41a136adb0ee9c5666e65361d06dd0421294c6b5c63f2d569fd6757f5,
+I058,icon／28／关闭@2x(1).png,src/static/common/icon-close.png,src/static/common/icon-close.png,I058,False,c019a4bfe3ba7f444a4ad3f50b87ad4fc7ba46e74f11eddef27f33009f41c115,src/components/IdentityPicker.vue;src/pages/partners/index.vue
+I059,icon／28／关闭@2x.png,docs/design-assets/icon-duplicates/icon-close-i059.png,src/static/common/icon-close.png,I058,True,c019a4bfe3ba7f444a4ad3f50b87ad4fc7ba46e74f11eddef27f33009f41c115,src/components/IdentityPicker.vue;src/pages/partners/index.vue
+I060,icon／28／返回@2x(1).png,src/static/common/icon-back.png,src/static/common/icon-back.png,I060,False,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I061,icon／28／返回@2x(10).png,docs/design-assets/icon-duplicates/icon-back-i061.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I062,icon／28／返回@2x(11).png,docs/design-assets/icon-duplicates/icon-back-i062.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I063,icon／28／返回@2x(12).png,docs/design-assets/icon-duplicates/icon-back-i063.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I064,icon／28／返回@2x(13).png,docs/design-assets/icon-duplicates/icon-back-i064.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I065,icon／28／返回@2x(14).png,docs/design-assets/icon-duplicates/icon-back-i065.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I066,icon／28／返回@2x(15).png,docs/design-assets/icon-duplicates/icon-back-i066.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I067,icon／28／返回@2x(16).png,docs/design-assets/icon-duplicates/icon-back-i067.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I068,icon／28／返回@2x(17).png,docs/design-assets/icon-duplicates/icon-back-i068.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I069,icon／28／返回@2x(18).png,docs/design-assets/icon-duplicates/icon-back-i069.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I070,icon／28／返回@2x(2).png,src/static/common/icon-chevron-right-large.png,src/static/common/icon-chevron-right-large.png,I070,False,dc9584a6992144deb066a5696755d674648c8daf37d8b9d913441ea94ea9c784,
+I071,icon／28／返回@2x(3).png,docs/design-assets/icon-duplicates/icon-back-i071.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I072,icon／28／返回@2x(4).png,docs/design-assets/icon-duplicates/icon-back-i072.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I073,icon／28／返回@2x(5).png,docs/design-assets/icon-duplicates/icon-back-i073.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I074,icon／28／返回@2x(6).png,docs/design-assets/icon-duplicates/icon-back-i074.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I075,icon／28／返回@2x(7).png,docs/design-assets/icon-duplicates/icon-back-i075.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I076,icon／28／返回@2x(8).png,docs/design-assets/icon-duplicates/icon-back-i076.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I077,icon／28／返回@2x(9).png,docs/design-assets/icon-duplicates/icon-back-i077.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I078,icon／28／返回@2x.png,docs/design-assets/icon-duplicates/icon-back-i078.png,src/static/common/icon-back.png,I060,True,9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07,src/components/AuthLayout.vue
+I079,icon／32／pdf@2x(1).png,src/static/media/icon-pdf.png,src/static/media/icon-pdf.png,I079,False,6053c7c361b57536c35016b857674c88f7202dfe58e20bc1a1f2bc0185fc043b,
+I080,icon／32／pdf@2x.png,docs/design-assets/icon-duplicates/icon-pdf-i080.png,src/static/media/icon-pdf.png,I079,True,6053c7c361b57536c35016b857674c88f7202dfe58e20bc1a1f2bc0185fc043b,
+I081,icon／32／上传@2x.png,src/static/common/icon-upload-plus.png,src/static/common/icon-upload-plus.png,I081,False,2d4617f573259f78b64ed516c997cd1f9287bdfeba47d4335e5d2c853d6c3dbf,
+I082,icon／32／上级@2x.png,src/static/partner/icon-superior.png,src/static/partner/icon-superior.png,I082,False,66adc44113c3761cbe095d1c3de8fe728163a159d4c8dca957cd64c77f1064b3,
+I083,icon／32／代理推广码@2x.png,src/static/profile/icon-referral-code.png,src/static/profile/icon-referral-code.png,I083,False,262aab6bb8612b7c9ff4bfb9df88ee417aa1c46bfc609744717f5d658be11a3e,src/components/ProfileIcon.vue
+I084,icon／32／代理收益@2x.png,src/static/partner/icon-agency-income.png,src/static/partner/icon-agency-income.png,I084,False,6513aae55c3783f059f1bd715a59794c2b95d33f0abff24798d0a58fd0d9e00d,
+I085,icon／32／优惠券@2x.png,src/static/profile/icon-coupon.png,src/static/profile/icon-coupon.png,I085,False,ea141ece34a4404ac3776ca6e417a91992c4029e2868a95d95d7316e6aeaa10e,src/components/ProfileIcon.vue
+I086,icon／32／会员卡分红@2x.png,src/static/partner/icon-membership-dividend.png,src/static/partner/icon-membership-dividend.png,I086,False,b9df3a955c63f8531940473a3a2dc102bbe3f2e6b93d9503eb92b18fd78680f3,
+I087,icon／32／创始奖@2x.png,src/static/profile/icon-founder-award.png,src/static/profile/icon-founder-award.png,I087,False,07e09be0a2d555e56274c7b380ec090b22b2b66bf8cb61d1bc149be933fdbadc,src/components/ProfileIcon.vue
+I088,icon／32／合店审批@2x.png,src/static/partner/icon-costore-approval.png,src/static/partner/icon-costore-approval.png,I088,False,46e108aa14d25b294590d07cd935fd46a0fdddaff35f6d2939bee9ec011a13f3,
+I089,icon／32／孩子管理@2x.png,src/static/profile/icon-children.png,src/static/profile/icon-children.png,I089,False,cbb70aaa4689cceba809afa7f8b6653f0f838d2959df468fb17eb17b24f226ba,src/components/ProfileIcon.vue
+I090,icon／32／已取消@2x(1).png,src/static/order/icon-cancelled.png,src/static/order/icon-cancelled.png,I090,False,a6528854456c083757cd5fa45fdc19e131f0cd5b8daea0d48236ca8dfbcd1b71,
+I091,icon／32／已取消@2x(2).png,docs/design-assets/icon-duplicates/icon-cancelled-i091.png,src/static/order/icon-cancelled.png,I090,True,a6528854456c083757cd5fa45fdc19e131f0cd5b8daea0d48236ca8dfbcd1b71,
+I092,icon／32／已取消@2x(3).png,docs/design-assets/icon-duplicates/icon-cancelled-i092.png,src/static/order/icon-cancelled.png,I090,True,a6528854456c083757cd5fa45fdc19e131f0cd5b8daea0d48236ca8dfbcd1b71,
+I093,icon／32／已取消@2x.png,docs/design-assets/icon-duplicates/icon-cancelled-i093.png,src/static/order/icon-cancelled.png,I090,True,a6528854456c083757cd5fa45fdc19e131f0cd5b8daea0d48236ca8dfbcd1b71,
+I094,icon／32／已完成@2x(1).png,src/static/order/icon-completed.png,src/static/order/icon-completed.png,I094,False,7d9ce0c5cf08c0ae4cfb68db5f9fec35783f8d856eecf021a143b477fd66e21a,
+I095,icon／32／已完成@2x(2).png,docs/design-assets/icon-duplicates/icon-completed-i095.png,src/static/order/icon-completed.png,I094,True,7d9ce0c5cf08c0ae4cfb68db5f9fec35783f8d856eecf021a143b477fd66e21a,
+I096,icon／32／已完成@2x(3).png,docs/design-assets/icon-duplicates/icon-completed-i096.png,src/static/order/icon-completed.png,I094,True,7d9ce0c5cf08c0ae4cfb68db5f9fec35783f8d856eecf021a143b477fd66e21a,
+I097,icon／32／已完成@2x.png,src/static/profile/icon-order-completed.png,src/static/profile/icon-order-completed.png,I097,False,bb64c39e9b3afbf7960db25d0bc81238f8273ef5b190181c1ae43a684482198a,src/components/ProfileIcon.vue
+I098,icon／32／待付款@2x(1).png,src/static/order/icon-pending-payment.png,src/static/order/icon-pending-payment.png,I098,False,cc5637ecf009eb12566f3204ae1b4c1405a722f534ca1242404e9d2fb74449ae,
+I099,icon／32／待付款@2x(2).png,docs/design-assets/icon-duplicates/icon-pending-payment-i099.png,src/static/order/icon-pending-payment.png,I098,True,cc5637ecf009eb12566f3204ae1b4c1405a722f534ca1242404e9d2fb74449ae,
+I100,icon／32／待付款@2x(3).png,docs/design-assets/icon-duplicates/icon-pending-payment-i100.png,src/static/order/icon-pending-payment.png,I098,True,cc5637ecf009eb12566f3204ae1b4c1405a722f534ca1242404e9d2fb74449ae,
+I101,icon／32／待付款@2x.png,src/static/profile/icon-order-payment.png,src/static/profile/icon-order-payment.png,I101,False,5f345bf3e62f3524dec0805b88ad13a921cde98a0a26b3bfc053ae5b6c34abd7,src/components/ProfileIcon.vue
+I102,icon／32／待发货@2x.png,src/static/profile/icon-order-shipping.png,src/static/profile/icon-order-shipping.png,I102,False,8dddd08bfc7d3cba38cb57dcf8119f9fdd281ace8da5bebfdfb1e40c6428bffb,src/components/ProfileIcon.vue
+I103,icon／32／待提货@2x.png,src/static/order/icon-pending-receipt.png,src/static/order/icon-pending-receipt.png,I103,False,d508062adb625a161428ebd0da33e1bf289f80f2807420e92007a17034a64ca6,
+I104,icon／32／待收货@2x.png,src/static/profile/icon-order-receiving.png,src/static/profile/icon-order-receiving.png,I104,False,517f1e8ba4c2b35d4497c15b43fc109744050c2687a220c9889e5beef63119c8,src/components/ProfileIcon.vue
+I105,icon／32／待配送@2x.png,src/static/order/icon-pending-shipment.png,src/static/order/icon-pending-shipment.png,I105,False,cc07813862329805c43170d86495854e9a6e0d99c5e54d338ad204763583b6c2,
+I106,icon／32／意见反馈@2x.png,src/static/profile/icon-feedback.png,src/static/profile/icon-feedback.png,I106,False,8dbb7ef2f0469e9f869a64ae176eb518359630451f3fa12631429d225ab61283,src/components/ProfileIcon.vue
+I107,icon／32／我的团队@2x.png,src/static/partner/icon-team.png,src/static/partner/icon-team.png,I107,False,7e6464dc81a01ccabbf6d83cd5bc65ede319ab2693de2e4c634657428fb1e2f9,
+I108,icon／32／推广分红@2x.png,src/static/partner/icon-promotion-dividend.png,src/static/partner/icon-promotion-dividend.png,I108,False,0d0e0f77a1f9619d87e94097a81adaba1327e64ae48e803987de8b596f176f13,
+I109,icon／32／收益@2x.png,src/static/partner/icon-income.png,src/static/partner/icon-income.png,I109,False,f41a14a736ec9ce62ecf5910c6bb60ffd8d6817e58df3be4caad160679986111,
+I110,icon／32／收货地址@2x.png,src/static/profile/icon-address.png,src/static/profile/icon-address.png,I110,False,bfbdb3a44c1b4643cc3124481e19534a0a1c6a6f22fd1313b5d52c5007d6debd,src/components/ProfileIcon.vue
+I111,icon／32／申请合店@2x.png,src/static/profile/icon-costore-application.png,src/static/profile/icon-costore-application.png,I111,False,0cdf85a77d0cc7620368acf1a3a406125392ad40956ee9005e313600facd5423,src/components/ProfileIcon.vue
+I112,icon／32／系统设置@2x.png,src/static/profile/icon-settings.png,src/static/profile/icon-settings.png,I112,False,6d14e83ba8ff3c5807973973b2805084fa941d8e2220d5cdb8ba69034d9360e5,src/components/ProfileIcon.vue
+I113,icon／32／联系客服@2x.png,src/static/profile/icon-support.png,src/static/profile/icon-support.png,I113,False,e8b74adb25dfbb21ce4d8e4697ef78b7f660aa0380c01f93fecbf2ecd7bdd254,src/components/ProfileIcon.vue
+I114,icon／32／门店会员@2x.png,src/static/tabs/member-active.png,src/static/tabs/member-active.png,I114,False,5158c79782133feebab4bec7e5796df1ac08e0bdfa24d18948c239401457ff89,src/pages.json;src/components/AppTabBar.vue (dynamic)
+I115,icon／32／门店信息@2x.png,src/static/partner/icon-store-info.png,src/static/partner/icon-store-info.png,I115,False,1b64c004fd170663418801051ed4321c22fa7350f187514e0a520de4b645f148,
+I116,icon／36／关闭@2x.png,src/static/common/icon-close-circle.png,src/static/common/icon-close-circle.png,I116,False,62ae8105df633806a6dc7341c69cbb137d0da8b65d781c9f982badaf8b5e6be0,src/pages/partner/material-edit.vue;src/pages/support/feedback.vue
+I117,icon／48／播放@2x.png,src/static/media/icon-play-large.png,src/static/media/icon-play-large.png,I117,False,972c849b9e5c5ba7133ef315209cc9d5ccbac85d412307bf58de256641471ea4,
+I118,导航栏触控@2x(1).png,docs/design-assets/icon-references/system-mini-program-capsule.png,,I118,False,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I119,导航栏触控@2x(10).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i119.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I120,导航栏触控@2x(11).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i120.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I121,导航栏触控@2x(12).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i121.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I122,导航栏触控@2x(13).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i122.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I123,导航栏触控@2x(14).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i123.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I124,导航栏触控@2x(15).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i124.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I125,导航栏触控@2x(16).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i125.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I126,导航栏触控@2x(17).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i126.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I127,导航栏触控@2x(18).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i127.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I128,导航栏触控@2x(2).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i128.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I129,导航栏触控@2x(3).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i129.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I130,导航栏触控@2x(4).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i130.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I131,导航栏触控@2x(5).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i131.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I132,导航栏触控@2x(6).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i132.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I133,导航栏触控@2x(7).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i133.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I134,导航栏触控@2x(8).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i134.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I135,导航栏触控@2x(9).png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i135.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I136,导航栏触控@2x.png,docs/design-assets/icon-duplicates/system-mini-program-capsule-i136.png,,I118,True,dca8125a295339ee0bc1441836826fca035306ecce8bd73acfc61e39833cd799,
+I137,椭圆形备份 2@2x.png,docs/design-assets/icon-references/sample-member-avatar-large.png,,I137,False,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I138,椭圆形备份 3@2x.png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i138.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I139,椭圆形备份@2x(1).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i139.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I140,椭圆形备份@2x(10).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i140.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I141,椭圆形备份@2x(11).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i141.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I142,椭圆形备份@2x(12).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i142.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I143,椭圆形备份@2x(13).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i143.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I144,椭圆形备份@2x(14).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i144.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I145,椭圆形备份@2x(15).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i145.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I146,椭圆形备份@2x(16).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i146.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I147,椭圆形备份@2x(17).png,docs/design-assets/icon-references/sample-member-avatar-small.png,,I147,False,27363ee353a337543563e3b65cf0e28186c0c2d35bdafba2b0902bb44e1ebd59,
+I148,椭圆形备份@2x(18).png,docs/design-assets/icon-duplicates/sample-member-avatar-small-i148.png,,I147,True,27363ee353a337543563e3b65cf0e28186c0c2d35bdafba2b0902bb44e1ebd59,
+I149,椭圆形备份@2x(2).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i149.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I150,椭圆形备份@2x(3).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i150.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I151,椭圆形备份@2x(4).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i151.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I152,椭圆形备份@2x(5).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i152.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I153,椭圆形备份@2x(6).png,docs/design-assets/icon-duplicates/sample-member-avatar-small-i153.png,,I147,True,27363ee353a337543563e3b65cf0e28186c0c2d35bdafba2b0902bb44e1ebd59,
+I154,椭圆形备份@2x(7).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i154.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I155,椭圆形备份@2x(8).png,docs/design-assets/icon-duplicates/sample-member-avatar-small-i155.png,,I147,True,27363ee353a337543563e3b65cf0e28186c0c2d35bdafba2b0902bb44e1ebd59,
+I156,椭圆形备份@2x(9).png,docs/design-assets/icon-duplicates/sample-member-avatar-large-i156.png,,I137,True,4489e5367f6b7718cc906384a28a377e6bf94e22d800cfbcf423b31fa0554af2,
+I157,椭圆形备份@2x.png,docs/design-assets/icon-references/sample-member-avatar-upload.png,,I157,False,d941c0035e984ee6abdd3cf7beed363592e4ae141d0a68e4b041d81072712e55,
+I158,矩形@2x(1).png,docs/design-assets/icon-references/sample-massage-gun.png,,I158,False,ce03bc07cc38740d75b5d4663e1fc21d5143794d3215c4378166ecdda6a9673a,
+I159,矩形@2x(10).png,docs/design-assets/icon-references/sample-shirt-product.png,,I159,False,213032331c283a56c23cbfd2fe4dfa41e0ae1d7dfc58d6b8a6f92bd95b55a08b,
+I160,矩形@2x(11).png,docs/design-assets/icon-duplicates/sample-shirt-product-i160.png,,I159,True,213032331c283a56c23cbfd2fe4dfa41e0ae1d7dfc58d6b8a6f92bd95b55a08b,
+I161,矩形@2x(12).png,docs/design-assets/icon-duplicates/sample-shirt-product-i161.png,,I159,True,213032331c283a56c23cbfd2fe4dfa41e0ae1d7dfc58d6b8a6f92bd95b55a08b,
+I162,矩形@2x(13).png,src/static/common/tab-underline.png,src/static/common/tab-underline.png,I162,False,97cf6655a7afef7c59b95444be634e6227b98e0d12f89c876ab6ecb533d6d201,
+I163,矩形@2x(2).png,docs/design-assets/icon-duplicates/sample-massage-gun-i163.png,,I158,True,ce03bc07cc38740d75b5d4663e1fc21d5143794d3215c4378166ecdda6a9673a,
+I164,矩形@2x(3).png,docs/design-assets/icon-duplicates/sample-massage-gun-i164.png,,I158,True,ce03bc07cc38740d75b5d4663e1fc21d5143794d3215c4378166ecdda6a9673a,
+I165,矩形@2x(4).png,docs/design-assets/icon-duplicates/sample-massage-gun-i165.png,,I158,True,ce03bc07cc38740d75b5d4663e1fc21d5143794d3215c4378166ecdda6a9673a,
+I166,矩形@2x(5).png,docs/design-assets/icon-duplicates/sample-massage-gun-i166.png,,I158,True,ce03bc07cc38740d75b5d4663e1fc21d5143794d3215c4378166ecdda6a9673a,
+I167,矩形@2x(6).png,docs/design-assets/icon-duplicates/sample-shirt-product-i167.png,,I159,True,213032331c283a56c23cbfd2fe4dfa41e0ae1d7dfc58d6b8a6f92bd95b55a08b,
+I168,矩形@2x(7).png,docs/design-assets/icon-duplicates/sample-shirt-product-i168.png,,I159,True,213032331c283a56c23cbfd2fe4dfa41e0ae1d7dfc58d6b8a6f92bd95b55a08b,
+I169,矩形@2x(8).png,docs/design-assets/icon-duplicates/sample-shirt-product-i169.png,,I159,True,213032331c283a56c23cbfd2fe4dfa41e0ae1d7dfc58d6b8a6f92bd95b55a08b,
+I170,矩形@2x(9).png,docs/design-assets/icon-duplicates/sample-shirt-product-i170.png,,I159,True,213032331c283a56c23cbfd2fe4dfa41e0ae1d7dfc58d6b8a6f92bd95b55a08b,
+I171,矩形@2x.png,src/static/partner/bg-overview.png,src/static/partner/bg-overview.png,I171,False,04d9e8c52849e2d487e93496aa1b792a0f2b6b002d74aebabd19ebecce7b3ab9,src/pages/partners/index.vue
+I172,矩形备份@2x.png,docs/design-assets/icon-duplicates/tab-underline-i172.png,src/static/common/tab-underline.png,I162,True,97cf6655a7afef7c59b95444be634e6227b98e0d12f89c876ab6ecb533d6d201,
+I173,编组 20备份@2x.png,src/static/common/empty-content.png,src/static/common/empty-content.png,I173,False,f584596da538de81803ab9251a74e4397f367ae0620ffc8b2d81b75bcba163c9,src/components/EmptyState.vue
+I174,编组 2@2x.png,docs/design-assets/icon-references/sample-material-card.png,,I174,False,564c940bb77508636e92a3ca11ad22c57b4ddc9b306a34fb59f42062d9d11ff5,
+I175,编组 7备份 2@2x.png,docs/design-assets/icon-references/panel-background.png,,I175,False,c433c483f47528bc883abcac77085bb2efeea28c0a6b5e6d2f3c3a73d2b5b1a2,
+I176,路径@2x.png,src/static/common/tab-underline-curved.png,src/static/common/tab-underline-curved.png,I176,False,7377b0407607ea76f3e075a608e6b0d58cb0e1bf671b8b2979e5e682188da98f,

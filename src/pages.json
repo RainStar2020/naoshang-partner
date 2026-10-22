@@ -1,16 +1,552 @@
 {
-	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "uni-app"
-			}
-		}
-	],
-	"globalStyle": {
-		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "uni-app",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
-	}
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/register/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/forgot-password/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "会员"
+      }
+    },
+    {
+      "path": "pages/learning/announcements",
+      "style": {
+        "navigationBarTitleText": "公告榜",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/learning/announcement-detail",
+      "style": {
+        "navigationBarTitleText": "公告详情",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/learning/level-detail",
+      "style": {
+        "navigationBarTitleText": "等级权益",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/partners/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "联营"
+      }
+    },
+    {
+      "path": "pages/partner/materials",
+      "style": {
+        "navigationBarTitleText": "素材库",
+        "navigationBarBackgroundColor": "#272c47"
+      }
+    },
+    {
+      "path": "pages/partner/material-edit",
+      "style": {
+        "navigationBarTitleText": "素材编辑",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/selection/index",
+      "style": {
+        "navigationBarTitleText": "甄选",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationBarTitleText": "系统设置",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/settings/profile",
+      "style": {
+        "navigationBarTitleText": "个人信息",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/settings/agreement",
+      "style": {
+        "navigationBarTitleText": "协议",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/settings/change-password",
+      "style": {
+        "navigationBarTitleText": "修改密码",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/address/list",
+      "style": {
+        "navigationBarTitleText": "地址管理",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/address/edit",
+      "style": {
+        "navigationBarTitleText": "编辑地址",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/coupon/list",
+      "style": {
+        "navigationBarTitleText": "优惠券",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/support/feedback",
+      "style": {
+        "navigationBarTitleText": "意见反馈",
+        "navigationBarBackgroundColor": "#343a5b"
+      }
+    },
+    {
+      "path": "pages/order/list",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/founder-awards",
+      "style": {
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationBarTitleText": "创始奖明细"
+      }
+    },
+    {
+      "path": "pages/application/costore",
+      "style": {
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationBarTitleText": "申请合店"
+      }
+    },
+    {
+      "path": "pages/application/list",
+      "style": {
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationBarTitleText": "我的申请"
+      }
+    },
+    {
+      "path": "pages/promotion/agency-code",
+      "style": {
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationBarTitleText": "代理推广码"
+      }
+    },
+    {
+      "path": "pages/members/list",
+      "style": {
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationBarTitleText": "会员管理"
+      }
+    },
+    {
+      "path": "pages/members/records",
+      "style": {
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationBarTitleText": "会员记录"
+      }
+    },
+    {
+      "path": "pages/feedback/detail",
+      "style": {
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationBarTitleText": "反馈详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/income",
+      "style": {
+        "navigationBarTitleText": "管理收益",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/superior",
+      "style": {
+        "navigationBarTitleText": "上级信息",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/share",
+      "style": {
+        "navigationBarTitleText": "分享码",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/global-awards",
+      "style": {
+        "navigationBarTitleText": "全球奖",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/promotion",
+      "style": {
+        "navigationBarTitleText": "晋升任务",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/experience",
+      "style": {
+        "navigationBarTitleText": "经验明细",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/team",
+      "style": {
+        "navigationBarTitleText": "团队明细",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/quota-ledger",
+      "style": {
+        "navigationBarTitleText": "进货明细",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/quota-transfers",
+      "style": {
+        "navigationBarTitleText": "划转明细",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/quota-batches",
+      "style": {
+        "navigationBarTitleText": "活动VIP明细",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/costore/income",
+      "style": {
+        "navigationBarTitleText": "合店收益",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/costore/card-dividends",
+      "style": {
+        "navigationBarTitleText": "会员卡分红",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/costore/promotion-dividends",
+      "style": {
+        "navigationBarTitleText": "合店推广分红",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/agency/team",
+      "style": {
+        "navigationBarTitleText": "区域团队",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/agency/income",
+      "style": {
+        "navigationBarTitleText": "代理收益",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/quota-transfer",
+      "style": {
+        "navigationBarTitleText": "划拨名额",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/quota-purchase",
+      "style": {
+        "navigationBarTitleText": "购买VIP名额",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/upgrade",
+      "style": {
+        "navigationBarTitleText": "开通/升级",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/entitlement",
+      "style": {
+        "navigationBarTitleText": "年度权益",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/partner/bind-store",
+      "style": {
+        "navigationBarTitleText": "绑定门店",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/withdraw-apply",
+      "style": {
+        "navigationBarTitleText": "申请提现",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/income/allocation",
+      "style": {
+        "navigationBarTitleText": "提点分配",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/income/detail",
+      "style": {
+        "navigationBarTitleText": "收益详情",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/agency/team-detail",
+      "style": {
+        "navigationBarTitleText": "团队详情",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/withdrawals",
+      "style": {
+        "navigationBarTitleText": "提现记录",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/store/index",
+      "style": {
+        "navigationBarTitleText": "门店管理",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/costore/index",
+      "style": {
+        "navigationBarTitleText": "合店老板",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/agency/index",
+      "style": {
+        "navigationBarTitleText": "区域代理",
+        "navigationBarBackgroundColor": "#343a5b",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/product/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "商品详情"
+      }
+    },
+    {
+      "path": "pages/order/confirm",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "确认订单"
+      }
+    },
+    {
+      "path": "pages/order/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/payment/cashier",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "收银台"
+      }
+    },
+    {
+      "path": "pages/column/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "专栏详情"
+      }
+    },
+    {
+      "path": "pages/coach/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "健脑官"
+      }
+    },
+    {
+      "path": "pages/members/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "会员信息"
+      }
+    },
+    {
+      "path": "pages/store/transfer-apply",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "申请转店"
+      }
+    },
+    {
+      "path": "pages/feedback/list",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "会员反馈"
+      }
+    },
+    {
+      "path": "pages/feedback/edit",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "添加反馈"
+      }
+    },
+    {
+      "path": "pages/application/agency",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "申请代理"
+      }
+    },
+    {
+      "path": "pages/learning/article",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "图文课程"
+      }
+    },
+    {
+      "path": "pages/learning/video",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "视频课程"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#1c3767",
+    "backgroundColor": "#111d49",
+    "navigationBarTitleText": "脑商合伙人"
+  },
+  "tabBar": {
+    "color": "#8e9dbd",
+    "selectedColor": "#27baff",
+    "backgroundColor": "#26365f",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/member/index",
+        "text": "会员",
+        "iconPath": "static/tabs/member.png",
+        "selectedIconPath": "static/tabs/member-active.png"
+      },
+      {
+        "pagePath": "pages/partners/index",
+        "text": "联营",
+        "iconPath": "static/tabs/partners.png",
+        "selectedIconPath": "static/tabs/partners-active.png"
+      },
+      {
+        "pagePath": "pages/selection/index",
+        "text": "甄选",
+        "iconPath": "static/tabs/selection.png",
+        "selectedIconPath": "static/tabs/selection-active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的",
+        "iconPath": "static/tabs/profile.png",
+        "selectedIconPath": "static/tabs/profile-active.png"
+      }
+    ]
+  }
 }

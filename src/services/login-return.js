@@ -1,0 +1,4 @@
+const key='naoshang-login-return-v1'
+// Only this known in-app destination is retained; arbitrary redirect URLs are never followed.
+export function rememberAgencyReturn(query){const promotionId=String(query.promotionId||''),agencyType=String(query.agencyType||'STORE');if(!/^[a-zA-Z0-9_-]{1,100}$/.test(promotionId)||!['STORE','COUNTY','CITY','PROVINCE'].includes(agencyType))return;uni.setStorageSync(key,{promotionId,agencyType,expiresAt:Date.now()+1800000})}
+export function consumeLoginReturn(){const value=uni.getStorageSync(key);uni.removeStorageSync(key);if(!value||value.expiresAt<=Date.now()||!/^[a-zA-Z0-9_-]{1,100}$/.test(value.promotionId)||!['STORE','COUNTY','CITY','PROVINCE'].includes(value.agencyType))return null;return `/pages/application/agency?promotionId=${encodeURIComponent(value.promotionId)}&agencyType=${value.agencyType}`}

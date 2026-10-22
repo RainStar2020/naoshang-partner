@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-22",
+  "scope": "设计图5—53切图导入、现有页面正式资源替换，联营工作台和素材库基础开发",
+  "assetImport": {
+    "source": "D:/下载/脑商合伙人_slices (3)",
+    "moved": 185,
+    "unique": 62,
+    "runtimeUnique": 51,
+    "repeatedExports": 123,
+    "allHashesVerified": true,
+    "allSourceImagesMoved": true,
+    "manifest": "docs/design-assets/asset-manifest.json",
+    "missingVariants": [
+      "selection",
+      "profile"
+    ]
+  },
+  "taskIds": [
+    "PAGE-004",
+    "PAGE-010",
+    "PAGE-013",
+    "PAGE-014"
+  ],
+  "ui": "正式资源替换及基础页面已实现",
+  "mockFlow": "工作台权益空正文、三种素材空列表可验证",
+  "remoteIntegration": "not-integrated",
+  "h5": "browser-tested",
+  "mpWeixin": "build-passed-device-not-tested",
+  "verification": [
+    {
+      "command": "npm run test:materials",
+      "result": "passed",
+      "tests": 6
+    },
+    {
+      "command": "npm run test:learning",
+      "result": "passed",
+      "tests": 6
+    },
+    {
+      "command": "npm run test:auth",
+      "result": "passed",
+      "tests": 4
+    },
+    {
+      "command": "npm run build:h5",
+      "result": "passed"
+    },
+    {
+      "command": "npm run build:mp-weixin",
+      "result": "passed"
+    },
+    {
+      "method": "H5 browser",
+      "result": "passed",
+      "scope": "正式背景与亮暗等级、身份弹窗、模块图标、三类素材切换及空状态"
+    }
+  ],
+  "limitations": [
+    "selection/profile缺独立选中态切图",
+    "真实上传/合成/下载以及已发布素材没有联调",
+    "后台CMS不在本轮实现",
+    "原始PNG未压缩，小程序包体需发布前专项验收",
+    "工作台未实施升级/收益/名额等资金及资格事务"
+  ],
+  "contracts": {
+    "materialTypes": [
+      "image",
+      "article",
+      "video"
+    ],
+    "categories": "{categories:[{id,name}]}",
+    "list": "{items:[{id,type,title,categoryId,coverUrl?,summary?}],nextCursor,hasMore}",
+    "detail": "{id,type,title,content,mediaUrl?,shareUrl?,allowedOperations:[]}",
+    "upload": "明确mode=multipart、HTTPS uploadUrl、assetId、headers/fields/fileField/limits；complete需ready",
+    "jobStates": [
+      "queued",
+      "processing",
+      "succeeded",
+      "failed"
+    ],
+    "contractStatus": "proposed"
+  },
+  "changedFiles": [
+    "src/static/member/*",
+    "src/static/common/*",
+    "src/static/partner/*",
+    "src/static/media/*",
+    "src/static/tabs/*",
+    "src/pages/member/index.vue",
+    "src/components/AuthLayout.vue",
+    "src/components/IdentityPicker.vue",
+    "src/components/EmptyState.vue",
+    "src/pages/partners/index.vue",
+    "src/pages/partner/materials.vue",
+    "src/pages/partner/material-edit.vue",
+    "src/services/partner.js",
+    "src/services/materials.js",
+    "src/services/mock/partner.js",
+    "src/pages.json",
+    "package.json",
+    "tests/materials.test.cjs",
+    "docs/design-assets/*",
+    "docs/ai-frontend-v1/07-后台富文本内容约定.md"
+  ]
+}

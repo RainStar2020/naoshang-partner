@@ -1,0 +1,994 @@
+[
+  {
+    "path": "src/static/common/icon-activate.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1559,
+    "sha256": "2bcea19940163aa31aacedf0569e9b80b4168859166fd7ceac325fd851a5e270",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-back.png",
+    "width": 56,
+    "height": 56,
+    "bytes": 470,
+    "sha256": "9c64ba0133fee331b0870627756df0f0afe1f0ea417bc839a8874ffecf1c3c07",
+    "referencedBy": [
+      "src/components/AuthLayout.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-caret-right-accent.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 377,
+    "sha256": "205b895beb01262485bf3b40f53a2fec0de22ccec39b171d8d469cc74373a94e",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-caret-right.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 301,
+    "sha256": "a05ab8ff4893afd10b4a80e3488d50ef0ac9f2e7ca626a2cf2eabb58cc8f58d1",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-change-password.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1566,
+    "sha256": "6391933e1d40967d35c21ca9e91006f94c240cc80ca41683bdc29d66366e565e",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-chevron-right-large.png",
+    "width": 56,
+    "height": 56,
+    "bytes": 482,
+    "sha256": "dc9584a6992144deb066a5696755d674648c8daf37d8b9d913441ea94ea9c784",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-chevron-right-muted.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 377,
+    "sha256": "349a926f09ffc85d0f8f47c5da5ceccba84a91cda8207c04b4c7526e21424576",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-chevron-right-soft.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 305,
+    "sha256": "b05d7dad990102e49fc3c90e249621524e8aab3606b8c4cf8ccfe35deef1e224",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-chevron-right.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 314,
+    "sha256": "6215390f111d9a089319ee79f30e8ff526b29650a88ecf51b5eb39f44800a439",
+    "referencedBy": [
+      "src/components/RegionPicker.vue",
+      "src/pages/profile/index.vue",
+      "src/pages/settings/index.vue",
+      "src/pages/settings/profile.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-close-circle.png",
+    "width": 72,
+    "height": 72,
+    "bytes": 2402,
+    "sha256": "62ae8105df633806a6dc7341c69cbb137d0da8b65d781c9f982badaf8b5e6be0",
+    "referencedBy": [
+      "src/pages/partner/material-edit.vue",
+      "src/pages/support/feedback.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-close.png",
+    "width": 56,
+    "height": 56,
+    "bytes": 724,
+    "sha256": "c019a4bfe3ba7f444a4ad3f50b87ad4fc7ba46e74f11eddef27f33009f41c115",
+    "referencedBy": [
+      "src/components/IdentityPicker.vue",
+      "src/pages/partners/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-copy.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 553,
+    "sha256": "40a4ef4b1884b57da6ce977c68d3b1216143cfd9b78dc6505783144380c43ec5",
+    "referencedBy": [
+      "src/pages/partners/index.vue",
+      "src/pages/profile/index.vue",
+      "src/pages/settings/profile.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-delete.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 812,
+    "sha256": "be8c94e2248ce133dae8a7cc18dec941ccf933781824dfd2cd96483a9606a570",
+    "referencedBy": [
+      "src/pages/address/list.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-edit.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 901,
+    "sha256": "ec2987b9ee7e648187f0be59466dc60f44d423ff9e3efb77a1327bde962a7d42",
+    "referencedBy": [
+      "src/pages/address/list.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-folder.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1143,
+    "sha256": "91a25f85666e51feb9c43afc560409b120a2ed1f188bef1affdcdd948232950d",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-image.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1147,
+    "sha256": "a04fd4e49d3f22ab3cb119c501847d8f3141d64d8e90eebcf0fa77c3d303902f",
+    "referencedBy": [
+      "src/pages/support/feedback.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-location-accent.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1078,
+    "sha256": "01f4a3f202dcfb168ca1d7be034d456ee6e4e2678fab4824494b9a3bb350eaad",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-location.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1100,
+    "sha256": "43a10de5ef9574486f02b716cc56dbaab1d5f4f98fc8a0ab9d7c6a2f3053485c",
+    "referencedBy": [
+      "src/components/RegionPicker.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-lock.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 781,
+    "sha256": "454935ffee17c01502d1b849fabf17bd671ed2cc8fabf08b00970a508c806350",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-logout.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 2475,
+    "sha256": "b1bf41c6af35b24735addbf731ed1514320fbd0621c28bd29aa81c14b146d509",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-lv1-active.png",
+    "width": 224,
+    "height": 72,
+    "bytes": 12614,
+    "sha256": "51c28d1aaef14833570b5193cb276088971d0be1e8144c121faf258aaa3393c0",
+    "referencedBy": [
+      "src/pages/member/index.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-lv1.png",
+    "width": 224,
+    "height": 72,
+    "bytes": 9849,
+    "sha256": "f6cde55cf10223f471483555d00e2ff4da3cabafb84903a3e31be780871a6523",
+    "referencedBy": [
+      "src/pages/member/index.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-lv2-active.png",
+    "width": 224,
+    "height": 72,
+    "bytes": 14929,
+    "sha256": "b92551ec0d70f9eee51532953bbbf9907330353e9a8fa5fab74f731a6ed4670f",
+    "referencedBy": [
+      "src/pages/member/index.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-lv2.png",
+    "width": 224,
+    "height": 72,
+    "bytes": 11688,
+    "sha256": "3bcec3fc4dacd5e7255a1a8ad048933874902c62774fbea697ca0821fd97ccc9",
+    "referencedBy": [
+      "src/pages/member/index.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-lv3-active.png",
+    "width": 224,
+    "height": 72,
+    "bytes": 15289,
+    "sha256": "372d5eb79b49135644b830d1cc0b5688ef8a409be4d3740bff16700d61fedbd8",
+    "referencedBy": [
+      "src/pages/member/index.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-lv3.png",
+    "width": 224,
+    "height": 72,
+    "bytes": 11196,
+    "sha256": "6cdfe70d7ed19fa08393b6e43804f5e3cc4ac377ba796044ce5d3c7b89e26790",
+    "referencedBy": [
+      "src/pages/member/index.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-minus.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1602,
+    "sha256": "946a51e98c59fb2e5037fe4778e1526e0d3b640b6acf96a849ee8dd0f77fd04e",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-plus.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1667,
+    "sha256": "81d33bac2907e04b9465d6b78f8daad6fab8fe4f8b438f33820d33fe1d69e6d9",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-radio-checked-small.png",
+    "width": 36,
+    "height": 36,
+    "bytes": 771,
+    "sha256": "a134bddad9d386d6a8bf4e79cf6f0fc707b0e7001eccc30604f3aacdd0c4ee94",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-radio-checked.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1305,
+    "sha256": "818f7338fd698de395cc11310aef12d3f5c62a85cabf3c9cd31b353accd9e0aa",
+    "referencedBy": [
+      "src/pages/address/list.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-radio-unchecked-small.png",
+    "width": 36,
+    "height": 36,
+    "bytes": 798,
+    "sha256": "9c3273601be7ed7fd4978fd7cf8bc15cacd05c48ecfdaaed486ed85d2007ad41",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-radio-unchecked.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1279,
+    "sha256": "4190b7df2077d29ec8da7c98136e88d8f0eb9d1225364b08d2c563f6dc700774",
+    "referencedBy": [
+      "src/pages/address/list.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-remove-image.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 968,
+    "sha256": "322aa034a3ccb80f00a11cac18350ffae881a553d7469c0769c5552ad92e13f8",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-search.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1605,
+    "sha256": "2aa5796f3d73f2e0a6644f881f0611a894a430d638aa8fd20bd1ff3df1b7488b",
+    "referencedBy": [
+      "src/pages/order/list.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-selected-30.png",
+    "width": 30,
+    "height": 30,
+    "bytes": 992,
+    "sha256": "99e8bbd4df04433f907e33f9bd4176d7542dd4bb4d62fe7b8d47339a86e1d740",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-selected-34.png",
+    "width": 34,
+    "height": 34,
+    "bytes": 1262,
+    "sha256": "e03124bb048192f0ce0cf9a25c8388387eb3885e18d6b7aba07a3e41117443fe",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-store.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1553,
+    "sha256": "5e2deec41a136adb0ee9c5666e65361d06dd0421294c6b5c63f2d569fd6757f5",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-superior-muted.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1177,
+    "sha256": "e16e09d845a99586107f27f1a7f1b960fda46a3ec93bb4e36cdc5f0664e71559",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-switch-arrows.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 439,
+    "sha256": "d3fce6c213a1cbacbe0df9e90ec4c31167e3755c277bd8c61020dd05f988a555",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-switch.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1070,
+    "sha256": "b3bcf5b8452c13c63b97f4a2f6620f70a32d8064e52c1b1f2b90284224b2551b",
+    "referencedBy": [
+      "src/pages/member/index.vue",
+      "src/pages/partners/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-upload-plus.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 411,
+    "sha256": "2d4617f573259f78b64ed516c997cd1f9287bdfeba47d4335e5d2c853d6c3dbf",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-verification-code.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1289,
+    "sha256": "574b49c4dd1fbc21f74606f43f9c4dec29f0afcbac59f62335031c091f3d4cc2",
+    "referencedBy": [
+      "src/pages/forgot-password/index.vue",
+      "src/pages/register/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-video.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1280,
+    "sha256": "9a05d633fb8dd051c10cdbf029c40c812707ef4cf5b0dc65935e9a0f52349692",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/common/icon-weixin.png",
+    "width": 72,
+    "height": 72,
+    "bytes": 3480,
+    "sha256": "d2474fe146c919f33518475cc9244a01c689ed7370f25cd258c0b63df5f75375",
+    "referencedBy": [
+      "src/pages/login/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/login/icon-checked.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 1318,
+    "sha256": "a5a22e7bf103970ace4a3269a952060062b9decceadced47ad7df6e7a3946a65",
+    "referencedBy": [
+      "src/pages/login/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/login/icon-password.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1169,
+    "sha256": "8bcc002e7f39e20ec28567dba4d69a8d66d069f7d4a94e339c05f09386c13b13",
+    "referencedBy": [
+      "src/pages/forgot-password/index.vue",
+      "src/pages/login/index.vue",
+      "src/pages/register/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/login/icon-phone.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 785,
+    "sha256": "015dedc31a2ca43aef5a67e251f969128051748da55035d2d069b96f77b8f28d",
+    "referencedBy": [
+      "src/pages/forgot-password/index.vue",
+      "src/pages/login/index.vue",
+      "src/pages/register/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/media/icon-exit-fullscreen.png",
+    "width": 80,
+    "height": 80,
+    "bytes": 919,
+    "sha256": "ef0acf665265326623f73dd90c9bef5e77cfb1f0a5128fae27ff977b4fc4e756",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/media/icon-fullscreen.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 584,
+    "sha256": "c049d0a84ad2073f13165097d1ad45454a770eab41a37993d0b98a66294a6573",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/media/icon-pause.png",
+    "width": 80,
+    "height": 80,
+    "bytes": 865,
+    "sha256": "beb09a3006f20d22017c411326fe8fe1ab13b0dbc9c0fdb36bc57b47a4d736bc",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/media/icon-pdf.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1028,
+    "sha256": "6053c7c361b57536c35016b857674c88f7202dfe58e20bc1a1f2bc0185fc043b",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/media/icon-play-large.png",
+    "width": 96,
+    "height": 96,
+    "bytes": 2280,
+    "sha256": "972c849b9e5c5ba7133ef315209cc9d5ccbac85d412307bf58de256641471ea4",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/media/icon-play-small.png",
+    "width": 48,
+    "height": 48,
+    "bytes": 1188,
+    "sha256": "4304d778d4f8001b864b15e94d8d7aa47823de0ed0f6ad9136e3e932a4ee117b",
+    "referencedBy": [
+      "src/pages/partner/materials.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/media/icon-play-solid.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 1008,
+    "sha256": "7bb2be673a198e27cc183bc317d5260265b5e5a3697c1536d12ccb0f7a98b9a4",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/member/icon-announcement.png",
+    "width": 72,
+    "height": 72,
+    "bytes": 5275,
+    "sha256": "b0c4982c50f43d5980c40759a7924c858b6c5a2b99e5585508ba3e771b57e9e2",
+    "referencedBy": [
+      "src/pages/member/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/order/icon-cancelled.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 1785,
+    "sha256": "a6528854456c083757cd5fa45fdc19e131f0cd5b8daea0d48236ca8dfbcd1b71",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/order/icon-completed.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 1827,
+    "sha256": "7d9ce0c5cf08c0ae4cfb68db5f9fec35783f8d856eecf021a143b477fd66e21a",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/order/icon-pending-payment.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 1787,
+    "sha256": "cc5637ecf009eb12566f3204ae1b4c1405a722f534ca1242404e9d2fb74449ae",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/order/icon-pending-receipt.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 1635,
+    "sha256": "d508062adb625a161428ebd0da33e1bf289f80f2807420e92007a17034a64ca6",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/order/icon-pending-shipment.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 1464,
+    "sha256": "cc07813862329805c43170d86495854e9a6e0d99c5e54d338ad204763583b6c2",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-agency-income.png",
+    "width": 72,
+    "height": 72,
+    "bytes": 1294,
+    "sha256": "6513aae55c3783f059f1bd715a59794c2b95d33f0abff24798d0a58fd0d9e00d",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-agency.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2578,
+    "sha256": "553b73849049057468abdd6e17fa6463f1288395dd27bd27bd944a51b021e03f",
+    "referencedBy": [
+      "src/pages/partners/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-costore-approval.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 1680,
+    "sha256": "46e108aa14d25b294590d07cd935fd46a0fdddaff35f6d2939bee9ec011a13f3",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-costore.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2862,
+    "sha256": "751772c0ae63c351ff1d17c41f129d001704e2f4b3b7add059820ccb90708fe1",
+    "referencedBy": [
+      "src/pages/partners/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-global-award.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 3133,
+    "sha256": "6d7e8713cfc9fe8a33705e4770f1b1d9c3523d21ffaae9a69ea4f57f45ea679b",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-income.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2576,
+    "sha256": "f41a14a736ec9ce62ecf5910c6bb60ffd8d6817e58df3be4caad160679986111",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-invitation.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2310,
+    "sha256": "cbccc506817d5e5d0ec9e690dc01964fc3bf64487d121330cea04ac91d8c33fe",
+    "referencedBy": [
+      "src/pages/register/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-materials.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2612,
+    "sha256": "773e23eb3aa56b1e06c36d0446466f64b369cb909b63e4b911de3023e00d55d7",
+    "referencedBy": [
+      "src/pages/partner/materials.vue",
+      "src/pages/partners/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-membership-dividend.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2276,
+    "sha256": "b9df3a955c63f8531940473a3a2dc102bbe3f2e6b93d9503eb92b18fd78680f3",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-promotion-dividend.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2509,
+    "sha256": "0d0e0f77a1f9619d87e94097a81adaba1327e64ae48e803987de8b596f176f13",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-qrcode.png",
+    "width": 84,
+    "height": 84,
+    "bytes": 4410,
+    "sha256": "fc63e32e7d87529d0ceefc71d2c40212201a8f3398261cda18ed8a62cfb27797",
+    "referencedBy": [
+      "src/pages/partner/material-edit.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-store-info.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2420,
+    "sha256": "1b64c004fd170663418801051ed4321c22fa7350f187514e0a520de4b645f148",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-superior.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2273,
+    "sha256": "66adc44113c3761cbe095d1c3de8fe728163a159d4c8dca957cd64c77f1064b3",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-team.png",
+    "width": 72,
+    "height": 72,
+    "bytes": 1936,
+    "sha256": "7e6464dc81a01ccabbf6d83cd5bc65ede319ab2693de2e4c634657428fb1e2f9",
+    "referencedBy": [],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/partner/icon-wholesale.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 3258,
+    "sha256": "f7d1349c760100cfd7565a3435351eb9c3c9680185b8e2ece3fcd91c867ebe14",
+    "referencedBy": [
+      "src/pages/partners/index.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-address.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 7025,
+    "sha256": "bfbdb3a44c1b4643cc3124481e19534a0a1c6a6f22fd1313b5d52c5007d6debd",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-children.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5590,
+    "sha256": "cbb70aaa4689cceba809afa7f8b6653f0f838d2959df468fb17eb17b24f226ba",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-costore-application.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5315,
+    "sha256": "0cdf85a77d0cc7620368acf1a3a406125392ad40956ee9005e313600facd5423",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-coupon.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 6749,
+    "sha256": "ea141ece34a4404ac3776ca6e417a91992c4029e2868a95d95d7316e6aeaa10e",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-feedback.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 6880,
+    "sha256": "8dbb7ef2f0469e9f869a64ae176eb518359630451f3fa12631429d225ab61283",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-founder-award.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5935,
+    "sha256": "07e09be0a2d555e56274c7b380ec090b22b2b66bf8cb61d1bc149be933fdbadc",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-order-completed.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5132,
+    "sha256": "bb64c39e9b3afbf7960db25d0bc81238f8273ef5b190181c1ae43a684482198a",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-order-payment.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5156,
+    "sha256": "5f345bf3e62f3524dec0805b88ad13a921cde98a0a26b3bfc053ae5b6c34abd7",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-order-receiving.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5196,
+    "sha256": "517f1e8ba4c2b35d4497c15b43fc109744050c2687a220c9889e5beef63119c8",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-order-shipping.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5112,
+    "sha256": "8dddd08bfc7d3cba38cb57dcf8119f9fdd281ace8da5bebfdfb1e40c6428bffb",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-referral-code.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 5741,
+    "sha256": "262aab6bb8612b7c9ff4bfb9df88ee417aa1c46bfc609744717f5d658be11a3e",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-settings.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 7005,
+    "sha256": "6d14e83ba8ff3c5807973973b2805084fa941d8e2220d5cdb8ba69034d9360e5",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/profile/icon-support.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 7146,
+    "sha256": "e8b74adb25dfbb21ce4d8e4697ef78b7f660aa0380c01f93fecbf2ecd7bdd254",
+    "referencedBy": [
+      "src/components/ProfileIcon.vue"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/member-active.png",
+    "width": 64,
+    "height": 64,
+    "bytes": 2469,
+    "sha256": "5158c79782133feebab4bec7e5796df1ac08e0bdfa24d18948c239401457ff89",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/member.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 1218,
+    "sha256": "7d7770560210128e9c22444354ef453bfdd38b659cb6ac25a6dba65c7ab4e09d",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/partners-active.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 642,
+    "sha256": "04eb1b6ec08d574797d9c2cc774957d0a97f363484ee1ef99f00ef023300bbde",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/partners.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 861,
+    "sha256": "15bdbc6465d808dec4beff274b836501d4b91f18a7c6d04fbb85d8151bddd077",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/profile-active.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 827,
+    "sha256": "bac05e042159bd0e4cce20c3d5ab723e14ad6cfe0bb06c39e9b07a2d575b90c6",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/profile.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 1042,
+    "sha256": "4ed4dbf22e68e2158027263c8401f7d45e2bf8d10f1d5f4419ed8bb55f1fb917",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/selection-active.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 945,
+    "sha256": "2fb81bb8e4c76be2e4bac079bbe139f08c24c13a6931dd759b58651d2ddf9338",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  },
+  {
+    "path": "src/static/tabs/selection.png",
+    "width": 40,
+    "height": 40,
+    "bytes": 945,
+    "sha256": "2fb81bb8e4c76be2e4bac079bbe139f08c24c13a6931dd759b58651d2ddf9338",
+    "referencedBy": [
+      "src/pages.json",
+      "src/components/AppTabBar.vue (dynamic)"
+    ],
+    "formattedName": true
+  }
+]
