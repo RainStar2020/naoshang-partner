@@ -29,9 +29,10 @@ export function saveMockBusinessState(user,context){const state=mockBusinessStat
 export function mockBusinessOverview(user,context) {
   const state=mockBusinessState(user,context)
   const agencyRelations=context.module==='agency'
-    ?{superior:{name:'王好梦',scopeLabel:'区域合伙人 · 郑州市高新区'},referrer:{name:'刘晓敏',scopeLabel:'推荐人 · 业务服务中心'}}
+    ?{superior:{name:'李志远',avatarUrl:'/static/agency/avatar-wang-haomeng.png',agencyLabel:'市代',partnerLabel:'天使合伙人',phone:'19919988991',regionLabel:'河南省郑州市',scopeLabel:'河南省郑州市'},referrer:{name:'王好梦',avatarUrl:'/static/agency/avatar-wang-haomeng.png',agencyLabel:'联创',partnerLabel:'联创合伙人',phone:'19919988991',regionLabel:'河南省郑州市高新区',scopeLabel:'河南省郑州市高新区'}}
     :{superior:{name:'区域上级',scopeLabel:'信息待后台提供'},referrer:{name:'推荐人',scopeLabel:'信息待后台提供'}}
-  return {...(context.module==='wholesale'?mockWholesaleOverview(state):{}),accountId:user.id,contextId:context.id,name:user.name||'李志远',inviteCode:user.inviteCode||'',levelName:context.levelName||context.label,teamCount:state.people.length,available:state.available,pending:state.pending,quota:state.quota,transferred:state.transferred,...agencyRelations,benefits:context.module==='wholesale'?['小批','中批','大批','总批'].map((label,n)=>({id:`tier-${n+1}`,label,content:emptyContent()})):context.module==='agency'?['单店','区县','市代','省代'].map((label,n)=>({id:`agency-tier-${n+1}`,label,content:emptyContent()})):[{id:'costore',label:'等级权益',content:emptyContent()}],mockOnly:true}
+  const agencyPreview=context.module==='agency'?agencySummary(context):{}
+  return {...(context.module==='wholesale'?mockWholesaleOverview(state):{}),accountId:user.id,contextId:context.id,name:user.name||'李志远',inviteCode:user.inviteCode||'',levelName:context.levelName||context.label,teamCount:state.people.length,available:state.available,pending:state.pending,quota:state.quota,transferred:state.transferred,...agencyPreview,...agencyRelations,benefits:context.module==='wholesale'?['小批','中批','大批','总批'].map((label,n)=>({id:`tier-${n+1}`,label,content:emptyContent()})):context.module==='agency'?['单店','区县','市代','省代'].map((label,n)=>({id:`agency-tier-${n+1}`,label,content:emptyContent()})):[{id:'costore',label:'等级权益',content:emptyContent()}],mockOnly:true}
 }
 export function mockBusinessReport(user,context,resource,{month='',filter='',keyword='',parentNodeId=null}={}) {
   const state=mockBusinessState(user,context);let items=[],metrics=[],columns=[]
@@ -58,10 +59,38 @@ export function mockBusinessReport(user,context,resource,{month='',filter='',key
   if(keyword)items=items.filter(item=>String(item.title||item.name||'').includes(keyword))
   return clone({items,metrics,columns,hasMore:false,nextCursor:null,mockOnly:true})
 }
+function agencySummary(context){
+  const teamCount={STORE:14,COUNTY:12,CITY:28,PROVINCE:86}[context.agencyType]||0
+  return {teamCount,agencyIncome:698421}
+}
+const agencyMeta={
+  CITY:{levelLabel:'市代',regionLabel:'河南省郑州市',scopeLabel:'郑州市代理区域'},
+  COUNTY:{levelLabel:'区县代理',regionLabel:'河南省郑州市高新区',scopeLabel:'高新区代理区域'},
+  STORE:{levelLabel:'单店代理',regionLabel:'河南省郑州市高新区',scopeLabel:'高新区门店'}
+}
+function teamPerformance(seed=0){
+  const amounts=[775800,775800,149412,775800,775800]
+  return ['本月业绩','季度业绩','半年业绩','本年业绩','累计业绩'].map((label,index)=>({label,value:amounts[index]+seed*3500,kind:'money'}))
+}
+function agencyNode({id,parentId=null,name,kind,ordinal=0,hasChildren=false,storeCount=3,ownerCount=14}){
+  const meta=agencyMeta[kind]
+  return {id,parentId,name,avatarUrl:'/static/agency/avatar-wang-haomeng.png',displayId:`TS02132${String(ordinal+1).padStart(2,'0')}`,levelLabel:meta.levelLabel,scopeLabel:meta.scopeLabel,regionLabel:meta.regionLabel,phone:'19919988991',hasChildren,childLabel:kind==='CITY'?'区县代理':kind==='COUNTY'?'单店代理':kind==='STORE'?'门店成员':'下级团队',storeCount,ownerCount,createdAt:stamp(),performance:teamPerformance(ordinal)}
+}
+// MOCK-ONLY: API should return only nodes authorized for the selected assignment.
 export function mockAgencyTree(context) {
-  const depth={PROVINCE:3,CITY:2,COUNTY:1,STORE:0}[context.agencyType],nodes=[]
-  for(let n=0;n<=depth;n++){const type=['城市代理','区县代理','单店代理','门店成员'][3-depth+n]||'团队成员';nodes.push({id:`node-${n}`,parentId:n===0?null:`node-${n-1}`,name:`${type}团队`,displayId:`TS02132${n+1}`,levelLabel:type,scopeLabel:context.scopeLabel,phone:n===0?'19919988991':'',hasChildren:n<depth,storeCount:n+1,ownerCount:(n+1)*2,createdAt:stamp(),performance:[{label:'本月业绩',value:100000,kind:'money'},{label:'季度业绩',value:200000,kind:'money'},{label:'半年业绩',value:300000,kind:'money'},{label:'本年业绩',value:400000,kind:'money'},{label:'累计业绩',value:500000,kind:'money'}]})}
-  return nodes
+  const all=[]
+  const city=agencyNode({id:'node-city-1',name:'郑州市代理团队',kind:'CITY',ordinal:0,hasChildren:true,storeCount:18,ownerCount:72})
+  const counties=['高新区','金水区','管城区'].map((district,index)=>agencyNode({id:`node-county-${index+1}`,parentId:city.id,name:`郑州市${district}代理`,kind:'COUNTY',ordinal:index+1,hasChildren:true,storeCount:3+index,ownerCount:14+index*4}))
+  const stores=counties.flatMap((county,countyIndex)=>[0,1].map(index=>agencyNode({id:`node-store-${countyIndex+1}-${index+1}`,parentId:county.id,name:`${['梧桐街','科创路','中州大道'][countyIndex]}${index+1}号店`,kind:'STORE',ordinal:countyIndex*2+index+4,hasChildren:true,storeCount:1,ownerCount:6+index})))
+  const members=stores.flatMap((store,storeIndex)=>[0,1,2].map(index=>agencyNode({id:`node-member-${storeIndex+1}-${index+1}`,parentId:store.id,name:['李志远','王好梦','张小伟'][index],kind:'STORE',ordinal:storeIndex*3+index+10,hasChildren:false,storeCount:1,ownerCount:0})))
+  all.push(city,...counties,...stores,...members)
+  const roots={PROVINCE:[city],CITY:counties,COUNTY:stores.filter(node=>node.parentId==='node-county-1'),STORE:members.filter(node=>node.parentId==='node-store-1-1')}
+  const allowed=new Set()
+  const collect=node=>{if(allowed.has(node.id))return;allowed.add(node.id);all.filter(child=>child.parentId===node.id).forEach(collect)}
+  const visibleRoots=roots[context.agencyType]||[]
+  visibleRoots.forEach(collect)
+  const rootIds=new Set(visibleRoots.map(node=>node.id))
+  return all.filter(node=>allowed.has(node.id)).map(node=>rootIds.has(node.id)?{...node,parentId:null}:node)
 }
 export const mockClone=clone
 export function mockStoreWorkspace(user,context){

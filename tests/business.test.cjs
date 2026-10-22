@@ -66,8 +66,13 @@ test('inspection/sales assignment confirms the actual recipient but does not cre
 test('agency node traversal cannot invent a parent or read across another account scope',async()=>{
   const {service}=await setup(),context=(await service.getBusinessContexts()).find(x=>x.agencyType==='PROVINCE')
   let rows=await service.getBusinessReport('agency','team',context.id)
-  for(let depth=0;depth<4;depth++){assert.equal(rows.items.length,1);assert.equal(rows.items[0].id,`node-${depth}`);rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:rows.items[0].id})}
-  assert.equal(rows.items.length,0)
+  assert.equal(rows.items.map(item=>item.id).join(','),'node-city-1')
+  rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:'node-city-1'})
+  assert.equal(rows.items.length,3);assert.ok(rows.items.every(item=>item.levelLabel==='区县代理'))
+  rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:'node-county-1'})
+  assert.equal(rows.items.length,2);assert.ok(rows.items.every(item=>item.levelLabel==='单店代理'))
+  rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:'node-store-1-1'})
+  assert.equal(rows.items.length,3)
   await assert.rejects(service.getBusinessTeamNode(context.id,'forged-node'),/无权/)
   await assert.rejects(service.getBusinessReport('agency','team',context.id,{parentNodeId:'forged-node'}),/无权/)
 })
