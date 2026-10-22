@@ -5,10 +5,10 @@ async function setup({useMock=true,preview=true,remote=()=>{throw new Error('Une
     if(file.endsWith('/config'))module=new vm.SyntheticModule(['config'],function(){this.setExport('config',{useMock,previewAllExclusiveFeatures:preview})},{context})
     else if(file.endsWith('/api'))module=new vm.SyntheticModule(['getSession','request'],function(){this.setExport('getSession',()=>session);this.setExport('request',remote)},{context})
     else module=new vm.SourceTextModule(fs.readFileSync(file+'.js','utf8'),{context,identifier:file})
-    cache.set(file,module);await module.link((specifier,parent)=>load(path.resolve(path.dirname(parent.identifier),specifier).replaceAll('\\','/')));return module
+    cache.set(file,module);return module
   }
   const root=path.resolve(__dirname,'../src').replaceAll('\\','/')
-  async function get(relative){const module=await load(root+'/'+relative);if(module.status!=='evaluated')await module.evaluate();return module.namespace}
+  async function get(relative){const module=await load(root+'/'+relative);if(module.status==='unlinked')await module.link((specifier,parent)=>load(path.resolve(path.dirname(parent.identifier),specifier).replaceAll('\\','/')));if(module.status!=='evaluated')await module.evaluate();return module.namespace}
   return {exclusive:await get('services/exclusive'),members:await get('services/members'),learning:await get('services/learning'),catalog:await get('features/exclusive/catalog'),format:await get('features/exclusive/format'),session}
 }
 test('all exclusive entries appear only in explicit mock preview; real contexts use capabilities, never role labels',async()=>{
