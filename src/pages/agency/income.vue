@@ -1,11 +1,11 @@
-<template><view class="business-page-shell feature-page"><BusinessPageHeader title="代理收益"/><BusinessReport ref="page" :page-query="query" module="agency" tool-id="income"/></view></template>
+<template><view class="business-page-shell feature-page"><BusinessPageHeader title="代理收益"/><AgencyReport ref="page" :page-query="query" tool-id="income"/></view></template>
 <script setup>
 import {ref} from 'vue'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import {onLoad,onShow} from '@dcloudio/uni-app'
 import {useAuth} from '../../composables/useAuth'
 import {useBusinessReturn} from '../../composables/useBusinessReturn'
-import BusinessReport from '../../components/BusinessReport.vue'
+import AgencyReport from '../../components/AgencyReport.vue'
 useAuth();useBusinessReturn();const page=ref(null),query=ref(null)
 onLoad(options=>{query.value=options});onShow(()=>{if(query.value)page.value?.refresh()})
 </script>
