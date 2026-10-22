@@ -66,10 +66,10 @@ test('inspection/sales assignment confirms the actual recipient but does not cre
 test('agency node traversal cannot invent a parent or read across another account scope',async()=>{
   const {service}=await setup(),context=(await service.getBusinessContexts()).find(x=>x.agencyType==='PROVINCE')
   let rows=await service.getBusinessReport('agency','team',context.id)
-  assert.equal(rows.items.map(item=>item.id).join(','),'node-city-1')
+  assert.equal(rows.items.map(item=>item.id).join(','),'node-city-1,node-city-2')
   rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:'node-city-1'})
   assert.equal(rows.items.length,3);assert.ok(rows.items.every(item=>item.levelLabel==='区县代理'))
-  rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:'node-county-1'})
+  rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:'node-county-1-1'})
   assert.equal(rows.items.length,2);assert.ok(rows.items.every(item=>item.levelLabel==='单店代理'))
   rows=await service.getBusinessReport('agency','team',context.id,{parentNodeId:'node-store-1-1'})
   assert.equal(rows.items.length,3)

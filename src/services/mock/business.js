@@ -83,12 +83,13 @@ function agencyNode({id,parentId=null,name,kind,ordinal=0,hasChildren=false,stor
 // MOCK-ONLY: API should return only nodes authorized for the selected assignment.
 export function mockAgencyTree(context) {
   const all=[]
-  const city=agencyNode({id:'node-city-1',name:'郑州市代理团队',kind:'CITY',ordinal:0,hasChildren:true,storeCount:18,ownerCount:72})
-  const counties=['高新区','金水区','管城区'].map((district,index)=>agencyNode({id:`node-county-${index+1}`,parentId:city.id,name:`郑州市${district}代理`,kind:'COUNTY',ordinal:index+1,hasChildren:true,storeCount:3+index,ownerCount:14+index*4}))
-  const stores=counties.flatMap((county,countyIndex)=>[0,1].map(index=>agencyNode({id:`node-store-${countyIndex+1}-${index+1}`,parentId:county.id,name:`${['梧桐街','科创路','中州大道'][countyIndex]}${index+1}号店`,kind:'STORE',ordinal:countyIndex*2+index+4,hasChildren:true,storeCount:1,ownerCount:6+index})))
-  const members=stores.flatMap((store,storeIndex)=>[0,1,2].map(index=>agencyNode({id:`node-member-${storeIndex+1}-${index+1}`,parentId:store.id,name:['李志远','王好梦','张小伟'][index],kind:'MEMBER',ordinal:storeIndex*3+index+10,hasChildren:false,storeCount:1,ownerCount:0})))
-  all.push(city,...counties,...stores,...members)
-  const roots={PROVINCE:[city],CITY:counties,COUNTY:stores.filter(node=>node.parentId==='node-county-1'),STORE:members.filter(node=>node.parentId==='node-store-1-1')}
+  const cities=['郑州市','洛阳市'].map((name,index)=>agencyNode({id:`node-city-${index+1}`,name:`${name}代理团队`,kind:'CITY',ordinal:index,hasChildren:true,storeCount:index?12:18,ownerCount:index?48:72}))
+  const countySeed=[['高新区','金水区','管城区'],['洛龙区','西工区']]
+  const counties=cities.flatMap((city,cityIndex)=>countySeed[cityIndex].map((district,index)=>agencyNode({id:`node-county-${cityIndex+1}-${index+1}`,parentId:city.id,name:`${['郑州市','洛阳市'][cityIndex]}${district}代理`,kind:'COUNTY',ordinal:cityIndex*3+index+1,hasChildren:true,storeCount:3+index,ownerCount:14+index*4})))
+  const stores=counties.flatMap((county,countyIndex)=>[0,1].map(index=>agencyNode({id:`node-store-${countyIndex+1}-${index+1}`,parentId:county.id,name:`${['梧桐街','科创路','中州大道','洛龙路','西工路'][countyIndex]}${index+1}号店`,kind:'STORE',ordinal:countyIndex*2+index+7,hasChildren:true,storeCount:1,ownerCount:6+index})))
+  const members=stores.flatMap((store,storeIndex)=>[0,1,2].map(index=>agencyNode({id:`node-member-${storeIndex+1}-${index+1}`,parentId:store.id,name:['李志远','王好梦','张小伟'][index],kind:'MEMBER',ordinal:storeIndex*3+index+20,hasChildren:false,storeCount:1,ownerCount:0})))
+  all.push(...cities,...counties,...stores,...members)
+  const roots={PROVINCE:cities,CITY:counties.filter(node=>node.parentId==='node-city-1'),COUNTY:stores.filter(node=>node.parentId==='node-county-1-1'),STORE:members.filter(node=>node.parentId==='node-store-1-1')}
   const allowed=new Set()
   const collect=node=>{if(allowed.has(node.id))return;allowed.add(node.id);all.filter(child=>child.parentId===node.id).forEach(collect)}
   const visibleRoots=roots[context.agencyType]||[]
