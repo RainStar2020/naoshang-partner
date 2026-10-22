@@ -46,7 +46,7 @@ const props=defineProps({pageQuery:Object}),context=ref(null),loadingMore=ref(fa
 const {data,status,error,load}=useAsyncPage(async()=>{if(!props.pageQuery?.nodeId)throw new Error('缺少团队节点编号');const ctx=await getBusinessContext('agency',props.pageQuery.contextId);context.value=ctx;const node=await getBusinessTeamNode(ctx.id,props.pageQuery.nodeId);const children=await getBusinessReport('agency','team',ctx.id,{parentNodeId:node.id});return {node,children}},false)
 watch(()=>props.pageQuery,query=>{if(query){tab.value='stores';territoryIndex.value=0;load()}},{immediate:true})
 const isRegional=computed(()=>['市代','区县代理'].includes(data.value?.node?.levelLabel))
-const isStore=computed(()=>data.value?.node?.levelLabel==='单店代理')
+const isStore=computed(()=>['单店代理','门店成员'].includes(data.value?.node?.levelLabel))
 const showPerformance=computed(()=>isRegional.value||(isStore.value&&context.value?.agencyType==='COUNTY'))
 const territories=computed(()=>data.value?.node?.territoryList||[])
 const territoryText=computed(()=>territories.value.join('、')||data.value?.node?.regionLabel||'—')

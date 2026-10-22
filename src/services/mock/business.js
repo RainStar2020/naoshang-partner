@@ -78,7 +78,7 @@ function ownerRows(seed=0){return [{id:`owner-${seed}-1`,name:'李志远',avatar
 function territoriesFor(kind){return kind==='CITY'?['河南省郑州市','河南省洛阳市']:kind==='COUNTY'?['郑州市高新区','郑州市管城区']:[]}
 function agencyNode({id,parentId=null,name,kind,ordinal=0,hasChildren=false,storeCount=3,ownerCount=14}){
   const meta=agencyMeta[kind]
-  return {id,parentId,name,avatarUrl:'/static/agency/avatar-li-zhiyuan.png',displayId:`TS02132${String(ordinal+1).padStart(2,'0')}`,levelLabel:meta.levelLabel,partnerLevel:ordinal%2?'天使合伙人':'私董合伙人',scopeLabel:meta.scopeLabel,regionLabel:meta.regionLabel,territoryList:territoriesFor(kind),managedCount:kind==='CITY'?3:kind==='COUNTY'?3:0,phone:'19919988991',hasChildren,childLabel:kind==='CITY'?'区县代理':kind==='COUNTY'?'单店代理':kind==='STORE'?'门店成员':'下级团队',storeCount,ownerCount,createdAt:'2022-08-21T21:32:12+08:00',performance:teamPerformance(ordinal),stores:kind==='STORE'?storeRows(ordinal):[],owners:kind==='STORE'?ownerRows(ordinal):[]}
+  return {id,parentId,name,avatarUrl:'/static/agency/avatar-li-zhiyuan.png',displayId:`TS02132${String(ordinal+1).padStart(2,'0')}`,levelLabel:meta.levelLabel,partnerLevel:ordinal%2?'天使合伙人':'私董合伙人',scopeLabel:meta.scopeLabel,regionLabel:meta.regionLabel,territoryList:territoriesFor(kind),managedCount:kind==='CITY'?3:kind==='COUNTY'?3:0,phone:'19919988991',hasChildren,childLabel:kind==='CITY'?'区县代理':kind==='COUNTY'?'单店代理':kind==='STORE'?'门店成员':'下级团队',storeCount,ownerCount,createdAt:'2022-08-21T21:32:12+08:00',performance:teamPerformance(ordinal),stores:['STORE','MEMBER'].includes(kind)?storeRows(ordinal):[],owners:['STORE','MEMBER'].includes(kind)?ownerRows(ordinal):[]}
 }
 // MOCK-ONLY: API should return only nodes authorized for the selected assignment.
 export function mockAgencyTree(context) {
