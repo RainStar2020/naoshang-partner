@@ -2,7 +2,7 @@ import { config } from '../config'
 import { getSession,request } from './api'
 import { businessModules,findBusinessTool,businessPreview,visibleBusinessTools } from '../features/business/catalog'
 import { normalizeContent,isMediaUrl } from '../features/content/rich-content'
-import { mockBusinessContexts,mockBusinessOverview,mockBusinessReport,mockBusinessState,mockAgencyTree,mockClone } from './mock/business'
+import { mockBusinessContexts,mockBusinessOverview,mockBusinessReport,mockBusinessState,mockAgencyTree,mockClone,saveMockBusinessState } from './mock/business'
 const selectionKey=id=>`naoshang-business-context:${id}`
 export function businessAccount(){const session=getSession();if(!session?.user?.id)throw new Error('请先登录');return {...session.user,sessionToken:session.token}}
 export function checkBusinessAccount(account){const session=getSession();if(session?.user?.id!==account.id||session.token!==account.sessionToken)throw new Error('登录账号已变化，请重新加载')}
@@ -64,4 +64,4 @@ export function getBusinessWithdrawals(contextId,cursor=null){
   return withBusinessContext(contextId,'wallet:read',async(account,context)=>normalizeList(config.useMock?{items:mockClone(mockBusinessState(account,context).withdrawals),hasMore:false,nextCursor:null}:await request('/wallet/withdrawals',{data:{contextId:context.id,cursor,pageSize:20}})))
 }
 export { normalizeList }
-export function bindBusinessSuperior(contextId,phone){return withBusinessContext(contextId,'wholesale:superior',async(account,context)=>{if(context.module!=='wholesale'||!/^1\d{10}$/.test(String(phone)))throw new Error('请输入正确的上级手机号');if(!config.useMock)return request('/partner/superior',{method:'POST',data:{contextId,phone}});const state=mockBusinessState(account,context);if(state.superior)throw new Error('已绑定上级，请联系门店调整');state.superior={name:'合伙团队负责人',phone,scopeLabel:'合伙团队'};return {superior:state.superior}})}
+export function bindBusinessSuperior(contextId,inviteCode){return withBusinessContext(contextId,'wholesale:superior',async(account,context)=>{if(context.module!=='wholesale'||! /^[a-zA-Z0-9_-]{4,32}$/.test(String(inviteCode)))throw new Error('请输入4—32位有效邀请码');if(!config.useMock)return request('/partner/superior',{method:'POST',data:{contextId,inviteCode}});const state=mockBusinessState(account,context);if(state.superior)throw new Error('已绑定上级，请联系门店调整');if(inviteCode===account.inviteCode||inviteCode===account.id)throw new Error('不能绑定自己的邀请码');state.superior={name:'合伙团队负责人',phone:'',levelLabel:'私董合伙人',scopeLabel:'合伙团队'};saveMockBusinessState(account,context);return {superior:state.superior}})}

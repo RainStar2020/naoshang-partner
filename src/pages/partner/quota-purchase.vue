@@ -1,4 +1,4 @@
-<template><view class="business-page-shell feature-page"><BusinessPageHeader title="购买VIP名额"/><BusinessOperation ref="page" :page-query="query" kind="quota-purchase"/></view></template>
+<template><view class="business-page-shell feature-page"><BusinessOperation ref="page" :page-query="query" kind="quota-purchase"/></view></template>
 <script setup>
 import {ref} from 'vue'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'

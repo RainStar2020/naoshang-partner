@@ -1,4 +1,4 @@
-<template><view class="business-page-shell feature-page"><BusinessPageHeader title="晋升任务"/><BusinessReport ref="page" :page-query="query" module="wholesale" tool-id="promotion"/></view></template>
+<template><view class="business-page-shell feature-page"><BusinessReport ref="page" :page-query="query" module="wholesale" tool-id="promotion"/></view></template>
 <script setup>
 import {ref} from 'vue'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'

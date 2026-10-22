@@ -2,6 +2,7 @@
   "name": "naoshang-partner",
   "version": "0.1.0",
   "scripts": {
+    "test:wholesale": "node --experimental-vm-modules --test tests/wholesale.test.cjs",
     "test:business": "node --experimental-vm-modules --test tests/business.test.cjs",
     "test:exclusive": "node --experimental-vm-modules --test tests/exclusive.test.cjs",
     "test:profile": "node --experimental-vm-modules --test tests/profile.test.cjs",

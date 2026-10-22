@@ -1,4 +1,4 @@
-<template><view class="business-page-shell feature-page"><BusinessPageHeader title="绑定门店"/><BusinessOperation ref="page" :page-query="query" kind="bind-store"/></view></template>
+<template><view class="business-page-shell feature-page"><BusinessPageHeader title="选择服务门店"/><BusinessOperation ref="page" :page-query="query" kind="bind-store"/></view></template>
 <script setup>
 import {ref} from 'vue'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
