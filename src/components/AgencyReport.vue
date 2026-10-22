@@ -8,7 +8,7 @@
       <view class="agency-avatar-wrap"><image v-if="item.avatarUrl" :src="item.avatarUrl" mode="aspectFill"/><view v-else>{{item.name?.slice(0,1) || '团'}}</view><text>{{roleLabel(item)}}</text></view>
       <view class="agency-person-copy"><view>{{item.name}}</view><view class="agency-id-row"><text>ID　{{item.displayId || item.id}}</text><text v-if="item.phone">手机号　{{item.phone}}</text></view></view>
      </view>
-     <view class="agency-team-performance"><view class="agency-performance-heading"><text>业绩统计</text><view><em>{{item.storeCount ?? '—'}}家</em> 门店，<em>{{item.ownerCount ?? '—'}}位</em> 合店老板</view></view><view class="agency-metric-row"><view v-for="metric in (item.performance||[]).slice(0,5)" :key="metric.label"><text>{{metric.label}}</text><view>{{teamMetric(metric)}}</view></view></view></view>
+     <view class="agency-team-performance"><view class="agency-performance-heading"><text>业绩统计</text><view v-if="item.levelLabel==='单店代理'"><em>{{item.storeCount ?? '—'}}家</em> 门店，<em>{{item.ownerCount ?? '—'}}位</em> 合店老板</view><view v-else>代理 <em>{{item.territoryList?.join('、') || item.regionLabel || '—'}}</em> 等{{item.managedCount || 3}}个{{item.levelLabel==='市代'?'市':'区县'}}</view></view><view class="agency-metric-row"><view v-for="metric in (item.performance||[]).slice(0,5)" :key="metric.label"><text>{{metric.label}}</text><view>{{teamMetric(metric)}}</view></view></view></view>
      <button class="agency-primary" @click="teamDetail(item.id)">查看详情</button>
     </view>
     <EmptyState v-if="!items.length" text="当前区域暂无下级团队"/>

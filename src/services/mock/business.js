@@ -64,17 +64,21 @@ function agencySummary(context){
   return {teamCount,agencyIncome:698421}
 }
 const agencyMeta={
-  CITY:{levelLabel:'市代',regionLabel:'河南省郑州市',scopeLabel:'郑州市代理区域'},
-  COUNTY:{levelLabel:'区县代理',regionLabel:'河南省郑州市高新区',scopeLabel:'高新区代理区域'},
-  STORE:{levelLabel:'单店代理',regionLabel:'河南省郑州市高新区',scopeLabel:'高新区门店'}
+  CITY:{levelLabel:'市代',regionLabel:'河南省郑州市二七区',scopeLabel:'郑州市代理区域'},
+  COUNTY:{levelLabel:'区县代理',regionLabel:'河南省郑州市二七区',scopeLabel:'高新区代理区域'},
+  STORE:{levelLabel:'单店代理',regionLabel:'河南省郑州市二七区',scopeLabel:'高新区门店'},
+  MEMBER:{levelLabel:'门店成员',regionLabel:'河南省郑州市二七区',scopeLabel:'门店成员'}
 }
 function teamPerformance(seed=0){
   const amounts=[775800,775800,149412,775800,775800]
   return ['本月业绩','季度业绩','半年业绩','本年业绩','累计业绩'].map((label,index)=>({label,value:amounts[index]+seed*3500,kind:'money'}))
 }
+function storeRows(seed=0){return [1,2].map(index=>({id:`store-record-${seed}-${index}`,name:'脑商训练营梧桐街店',number:`NO.00${index}`,address:'河南省郑州市管城回族区航海东路与中州大道交叉口西美景龙堂3C-1',monthlyFee:69800,imageUrl:'/static/agency/store-wutong.png'}))}
+function ownerRows(seed=0){return [{id:`owner-${seed}-1`,name:'李志远',avatarUrl:'/static/agency/avatar-wang-haomeng.png',partnerLevel:'私董合伙人',storeNames:'脑商训练营梧桐街店'},{id:`owner-${seed}-2`,name:'王好梦',avatarUrl:'/static/agency/avatar-wang-haomeng.png',partnerLevel:'天使合伙人',storeNames:'脑商训练营梧桐街店、脑商训练营梧桐北路店、这里是门店名称'}]}
+function territoriesFor(kind){return kind==='CITY'?['河南省郑州市','河南省洛阳市']:kind==='COUNTY'?['郑州市高新区','郑州市管城区']:[]}
 function agencyNode({id,parentId=null,name,kind,ordinal=0,hasChildren=false,storeCount=3,ownerCount=14}){
   const meta=agencyMeta[kind]
-  return {id,parentId,name,avatarUrl:'/static/agency/avatar-wang-haomeng.png',displayId:`TS02132${String(ordinal+1).padStart(2,'0')}`,levelLabel:meta.levelLabel,scopeLabel:meta.scopeLabel,regionLabel:meta.regionLabel,phone:'19919988991',hasChildren,childLabel:kind==='CITY'?'区县代理':kind==='COUNTY'?'单店代理':kind==='STORE'?'门店成员':'下级团队',storeCount,ownerCount,createdAt:stamp(),performance:teamPerformance(ordinal)}
+  return {id,parentId,name,avatarUrl:'/static/agency/avatar-li-zhiyuan.png',displayId:`TS02132${String(ordinal+1).padStart(2,'0')}`,levelLabel:meta.levelLabel,partnerLevel:ordinal%2?'天使合伙人':'私董合伙人',scopeLabel:meta.scopeLabel,regionLabel:meta.regionLabel,territoryList:territoriesFor(kind),managedCount:kind==='CITY'?3:kind==='COUNTY'?3:0,phone:'19919988991',hasChildren,childLabel:kind==='CITY'?'区县代理':kind==='COUNTY'?'单店代理':kind==='STORE'?'门店成员':'下级团队',storeCount,ownerCount,createdAt:'2022-08-21T21:32:12+08:00',performance:teamPerformance(ordinal),stores:kind==='STORE'?storeRows(ordinal):[],owners:kind==='STORE'?ownerRows(ordinal):[]}
 }
 // MOCK-ONLY: API should return only nodes authorized for the selected assignment.
 export function mockAgencyTree(context) {
@@ -82,7 +86,7 @@ export function mockAgencyTree(context) {
   const city=agencyNode({id:'node-city-1',name:'郑州市代理团队',kind:'CITY',ordinal:0,hasChildren:true,storeCount:18,ownerCount:72})
   const counties=['高新区','金水区','管城区'].map((district,index)=>agencyNode({id:`node-county-${index+1}`,parentId:city.id,name:`郑州市${district}代理`,kind:'COUNTY',ordinal:index+1,hasChildren:true,storeCount:3+index,ownerCount:14+index*4}))
   const stores=counties.flatMap((county,countyIndex)=>[0,1].map(index=>agencyNode({id:`node-store-${countyIndex+1}-${index+1}`,parentId:county.id,name:`${['梧桐街','科创路','中州大道'][countyIndex]}${index+1}号店`,kind:'STORE',ordinal:countyIndex*2+index+4,hasChildren:true,storeCount:1,ownerCount:6+index})))
-  const members=stores.flatMap((store,storeIndex)=>[0,1,2].map(index=>agencyNode({id:`node-member-${storeIndex+1}-${index+1}`,parentId:store.id,name:['李志远','王好梦','张小伟'][index],kind:'STORE',ordinal:storeIndex*3+index+10,hasChildren:false,storeCount:1,ownerCount:0})))
+  const members=stores.flatMap((store,storeIndex)=>[0,1,2].map(index=>agencyNode({id:`node-member-${storeIndex+1}-${index+1}`,parentId:store.id,name:['李志远','王好梦','张小伟'][index],kind:'MEMBER',ordinal:storeIndex*3+index+10,hasChildren:false,storeCount:1,ownerCount:0})))
   all.push(city,...counties,...stores,...members)
   const roots={PROVINCE:[city],CITY:counties,COUNTY:stores.filter(node=>node.parentId==='node-county-1'),STORE:members.filter(node=>node.parentId==='node-store-1-1')}
   const allowed=new Set()
