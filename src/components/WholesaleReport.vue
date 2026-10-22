@@ -14,9 +14,9 @@
     </template>
     <template v-else-if="toolId==='promotion' && report.promotion">
      <view class="wh-promotion-compare">
-      <view class="wh-promotion-before"><text class="wh-promotion-stage">升级前</text><view class="wh-promotion-level">{{report.promotion.beforeName}}</view><view class="wh-promotion-divider"/><text>{{report.promotion.beforeQuota}}项会员权益</text></view>
-      <view class="wh-promotion-arrow" aria-hidden="true"/>
-      <view class="wh-promotion-after"><text class="wh-promotion-stage">升级后</text><view class="wh-promotion-level"><text>{{afterLevel.main}}</text><text v-if="afterLevel.suffix" class="wh-promotion-level-suffix">{{afterLevel.suffix}}</text></view><view class="wh-promotion-divider"/><text class="wh-promotion-benefit">{{report.promotion.afterQuota}}项会员权益</text></view>
+      <image class="wh-promotion-frame" src="/static/partner/promotion-comparison-frame.png" mode="aspectFit"/>
+      <view class="wh-promotion-frame-before"><text class="wh-promotion-frame-name">{{report.promotion.beforeName}}</text><text class="wh-promotion-frame-benefit">{{report.promotion.beforeQuota}}项会员权益</text></view>
+      <view class="wh-promotion-frame-after"><text class="wh-promotion-frame-name">{{report.promotion.afterName}}</text><text class="wh-promotion-frame-benefit">{{report.promotion.afterQuota}}项会员权益</text></view>
      </view>
      <view class="wh-promotion-switch" role="tablist" aria-label="晋升方式"><button :class="{active:promotionTab==='difference'}" @click="promotionTab='difference'">补差价直接晋升</button><button :class="{active:promotionTab==='task'}" @click="promotionTab='task'">推广达标免费晋升</button></view>
      <template v-if="promotionTab==='difference'"><view class="wh-promotion-note">您当前是{{report.promotion.beforeName}}，可通过补差价升级，{{report.promotion.afterName}}标准价¥{{money(report.promotion.standardAmount)}}，需补差价¥{{money(report.promotion.differenceAmount)}}</view><view class="wh-price-lines"><view><text>已缴纳合伙人费用</text><text>¥{{money(report.promotion.paidAmount)}}</text></view><view><text>{{report.promotion.afterName}}标准价</text><text>¥{{money(report.promotion.standardAmount)}}</text></view><view><text>升级需补差价</text><text>¥{{money(report.promotion.differenceAmount)}}</text></view></view></template>
@@ -55,7 +55,7 @@
  </view>
 </template>
 <script setup>
-import {ref,watch,onUnmounted,computed} from 'vue'
+import {ref,watch,onUnmounted} from 'vue'
 import {config} from '../config'
 import {businessPreview} from '../features/business/catalog'
 import {money,percent} from '../features/exclusive/format'
@@ -68,7 +68,6 @@ import EmptyState from './EmptyState.vue'
 const props=defineProps({toolId:String,pageQuery:Object,overlay:Boolean}),emit=defineEmits(['close'])
 const context=ref(null),items=ref([]),hasMore=ref(false),loadingMore=ref(false),moreError=ref(''),filter=ref('promotion'),promotionTab=ref('difference'),inviteCode=ref(''),binding=ref(false),bindError=ref(''),qr=ref(null),isMock=config.useMock
 const titles={superior:'上级信息',promotion:'升级合伙人',share:'分享码'},month=ref(new Date().toISOString().slice(0,7));let cursor=null,epoch=0
-const afterLevel=computed(()=>{const name=report.value?.promotion?.afterName || '';const suffix='合伙人';return name.endsWith(suffix)?{main:name.slice(0,-suffix.length),suffix}:{main:name,suffix:''}})
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('wholesale',props.pageQuery?.contextId);context.value=ctx;return getBusinessReport('wholesale',props.toolId,ctx.id,{month:month.value,filter:filter.value})},false)
 watch(()=>props.pageQuery,q=>{if(q)load()},{immediate:true})
 watch(status,s=>{if(s==='loading'){++epoch;loadingMore.value=false;moreError.value=''}})
@@ -115,4 +114,6 @@ onUnmounted(()=>{++epoch});defineExpose({refresh:load})
 .wh-promotion-arrow{z-index:4;left:230rpx;top:122rpx;bottom:auto;width:104rpx;height:110rpx;filter:drop-shadow(0 8rpx 8rpx #ff8b3d88)}.wh-promotion-arrow::after{inset:6rpx}
 .wh-promotion-switch{gap:20rpx;margin:42rpx 20rpx 24rpx 0}.wh-promotion-switch button{height:64rpx;padding:14rpx 12rpx;border-radius:58rpx;font-size:26rpx;line-height:36rpx;white-space:nowrap}.wh-promotion-note{margin:0 20rpx 24rpx 0;min-height:112rpx;box-sizing:border-box;padding:18rpx;border-radius:8rpx;font-size:26rpx;line-height:36rpx}.wh-price-lines{margin-right:20rpx;border-radius:8rpx;font-size:28rpx}.wh-price-lines>view{padding:20rpx 24rpx;line-height:40rpx}.wh-promotion-progress{display:flex;justify-content:space-between;max-width:358rpx;margin:40rpx auto 0;font-size:28rpx}.wh-promotion-progress>view{flex:none;white-space:nowrap}.wh-promotion-progress>view>view{margin-top:8rpx;font-size:48rpx;line-height:72rpx}
 @media (max-width:340px){.wh-dialog-promotion{padding-left:38rpx;padding-right:28rpx}.wh-promotion-before{width:286rpx;padding-left:42rpx;padding-right:68rpx}.wh-promotion-after{left:224rpx;width:382rpx;padding-left:58rpx;padding-right:54rpx}.wh-promotion-after .wh-promotion-level{margin-left:42rpx}.wh-promotion-after .wh-promotion-stage{margin-left:62rpx;margin-right:34rpx}.wh-promotion-arrow{left:212rpx}.wh-promotion-switch{gap:14rpx;margin-right:10rpx}.wh-promotion-switch button{font-size:24rpx}.wh-promotion-note,.wh-price-lines{margin-right:10rpx}}
+.wh-promotion-compare{display:block;width:640rpx;max-width:100%;height:280rpx;margin:0;position:relative;overflow:visible}.wh-promotion-frame{display:block;width:640rpx;height:280rpx;max-width:none}.wh-promotion-frame-before,.wh-promotion-frame-after{position:absolute;display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none;white-space:nowrap}.wh-promotion-frame-before{left:0;top:100rpx;width:246rpx;height:168rpx;color:#bc5135}.wh-promotion-frame-after{left:340rpx;top:87rpx;width:244rpx;height:181rpx;color:#f9e9db}.wh-promotion-frame-name{display:flex;align-items:center;justify-content:center;height:76rpx;width:100%;padding:0 8rpx;box-sizing:border-box;font-size:32rpx;font-weight:900;line-height:40rpx;overflow:hidden;text-overflow:ellipsis}.wh-promotion-frame-after .wh-promotion-frame-name{height:78rpx;font-size:40rpx;line-height:48rpx}.wh-promotion-frame-benefit{display:flex;align-items:center;justify-content:center;width:100%;height:58rpx;margin-top:34rpx;padding:0 8rpx;box-sizing:border-box;font-size:26rpx;line-height:36rpx}.wh-promotion-frame-after .wh-promotion-frame-benefit{margin-top:45rpx;color:#cab29d}
+@media (max-width:340px){.wh-promotion-frame-before{width:238rpx}.wh-promotion-frame-after{left:336rpx;width:236rpx}.wh-promotion-frame-after .wh-promotion-frame-name{font-size:44rpx}.wh-promotion-frame-after .wh-promotion-frame-benefit{font-size:24rpx}}
 </style>
