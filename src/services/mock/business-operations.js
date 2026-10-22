@@ -3,6 +3,13 @@ import {mockBusinessState,mockClone,saveMockBusinessState} from './business'
 import {parseBusinessAmount as parseAmount} from '../../features/business/format'
 import {mockWholesalePeople,mockUpgradePlans} from './wholesale'
 const enumField=(key,label,options)=>({key,label,type:'enum',options})
+// TODO(API): current presentation reference from the 2026-10 plan. Real plans,
+// permissions and unit prices must always come from the backend options endpoint.
+const vipPriceByLevel={VIP合伙人:798000,天使合伙人:750000,私董合伙人:698000,联创合伙人:650000}
+const vipPurchasePolicy=context=>{
+  const authorized=context.vipPurchaseEnabled===true || context.levelName==='联创合伙人'
+  return {purchaseMode:authorized?'PAYMENT':'CALCULATION_ONLY',unitAmount:vipPriceByLevel[context.levelName]||998000,pricingLabel:authorized?'联创VIP参考拿货价，实际以订单报价为准':'当前身份仅展示购买金额，购买权限以后台为准',allowedPaymentChannelIds:authorized?['unionpay']:[]}
+}
 // Explicit local test fixtures and transactions; never used when useMock is false.
 export function mockOperationOptions(kind,account,context,entryId) {
     const state=mockBusinessState(account,context),people=state.people.map(item=>({value:item.id,label:item.name}))
@@ -18,7 +25,8 @@ export function mockOperationOptions(kind,account,context,entryId) {
       if(!entry||entry.allocationStatus!=='PENDING')throw new Error('该收益没有待分配提点')
       fields.push(enumField('targetId',entry.allocationKind==='inspection'?'巡查受益人':'销售受益人',[{value:'self',label:`当前${context.label}`},{value:'superior',label:'授权上级'}]))
     }
-    return {fields,balances,headquarters:{id:'headquarters',name:'总部服务'},members:mockWholesalePeople(state),standardRemaining:state.quota,activityRemaining:state.activityQuota ?? 4,unitAmount:10000,stores:[{id:'demo-store-1',name:'脑商训练营梧桐街店',number:'NO.001',manager:'李志远',phone:'',address:'河南省郑州市管城回族区梧桐街',regionNames:['河南省','郑州市','管城回族区'],regionCodes:['410000','410100','410104']},{id:'demo-store-2',name:'脑商训练营文化路店',number:'NO.002',manager:'王好梦',phone:'',address:'河南省郑州市金水区文化路',regionNames:['河南省','郑州市','金水区'],regionCodes:['410000','410100','410105']}],upgradePlans:[{value:'DEMO-VIP',label:'VIP合伙人',requiredQuota:1},{value:'DEMO-ANGEL',label:'天使合伙人',requiredQuota:3},{value:'DEMO-BOARD',label:'私董合伙人',requiredQuota:6},{value:'DEMO-FOUNDER',label:'联创合伙人',requiredQuota:12}],version:state.version,allowedActions:['quote','submit'],mockOnly:true}
+    const vipPolicy=kind==='quota-purchase'?vipPurchasePolicy(context):{}
+    return {fields,balances,headquarters:{id:'headquarters',name:'总部服务'},members:mockWholesalePeople(state),standardRemaining:state.quota,activityRemaining:state.activityQuota ?? 4,unitAmount:vipPolicy.unitAmount ?? 10000,stores:[{id:'demo-store-1',name:'脑商训练营梧桐街店',number:'NO.001',manager:'李志远',phone:'',address:'河南省郑州市管城回族区梧桐街',regionNames:['河南省','郑州市','管城回族区'],regionCodes:['410000','410100','410104']},{id:'demo-store-2',name:'脑商训练营文化路店',number:'NO.002',manager:'王好梦',phone:'',address:'河南省郑州市金水区文化路',regionNames:['河南省','郑州市','金水区'],regionCodes:['410000','410100','410105']}],upgradePlans:[{value:'DEMO-VIP',label:'VIP合伙人',requiredQuota:1},{value:'DEMO-ANGEL',label:'天使合伙人',requiredQuota:3},{value:'DEMO-BOARD',label:'私董合伙人',requiredQuota:6},{value:'DEMO-FOUNDER',label:'联创合伙人',requiredQuota:12}],version:state.version,allowedActions:kind==='quota-purchase'&&vipPolicy.purchaseMode==='CALCULATION_ONLY'?['quote']:['quote','submit'],...vipPolicy,mockOnly:true}
 }
 
 export function mockOperationPreview(kind,account,context,input,entryId,payload) {
@@ -27,7 +35,7 @@ export function mockOperationPreview(kind,account,context,input,entryId,payload)
     if(['quota-transfer','upgrade','bind-store'].includes(kind)){person=state.people.find(item=>item.id===input.targetAccountId);if(!person)throw new Error('请选择授权团队成员');details.push({label:'受益成员',value:person.name})}
     if(['quota-transfer','quota-purchase'].includes(kind)){if(!/^[1-9]\d{0,3}$/.test(String(input.quantity)))throw new Error('请输入1—9999的整数名额');quantity=Number(input.quantity);if(kind==='quota-transfer'&&quantity>state.quota)throw new Error('标准名额余额不足');details.push({label:'名额数量',value:quantity})}
     if(kind==='quota-transfer')details.push({label:'划拨后剩余名额',value:state.quota-quantity})
-    if(kind==='quota-purchase'){amount=quantity*10000;details.push({label:'待支付金额',kind:'money',value:amount},{label:'到账状态',value:'订单待支付；不增加名额余额'})}
+    if(kind==='quota-purchase'){const policy=vipPurchasePolicy(context);amount=quantity*policy.unitAmount;details.push({label:policy.purchaseMode==='PAYMENT'?'待支付金额':'预估购买金额',kind:'money',value:amount},{label:'购买权限',value:policy.purchaseMode==='PAYMENT'?'联创权限已校验；仅支持银联支付':'当前身份仅可查看金额，购买权限以后台为准'},{label:'到账状态',value:policy.purchaseMode==='PAYMENT'?'订单待支付；不增加名额余额':'未创建订单，不增加名额余额'})}
     if(kind==='upgrade'){const plan=mockUpgradePlans(person).find(x=>x.value===input.targetLevel);if(!plan || plan.disabled)throw new Error('请选择目标等级');const activity=Number(input.activityQuantity || 0),standard=input.standardQuantity==null?plan.requiredQuota-activity:Number(input.standardQuantity);if(standard+activity!==plan.requiredQuota)throw new Error(`需使用${plan.requiredQuota}个VIP名额`);if(standard>state.quota||activity>(state.activityQuota ?? 4))throw new Error('名额余额不足');payload.standardQuantity=standard;payload.activityQuantity=activity;details.push({label:'目标等级',value:plan.label},{label:'消耗标准名额',value:standard},{label:'消耗活动名额',value:activity});amount=activity*200000;if(amount)details.push({label:'服务费',kind:'money',value:amount})}
     if(kind==='bind-store'){if(!['demo-store-1','demo-store-2','headquarters'].includes(input.storeId))throw new Error('请选择授权门店');details.push({label:'目标门店',value:input.storeId==='headquarters'?'总部服务':input.storeId==='demo-store-1'?'梧桐街店':'文化路店'})}
     if(kind==='entitlement'){if(input.planId!=='demo-annual')throw new Error('请选择年度套餐');amount=20000;details.push({label:'套餐费用',kind:'money',value:amount},{label:'权益状态',value:'未支付，不开通或续期权益'})}
@@ -41,7 +49,7 @@ export function mockOperationPreview(kind,account,context,input,entryId,payload)
       if(!['self','superior'].includes(input.targetId))throw new Error('受益人不在授权候选中')
       details.push({label:'分配类型',value:entry.allocationKind==='inspection'?'巡查提点':'销售提点'},{label:'最终受益人',value:input.targetId==='self'?context.label:'授权上级'},{label:'待分配金额',kind:'money',value:entry.amount},{label:'结算状态',value:'分配后仍需后台结算，不直接增加可提现金额'})
     }
-    const quote={id,kind,contextId:context.id,entryId,entryVersion:entry?.version,version:state.version,input:mockClone(payload),personId:person?.id,quantity,amount,fee,netAmount,details,expiresAt:Date.now()+300000,serverTime:Date.now(),mockOnly:true}
+    const quote={id,kind,contextId:context.id,entryId,entryVersion:entry?.version,version:state.version,input:mockClone(payload),personId:person?.id,quantity,amount,unitAmount:kind==='quota-purchase'?vipPurchasePolicy(context).unitAmount:null,purchaseMode:kind==='quota-purchase'?vipPurchasePolicy(context).purchaseMode:null,fee,netAmount,details,expiresAt:Date.now()+300000,serverTime:Date.now(),mockOnly:true}
     state.quotes.set(id,mockClone(quote));return quote
 }
 
@@ -53,6 +61,7 @@ export function mockOperationCommit(kind,account,context,quoteId,idempotencyKey,
     if(quote.version!==state.version)throw new Error('余额或数据版本已变化，请重新加载后预览')
     let result={operationId:`demo-operation-${state.operations.size+1}`,status:'DEMO_APPLIED',mockOnly:true}
     if(kind==='quota-transfer'){if(quote.quantity>state.quota)throw new Error('标准名额余额不足');state.quota-=quote.quantity;state.transferred+=quote.quantity;state.quotaLedger.unshift({id:result.operationId,title:'划拨名额',targetName:state.people.find(item=>item.id===quote.personId).name,quantity:-quote.quantity,createdAt:new Date().toISOString()})}
+    if(kind==='quota-purchase'&&vipPurchasePolicy(context).purchaseMode!=='PAYMENT')throw new Error('当前身份仅可查看VIP购买金额，暂无购买权限')
     if(['quota-purchase','entitlement'].includes(kind))result={...result,status:'PENDING_PAYMENT',orderId:mockBusinessPaymentOrder(account,context,kind,quote)}
     if(kind==='upgrade'){
       state.pendingUpgrades=state.pendingUpgrades || {}
