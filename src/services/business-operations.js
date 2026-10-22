@@ -1,10 +1,19 @@
 import {config} from '../config'
 import {request} from './api'
-import {withBusinessContext} from './business'
+import {withBusinessContext,businessAccount,checkBusinessAccount} from './business'
 import {mockOperationOptions,mockOperationPreview,mockOperationCommit} from './mock/business-operations'
 import {parseBusinessAmount} from '../features/business/format'
 import {mockBusinessState,saveMockBusinessState} from './mock/business'
 const known=['quota-transfer','quota-purchase','upgrade','entitlement','bind-store','withdraw','allocation']
+const trackedKinds=['quota-transfer','quota-purchase','upgrade','bind-store','withdraw']
+const intentKey=(accountId,kind,contextId)=>`naoshang-business-intent:${JSON.stringify([accountId,contextId,kind])}`
+export function getBusinessOperationIntent(kind,contextId){return uni.getStorageSync(intentKey(businessAccount().id,kind,contextId)) || null}
+export function rememberBusinessOperationIntent(kind,contextId,quote,idempotencyKey,draft){
+ const account=businessAccount(),key=intentKey(account.id,kind,contextId),previous=uni.getStorageSync(key)
+ if(previous?.dispatched && (previous.quoteId!==quote.id || previous.idempotencyKey!==idempotencyKey))throw new Error('上一笔操作结果待确认，请重试原操作')
+ uni.setStorageSync(key,JSON.parse(JSON.stringify({quoteId:quote.id,idempotencyKey,quote,draft,dispatched:previous?.dispatched || false})))
+}
+const definitiveRejection=error=>[400,403,404,409,422].includes(error.statusCode)&&['QUOTE_EXPIRED','INVALID_QUOTE','VALIDATION_ERROR','FORBIDDEN','INSUFFICIENT_BALANCE','VERSION_CONFLICT'].includes(error.code)
 const capability=(kind,context)=>kind==='withdraw'?'wallet:withdraw':kind==='allocation'?`${context.module}:income`:`wholesale:${kind}`
 const guardKind=kind=>{if(!known.includes(kind))throw new Error('未知经营操作')}
 function scopeKind(kind,context){if(!['withdraw','allocation'].includes(kind)&&context.module!=='wholesale')throw new Error('当前身份不支持此操作')}
@@ -45,7 +54,17 @@ export function commitBusinessOperation(kind,contextId,quoteId,idempotencyKey,en
   guardKind(kind)
   return withBusinessContext(contextId,context=>capability(kind,context),async(account,context)=>{
     scopeKind(kind,context);if(!quoteId||!idempotencyKey)throw new Error('请先生成有效预览')
-    if(!config.useMock){const endpoint={withdraw:'/wallet/withdrawals',allocation:`/income/entries/${encodeURIComponent(entryId)}/allocations`,'quota-transfer':'/partner/quota-transfers','quota-purchase':'/partner/quota-orders',upgrade:'/partner/upgrades',entitlement:'/partner/entitlement-orders','bind-store':'/partner/store-bindings'}[kind];return request(endpoint,{method:'POST',data:{contextId:context.id,quoteId,idempotencyKey}})}
-    return mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId)
+    const tracked=trackedKinds.includes(kind),storageKey=intentKey(account.id,kind,contextId),previous=tracked?uni.getStorageSync(storageKey):null
+    if(previous?.dispatched && (previous.quoteId!==quoteId || previous.idempotencyKey!==idempotencyKey))throw new Error('上一笔操作结果待确认，请重试原操作')
+    if(tracked)uni.setStorageSync(storageKey,{...previous,quoteId,idempotencyKey,dispatched:true})
+    try{
+      let result
+      if(!config.useMock){const endpoint={withdraw:'/wallet/withdrawals',allocation:`/income/entries/${encodeURIComponent(entryId)}/allocations`,'quota-transfer':'/partner/quota-transfers','quota-purchase':'/partner/quota-orders',upgrade:'/partner/upgrades',entitlement:'/partner/entitlement-orders','bind-store':'/partner/store-bindings'}[kind];result=await request(endpoint,{method:'POST',data:{contextId:context.id,quoteId,idempotencyKey}})}
+      else result=mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId)
+      checkBusinessAccount(account)
+      if(!result || typeof result!=='object' || !['PENDING_PAYMENT','PENDING_REVIEW','PENDING_SETTLEMENT','DEMO_APPLIED','APPLIED','SUCCEEDED','COMPLETED','PAID'].includes(result.status))throw new Error('操作结果待确认，请重试原操作')
+      if(tracked)uni.removeStorageSync(storageKey)
+      return result
+    }catch(error){if(tracked && (config.useMock || definitiveRejection(error))){checkBusinessAccount(account);uni.removeStorageSync(storageKey)}throw error}
   })
 }

@@ -65,6 +65,7 @@ export function mockOperationCommit(kind,account,context,quoteId,idempotencyKey,
         const upgrade={personId:person.id,standard,activity,targetLevel}
         const orderId=mockBusinessPaymentOrder(account,context,'upgrade',{...quote,upgrade})
         state.pendingUpgrades[person.id]=orderId
+        state.activityReservations=state.activityReservations || {};state.activityReservations[orderId]=activity
         result={...result,status:'PENDING_PAYMENT',orderId}
       }else{
         person.levelLabel=targetLevel;person.version++

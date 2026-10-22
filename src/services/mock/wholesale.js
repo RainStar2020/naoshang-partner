@@ -1,5 +1,7 @@
 // MOCK-ONLY / TODO(API): presentation fixtures for designs 17–53, never real pricing or commission rules.
 const stamp=()=>new Date().toISOString()
+const activityBatch={id:'activity-batch-1',title:'后台充值4个活动VIP名额',grantedAt:'2026-10-01T00:00:00+08:00',expiresAt:'2027-10-01T00:00:00+08:00',validityLabel:'1年',total:4}
+export function mockActivityQuota(state){const reserved=Object.values(state.activityReservations || {}).reduce((sum,value)=>sum+value,0),remaining=state.activityQuota ?? activityBatch.total;return {...activityBatch,reserved,remaining,used:Math.max(0,activityBatch.total-remaining-reserved)}}
 export function mockWholesaleOverview(state){return {partnerStatus:'ACTIVE',annualRemainingDays:state.annualValidUntil?Math.max(0,Math.ceil((Date.parse(state.annualValidUntil)-Date.now())/86400000)):99,rankDescription:'尊享合伙权益，您已是最高等级',experience:100,experienceTarget:9980}}
 const levelPlans=[{value:'DEMO-VIP',label:'VIP合伙人',total:1},{value:'DEMO-ANGEL',label:'天使合伙人',total:3},{value:'DEMO-BOARD',label:'私董合伙人',total:6},{value:'DEMO-FOUNDER',label:'联创合伙人',total:12}]
 export function mockUpgradePlans(person){const current=levelPlans.find(x=>x.label===person?.levelLabel)?.total || 0;return levelPlans.map(plan=>({value:plan.value,label:plan.label,requiredQuota:Math.max(0,plan.total-current),disabled:plan.total<=current}))}
@@ -10,9 +12,9 @@ export function mockWholesaleReport(user,context,state,resource,params){
  if(resource.id==='superior')return {...base,superior:state.superior||null}
  if(resource.id==='promotion')return {...base,promotion:{beforeName:'私董合伙人',afterName:'联创合伙人',beforeQuota:6,afterQuota:12,paidAmount:7980000,standardAmount:23980000,differenceAmount:16000000,taskDescription:'任务有效期内，直推3位私董或18个VIP可免费晋升联创合伙人',progress:6,target:18,statusLabel:'进行中',validUntil:new Date(Date.now()+90*86400000).toISOString()}}
  if(resource.id==='share')return {...base,inviteCode:user.inviteCode||user.id,localPayload:`http://localhost:5173/#/pages/register/index?inviteCode=${encodeURIComponent(user.inviteCode||user.id)}`}
- if(resource.id==='quota-ledger')return {...base,standardRemaining:state.quota,activityRemaining:4,items:state.quotaLedger.filter(x=>x.quantity>0)}
+ if(resource.id==='quota-ledger')return {...base,standardRemaining:state.quota,activityRemaining:mockActivityQuota(state).remaining,items:state.quotaLedger.filter(x=>x.quantity>0)}
  if(resource.id==='quota-transfers')return {...base,items:state.quotaLedger.filter(x=>x.quantity<0 || x.activityQuantity<0).map(x=>({...x,quantity:x.quantity+(x.activityQuantity || 0),targetDisplayId:people.find(p=>p.name===x.targetName)?.displayId,targetLevel:people.find(p=>p.name===x.targetName)?.levelLabel}))}
- if(resource.id==='quota-batches')return {...base,items:[{id:'activity-batch-1',title:'后台充值4个活动VIP名额',grantedAt:stamp(),expiresAt:new Date(Date.now()+365*86400000).toISOString(),validityLabel:'1年',total:4,used:0,remaining:4}]}
+ if(resource.id==='quota-batches')return {...base,items:[mockActivityQuota(state)]}
  if(resource.id==='experience'){
   const promotion=[{id:'experience-p1',name:'李志远',title:'合伙人：升为VIP合伙人',amount:9980,initialLevel:'普通用户',quotaUsed:2},{id:'experience-p2',name:'王好梦',title:'合店费：开通合店老板6个月',amount:19820},{id:'experience-p3',name:'李志远',title:'代理费：成为区县代理',amount:40000}],products=['供应链：购买平板','软件卡：购买软件卡','特色品：购买特色产品','专栏课：购买记忆法'].map((title,n)=>({id:`experience-product-${n}`,name:'李志远',title,amount:9980}))
   return {...base,promotionExperience:69800,productExperience:39920,items:(params.filter==='products'?products:promotion).map(x=>({...x,createdAt:stamp()}))}

@@ -334,7 +334,7 @@
     {
       "path": "pages/partner/upgrade",
       "style": {
-        "navigationBarTitleText": "开通/升级",
+        "navigationBarTitleText": "合伙人升级",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }

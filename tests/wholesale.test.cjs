@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm')
-async function setup(storage=new Map()){
+async function setup(storage=new Map(),remote=null){
  const session={token:'local',user:{id:'A',name:'测试合伙人',inviteCode:'INVITE-A'}},context=vm.createContext({console,uni:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,JSON.parse(JSON.stringify(v))),removeStorageSync:k=>storage.delete(k)}}),cache=new Map()
- async function load(file){if(cache.has(file))return cache.get(file);let m;if(file.endsWith('/config'))m=new vm.SyntheticModule(['config'],function(){this.setExport('config',{useMock:true,previewAllBusinessFeatures:true})},{context});else if(file.endsWith('/api'))m=new vm.SyntheticModule(['getSession','request'],function(){this.setExport('getSession',()=>session);this.setExport('request',()=>{throw new Error('Unexpected network')})},{context});else m=new vm.SourceTextModule(fs.readFileSync(file+'.js','utf8'),{context,identifier:file});cache.set(file,m);await m.link((s,p)=>load(path.resolve(path.dirname(p.identifier),s).replaceAll('\\','/')));return m}
+ async function load(file){if(cache.has(file))return cache.get(file);let m;if(file.endsWith('/config'))m=new vm.SyntheticModule(['config'],function(){this.setExport('config',{useMock:!remote,previewAllBusinessFeatures:true})},{context});else if(file.endsWith('/api'))m=new vm.SyntheticModule(['getSession','request'],function(){this.setExport('getSession',()=>session);this.setExport('request',remote || (()=>{throw new Error('Unexpected network')}))},{context});else m=new vm.SourceTextModule(fs.readFileSync(file+'.js','utf8'),{context,identifier:file});cache.set(file,m);await m.link((s,p)=>load(path.resolve(path.dirname(p.identifier),s).replaceAll('\\','/')));return m}
  const root=path.resolve(__dirname,'../src/services').replaceAll('\\','/');async function get(name){const m=await load(root+'/'+name);if(m.status!=='evaluated')await m.evaluate();return m.namespace}
  return {business:await get('business'),operations:await get('business-operations'),commerce:await get('commerce'),storage,session}
 }
@@ -38,8 +38,10 @@ test('activity upgrade reserves quota until payment and cancellation releases it
  const q=await operations.previewBusinessOperation('upgrade',ctx.id,draft),r=await operations.commitBusinessOperation('upgrade',ctx.id,q.id,'upgrade')
  assert.equal(r.status,'PENDING_PAYMENT');assert.equal((await business.getBusinessReport('wholesale','team',ctx.id)).items[0].levelLabel,'普通用户')
  assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id)).activityRemaining,2)
+ const batch=(await business.getBusinessReport('wholesale','quota-batches',ctx.id)).items[0];assert.equal(batch.remaining,2);assert.equal(batch.reserved,2);assert.equal(batch.used,0);assert.equal((await business.getBusinessReport('wholesale','quota-ledger',ctx.id)).activityRemaining,2)
  const order=(await commerce.getCommerceOrder(r.orderId)).order;await commerce.changeOrder(order.id,'cancel',order.version,'cancel');await commerce.changeOrder(order.id,'cancel',order.version,'cancel')
  assert.equal((await business.getBusinessOverview('wholesale',ctx.id)).quota,20);assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id)).activityRemaining,4)
+ const restored=(await business.getBusinessReport('wholesale','quota-batches',ctx.id)).items[0];assert.equal(restored.remaining,4);assert.equal(restored.reserved,0);assert.equal(restored.used,0);assert.equal(restored.grantedAt,batch.grantedAt)
 })
 test('paid upgrade grants the target once and cannot be downgraded or repeated with pending payment',async()=>{
  const {business,operations,commerce}=await setup(),ctx=(await business.getBusinessContexts())[0],draft={targetAccountId:'demo-person-1',targetLevel:'DEMO-ANGEL',standardQuantity:1,activityQuantity:2}
@@ -47,5 +49,27 @@ test('paid upgrade grants the target once and cannot be downgraded or repeated w
  const other=await operations.previewBusinessOperation('upgrade',ctx.id,{...draft,standardQuantity:3,activityQuantity:0});await assert.rejects(operations.commitBusinessOperation('upgrade',ctx.id,other.id,'other'),/待支付/)
  const attempt=await commerce.startPayment(r.orderId,'wechat','pay');await commerce.queryPayment(attempt.id);await commerce.queryPayment(attempt.id)
  assert.equal((await business.getBusinessReport('wholesale','team',ctx.id)).items[0].levelLabel,'天使合伙人');assert.equal((await business.getBusinessOverview('wholesale',ctx.id)).quota,19)
+ const paidBatch=(await business.getBusinessReport('wholesale','quota-batches',ctx.id)).items[0];assert.equal(paidBatch.used,2);assert.equal(paidBatch.reserved,0);assert.equal(paidBatch.remaining,2)
  await assert.rejects(operations.previewBusinessOperation('upgrade',ctx.id,{...draft,targetLevel:'DEMO-VIP'}),/请选择目标等级/)
+})
+
+test('unknown operation responses retain quote and key through reload, blocking new intents until original retry succeeds',async()=>{
+ const ctx={id:'wholesale:A',module:'wholesale',accountId:'A',capabilities:['wholesale:quota-transfer']},calls=[];let answer='timeout'
+ const remote=async(url,options)=>{if(url==='/me/bootstrap')return {businessContexts:[ctx]};calls.push(options.data);if(answer==='timeout')throw new Error('timeout');return {operationId:'done',status:'APPLIED'}}
+ const first=await setup(new Map(),remote),quote={id:'original-quote',details:[],expiresAt:1,serverTime:0}
+ first.operations.rememberBusinessOperationIntent('quota-transfer',ctx.id,quote,'original-key',{quantity:'2',targetAccountId:'person'})
+ await assert.rejects(first.operations.commitBusinessOperation('quota-transfer',ctx.id,quote.id,'original-key'),/timeout/)
+ assert.equal(first.operations.getBusinessOperationIntent('quota-transfer',ctx.id).dispatched,true)
+ const reloaded=await setup(first.storage,remote),restored=reloaded.operations.getBusinessOperationIntent('quota-transfer',ctx.id)
+ assert.equal(restored.quote.id,'original-quote');assert.equal(restored.idempotencyKey,'original-key');assert.equal(restored.draft.quantity,'2')
+ await assert.rejects(reloaded.operations.commitBusinessOperation('quota-transfer',ctx.id,'new-quote','new-key'),/上一笔/);assert.equal(calls.length,1)
+ answer='success';await reloaded.operations.commitBusinessOperation('quota-transfer',ctx.id,restored.quoteId,restored.idempotencyKey)
+ assert.equal(calls[1].idempotencyKey,'original-key');assert.equal(reloaded.operations.getBusinessOperationIntent('quota-transfer',ctx.id),null)
+})
+test('definitive quote rejection unlocks the form while malformed successes stay uncertain',async()=>{
+ const ctx={id:'wholesale:A',module:'wholesale',accountId:'A',capabilities:['wallet:withdraw']};let malformed=false
+ const remote=async url=>{if(url==='/me/bootstrap')return {businessContexts:[ctx]};if(malformed)return {};throw Object.assign(new Error('expired'),{statusCode:409,code:'QUOTE_EXPIRED'})}
+ const {operations}=await setup(new Map(),remote)
+ await assert.rejects(operations.commitBusinessOperation('withdraw',ctx.id,'expired','one'),/expired/);assert.equal(operations.getBusinessOperationIntent('withdraw',ctx.id),null)
+ malformed=true;await assert.rejects(operations.commitBusinessOperation('withdraw',ctx.id,'unknown','two'),/待确认/);assert.equal(operations.getBusinessOperationIntent('withdraw',ctx.id).idempotencyKey,'two')
 })
