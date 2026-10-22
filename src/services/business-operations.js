@@ -63,6 +63,8 @@ export function commitBusinessOperation(kind,contextId,quoteId,idempotencyKey,en
       else result=mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId)
       checkBusinessAccount(account)
       if(!result || typeof result!=='object' || !['PENDING_PAYMENT','PENDING_REVIEW','PENDING_SETTLEMENT','DEMO_APPLIED','APPLIED','SUCCEEDED','COMPLETED','PAID'].includes(result.status))throw new Error('操作结果待确认，请重试原操作')
+      const validId=value=>typeof value==='string' && value.trim().length>0
+      if(result.status==='PENDING_PAYMENT'?!validId(result.orderId):![result.operationId,result.id,result.withdrawalId].some(validId))throw new Error('操作回执不完整，请重试原操作')
       if(tracked)uni.removeStorageSync(storageKey)
       return result
     }catch(error){if(tracked && (config.useMock || definitiveRejection(error))){checkBusinessAccount(account);uni.removeStorageSync(storageKey)}throw error}

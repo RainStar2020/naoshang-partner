@@ -73,3 +73,11 @@ test('definitive quote rejection unlocks the form while malformed successes stay
  await assert.rejects(operations.commitBusinessOperation('withdraw',ctx.id,'expired','one'),/expired/);assert.equal(operations.getBusinessOperationIntent('withdraw',ctx.id),null)
  malformed=true;await assert.rejects(operations.commitBusinessOperation('withdraw',ctx.id,'unknown','two'),/待确认/);assert.equal(operations.getBusinessOperationIntent('withdraw',ctx.id).idempotencyKey,'two')
 })
+test('accepted responses without a usable order or receipt remain locked to the original intent',async()=>{
+ const ctx={id:'wholesale:A',module:'wholesale',accountId:'A',capabilities:['wallet:withdraw']}
+ for(const response of [{status:'PENDING_PAYMENT'},{status:'PENDING_PAYMENT',orderId:''},{status:'PENDING_REVIEW'},{status:'APPLIED',operationId:' '}]){
+  const remote=async url=>url==='/me/bootstrap'?{businessContexts:[ctx]}:response,{operations}=await setup(new Map(),remote)
+  await assert.rejects(operations.commitBusinessOperation('withdraw',ctx.id,'quote','key'),/回执不完整/)
+  assert.equal(operations.getBusinessOperationIntent('withdraw',ctx.id).idempotencyKey,'key')
+ }
+})
