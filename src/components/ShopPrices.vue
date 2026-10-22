@@ -34,6 +34,8 @@ watch(()=>props.product.id,()=>{localOpen.value=false})
 .catalog-member-anchor{position:relative;min-width:0}
 .catalog-prices .catalog-member-button{width:100%;height:100%;margin:0;border:0;font-size:inherit;line-height:1.35;color:inherit;overflow:visible;box-sizing:border-box}
 .catalog-member-button::after{border:0}
+.catalog-member-button:focus{outline:none}
+.catalog-member-button:focus-visible{outline:2px solid #59b6ff;outline-offset:2px}
 .catalog-price-detail{text-decoration:underline;text-underline-offset:.15em;white-space:nowrap}
 .catalog-member-tooltip{position:absolute;right:.25em;bottom:calc(100% - .12em);width:10.1em;max-width:calc(100vw - 2em);padding:.4em;background:#0c2650;border:1px solid #418cff;border-radius:.3em;box-sizing:border-box;color:rgba(255,255,255,.72);z-index:2}
 .catalog-member-tooltip::after{content:'';position:absolute;right:2.1em;bottom:-.36em;width:.6em;height:.6em;background:#0c2650;border-right:1px solid #418cff;border-bottom:1px solid #418cff;transform:rotate(45deg)}
