@@ -1,0 +1,476 @@
+	<!DOCTYPE html>
+	<html lang="zh-CN">
+	<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>脑商合伙人 · UI 复现</title>
+	<style>
+	:root{
+	  --bg1:#1B2340; --card1:#262F56;
+	  --bg2:#161E3B; --card2:#212A4D;
+	  --bg3:#141B36;
+	  --blue:#4D8BFF; --blue2:#3D7BFF;
+	  --muted:#9AA3BF; --muted2:#97A0BE;
+	}
+	*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+	body{
+	  background:#0A0E1D;color:#fff;
+	  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+	}
+	.stage{display:flex;flex-wrap:wrap;gap:52px;justify-content:center;align-items:flex-start;padding:44px 24px 90px}
+	.shot-label{color:#8A93B2;font-size:14px;font-weight:600;text-align:center;margin-bottom:16px;letter-spacing:1px}
+	/* ============ 手机外框 ============ */
+	.phone{
+	  width:375px;height:812px;border-radius:40px;overflow:hidden;position:relative;
+	  box-shadow:0 24px 70px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07),0 0 0 10px #0B0F1F;
+	  flex-shrink:0;
+	}
+	.screen{height:100%;overflow-y:auto;scrollbar-width:none;position:relative}
+	.screen::-webkit-scrollbar{display:none}
+	/* ============ 通用：状态栏 / 胶囊 / 指示条 ============ */
+	.statusbar{display:flex;justify-content:space-between;align-items:center;padding:16px 26px 6px}
+	.statusbar .time{font-size:16px;font-weight:600;letter-spacing:.3px}
+	.sicons{display:flex;align-items:center;gap:6px}
+	.capsule{
+	  width:88px;height:32px;border-radius:16px;background:rgba(148,155,172,.92);
+	  display:flex;align-items:center;justify-content:space-evenly;flex-shrink:0;
+	}
+	.cap-dots{display:flex;gap:3.5px}
+	.cap-dots i{width:4.5px;height:4.5px;border-radius:50%;background:#fff;display:block}
+	.cap-sep{width:1px;height:18px;background:rgba(255,255,255,.45)}
+	.home-bar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#fff;z-index:50;pointer-events:none}
+	.copy-ic{cursor:pointer;vertical-align:-2px;color:var(--muted)}
+	/* ============ 屏1：弹窗示例 ============ */
+	#s1 .screen{background:var(--bg1);padding:0 20px 60px}
+	#s1 h2{font-size:19px;font-weight:700;text-align:center;margin-top:96px}
+	#s1 h2.second{margin-top:112px}
+	.modal-card{background:var(--card1);border-radius:18px;padding:30px 18px 26px;margin-top:26px}
+	.modal-card h3{font-size:18px;font-weight:700;text-align:center}
+	.invite-input{
+	  margin-top:26px;width:100%;height:52px;border:none;border-radius:26px;
+	  background:rgba(255,255,255,.09);color:#fff;font-size:16px;text-align:center;outline:none;
+	}
+	.invite-input::placeholder{color:#8089AC}
+	.modal-btns{margin-top:30px;display:flex;justify-content:space-around}
+	.modal-btns span{font-size:17px;cursor:pointer}
+	.modal-btns .ok{color:var(--blue)} .modal-btns .no{color:#fff}
+	.info-card{background:var(--card1);border-radius:18px;padding:18px 16px;margin-top:24px;display:flex;align-items:center;gap:14px}
+	.avatar{width:54px;height:54px;border-radius:50%;overflow:hidden;background:linear-gradient(160deg,#d8cfc4,#b0a696);flex-shrink:0}
+	.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+	.info-name{font-size:19px;font-weight:700;display:flex;align-items:center;gap:10px}
+	.badge{background:linear-gradient(90deg,#3D7BFF,#6FA8FF);border-radius:14px;padding:4px 12px;font-size:13px;font-weight:500}
+	.info-line{margin-top:8px;font-size:15px;color:var(--muted)}
+	/* ============ 屏2：选择门店 ============ */
+	#s2 .screen{background:var(--bg2);padding-bottom:70px}
+	.navbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 12px 16px}
+	.nav-left{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700}
+	.region-row{display:flex;align-items:center;gap:14px;margin:12px 16px 0}
+	.region-row b{font-size:16px}
+	.region-pill{background:rgba(255,255,255,.09);border-radius:24px;padding:11px 18px;font-size:15px;display:flex;align-items:center;cursor:pointer}
+	.caret{width:0;height:0;border-top:4.5px solid transparent;border-bottom:4.5px solid transparent;border-left:6px solid #B9C1D9;display:inline-block;margin-left:10px}
+	.store-card{background:var(--card2);border-radius:16px;padding:16px;margin:14px 16px 0;cursor:pointer;transition:filter .2s}
+	.store-card:hover{filter:brightness(1.08)}
+	.sc-head{display:flex;align-items:flex-start;justify-content:space-between}
+	.sc-title{font-size:18px;font-weight:700}
+	.sc-sub{margin-top:8px;font-size:14px;color:var(--muted)}
+	.sc-body{display:flex;gap:12px;margin-top:14px}
+	.sc-body.center{align-items:center}
+	.store-img{width:92px;height:92px;border-radius:10px;overflow:hidden;background:linear-gradient(160deg,#E8E4DA,#C6BFAE);position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:32px}
+	.store-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+	.sc-info{flex:1;min-width:0}
+	.sc-name{font-size:16.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+	.no-pill{background:linear-gradient(90deg,#3D7BFF,#66A3FF);border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600;flex-shrink:0}
+	.sc-meta{margin-top:9px;font-size:13px;color:var(--muted);line-height:1.6}
+	.sc-meta.addr{margin-top:7px}
+	.chev{flex-shrink:0;align-self:center}
+	.sc-head .chev{align-self:flex-start;margin-top:4px}
+	/* ============ 屏3/4：批发中心 ============ */
+	#s3 .screen,#s4 .screen{padding-bottom:130px;
+	  background:radial-gradient(130% 55% at 80% -6%,#2E3D74 0%,rgba(46,61,116,0) 60%),
+	             linear-gradient(180deg,#1A2344 0%,#131A35 100%);}
+	.page-head{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 4px 16px}
+	.page-title{font-size:20px;font-weight:700}
+	.user-row{display:flex;align-items:center;gap:14px;margin:14px 16px 0}
+	.avatar-lg{width:62px;height:62px}
+	.user-info{flex:1;min-width:0}
+	.user-name{font-size:21px;font-weight:700}
+	.user-meta{margin-top:8px;font-size:14px;color:var(--muted2);display:flex;align-items:center;white-space:nowrap}
+	.user-meta .gap{display:inline-block;width:10px}
+	.switch-mod{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;flex-shrink:0}
+	.switch-circle{width:36px;height:36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center}
+	.switch-mod span{font-size:13px}
+	.level-card{position:relative;overflow:hidden;margin:18px 16px 0;border-radius:16px;padding:22px 18px 18px;
+	  background:linear-gradient(160deg,#33406F 0%,#232D55 55%,#1F2950 100%);
+	  border:1px solid rgba(255,255,255,.07)}
+	.level-tag{position:absolute;top:0;right:0;height:32px;line-height:32px;padding:0 16px 0 24px;font-size:13px;font-weight:600;color:#fff}
+	.level-tag::before{content:"";position:absolute;inset:-6px -46px -6px -8px;background:linear-gradient(120deg,#5E97FF,#2F5FE0);transform:skewX(-14deg)}
+	.level-name{font-size:24px;font-weight:800;font-style:italic;letter-spacing:.5px;
+	  background:linear-gradient(180deg,#F2F6FF,#A9C3FF);-webkit-background-clip:text;background-clip:text;color:transparent}
+	.level-desc{margin-top:10px;font-size:15px;color:#C6CDE4}
+	.level-foot{margin-top:30px;display:flex;align-items:center;justify-content:space-between;font-size:14px;color:var(--muted2)}
+	.level-foot .links{display:flex;gap:18px;font-size:15px;color:#5B8CFF}
+	.level-foot .links a{cursor:pointer}
+	.pay-btn{display:block;width:calc(100% - 32px);margin:22px 16px 0;height:52px;border:none;border-radius:26px;
+	  background:linear-gradient(90deg,#2E6BFF,#4F9BFF);color:#fff;font-size:17px;font-weight:600;cursor:pointer;
+	  box-shadow:0 8px 20px rgba(46,107,255,.35);transition:transform .15s}
+	.pay-btn:active{transform:scale(.98)}
+	.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);margin:22px 8px 0;text-align:center}
+	.quick{cursor:pointer}
+	.quick .q-label{margin-top:8px;font-size:14px;color:#D9E0F2}
+	.quick svg{display:block;margin:0 auto}
+	.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 16px 0}
+	.stat{border-radius:14px;overflow:hidden;padding-top:14px;text-align:center;
+	  background:linear-gradient(180deg,#28345D,#1E2849);border:1px solid rgba(255,255,255,.05)}
+	.s-label{font-size:14px;color:#C3CCE6}
+	.s-num{margin-top:4px;font-size:30px;font-weight:800;
+	  background:linear-gradient(180deg,#8FB8FF,#3D6BEE);-webkit-background-clip:text;background-clip:text;color:transparent}
+	.s-foot{margin-top:12px;background:rgba(11,17,38,.4);padding:9px 0;font-size:13px;color:#E6EBF8;cursor:pointer}
+	.tri{width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:5px solid #7FA3FF;display:inline-block;margin-left:6px}
+	.benefit{margin-top:24px;background:#232C4F;border-radius:26px 26px 0 0;padding:24px 16px 40px;min-height:330px}
+	.b-title{text-align:center;font-size:18px;font-weight:700}
+	.b-title .star{color:#7FA8FF;font-size:14px;margin:0 8px}
+	.b-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
+	.b-tabs button{height:44px;border:none;border-radius:22px;font-size:16px;color:#E8ECF6;background:rgba(255,255,255,.10);cursor:pointer;font-family:inherit;transition:.2s}
+	.b-tabs button.on{background:#161D3B;color:#fff;font-weight:700;border:2px solid #5B8CFF;box-shadow:0 0 14px rgba(77,139,255,.45)}
+	.b-empty{margin-top:30px;display:flex;flex-direction:column;align-items:center}
+	.empty-tip{margin-top:10px;font-size:15px;color:var(--muted2)}
+	@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+	.empty-box{animation:bob 3.2s ease-in-out infinite}
+	.tabbar{position:absolute;left:0;right:0;bottom:0;height:86px;padding-bottom:20px;z-index:40;
+	  background:rgba(20,27,52,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+	  border-top:1px solid rgba(255,255,255,.05);
+	  display:grid;grid-template-columns:repeat(4,1fr);justify-items:center;align-items:center}
+	.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;color:#E8ECF6;cursor:pointer}
+	.tab.active-pill{flex-direction:row;gap:7px;background:linear-gradient(90deg,#2F6BFF,#4F8FFF);
+	  border-radius:24px;padding:10px 20px;font-size:15px;font-weight:600;color:#fff;
+	  box-shadow:0 6px 16px rgba(47,107,255,.4)}
+	.toast{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);background:rgba(0,0,0,.78);color:#fff;
+	  padding:11px 20px;border-radius:10px;font-size:14px;opacity:0;transition:.3s;z-index:99;pointer-events:none;white-space:nowrap}
+	.toast.show{opacity:1}
+	</style>
+	</head>
+	<body>
+	<!-- 共享 SVG 渐变定义 -->
+	<svg width="0" height="0" style="position:absolute">
+	  <defs>
+	    <linearGradient id="pedG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0F3FB"/><stop offset="1" stop-color="#C3CCE2"/></linearGradient>
+	    <linearGradient id="boxG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E9EDF8"/><stop offset="1" stop-color="#B7C2DE"/></linearGradient>
+	  </defs>
+	</svg>
+	<div class="stage">
+	<!-- ================= 屏 1：绑定邀请人弹窗 / 上级信息 ================= -->
+	<section>
+	  <div class="shot-label">① 没上级 → 弹窗&nbsp;&nbsp;|&nbsp;&nbsp;有上级 → 信息卡</div>
+	  <div class="phone" id="s1">
+	    <div class="screen">
+	      <h2>没上级点击弹出绑定邀请人</h2>
+	      <div class="modal-card">
+	        <h3>绑定邀请人</h3>
+	        <input class="invite-input" type="text" placeholder="请输入邀请码">
+	        <div class="modal-btns">
+	          <span class="ok" data-toast="已提交邀请码（演示）">确定</span>
+	          <span class="no" data-toast="已取消">取消</span>
+	        </div>
+	      </div>
+	      <h2 class="second">有上级点击弹出上级信息</h2>
+	      <div class="info-card">
+	        <div class="avatar"><img src="https://randomuser.me/api/portraits/women/44.jpg" alt="头像" onerror="this.style.display='none'"></div>
+	        <div>
+	          <div class="info-name">李志远 <span class="badge">私董合伙人</span></div>
+	          <div class="info-line">联系方式：19919988991
+	            <svg class="copy-ic" data-copy="19919988991" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+	          </div>
+	        </div>
+	      </div>
+	    </div>
+	  </div>
+	</section>
+	<!-- ================= 屏 2：选择服务门店 ================= -->
+	<section>
+	  <div class="shot-label">② 选择服务门店</div>
+	  <div class="phone" id="s2">
+	    <div class="screen">
+	      <div class="statusbar">
+	        <span class="time">9:41</span>
+	        <span class="sicons">
+	          <svg width="18" height="12" viewBox="0 0 18 12" fill="#fff"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+	          <svg width="17" height="12" viewBox="0 0 17 12" fill="#fff"><path d="M8.5 12l2.7-3a4.2 4.2 0 0 0-5.4 0l2.7 3z"/><path d="M8.5 5.3c1.9 0 3.6.7 5 1.9l1.7-2A9.6 9.6 0 0 0 8.5 2.6 9.6 9.6 0 0 0 1.8 5.2l1.7 2a7.4 7.4 0 0 1 5-1.9z"/><path d="M8.5 0C5.2 0 2.2 1.3 0 3.4l1.7 2A11.3 11.3 0 0 1 8.5 2.6c2.6 0 5 .9 6.8 2.7l1.7-2A12.6 12.6 0 0 0 8.5 0z" opacity=".01"/></svg>
+	          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.2" stroke="#fff" opacity=".45" fill="none"/><rect x="2" y="2" width="18" height="8" rx="2" fill="#fff"/><path d="M23 4v4c1-.4 1.6-1.1 1.6-2S24 4.4 23 4z" fill="#fff" opacity=".45"/></svg>
+	        </span>
+	      </div>
+	      <div class="navbar">
+	        <div class="nav-left">
+	          <svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2 2 10l8 8"/></svg>
+	          选择服务门店
+	        </div>
+	        <div class="capsule"><span class="cap-dots"><i></i><i></i><i></i></span><span class="cap-sep"></span>
+	          <svg width="17" height="17" viewBox="0 0 17 17"><circle cx="8.5" cy="8.5" r="7" stroke="#fff" stroke-width="1.4" fill="none"/><circle cx="8.5" cy="8.5" r="3.1" fill="#fff"/></svg>
+	        </div>
+	      </div>
+	      <div class="region-row">
+	        <b>区域选择</b>
+	        <div class="region-pill" data-toast="打开区域选择器（演示）">河南省郑州市二七区<i class="caret"></i></div>
+	      </div>
+	      <!-- 总部服务卡 -->
+	      <div class="store-card">
+	        <div class="sc-head">
+	          <div><div class="sc-title">总部服务</div>
+	            <div class="sc-sub">当前地区没有可服务门店，可选择总部服务</div></div>
+	          <span class="chev"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6.5 6.5L2 15"/></svg></span>
+	        </div>
+	        <div class="sc-body">
+	          <div class="store-img"><span>🏪</span><img src="https://loremflickr.com/200/200/storefront" alt="" onerror="this.style.display='none'"></div>
+	          <div class="sc-info">
+	            <div class="sc-name">脑商训练营梧桐街店 <span class="no-pill">NO.001</span></div>
+	            <div class="sc-meta">店长信息：李志远/19919988991</div>
+	            <div class="sc-meta addr">河南省郑州市管城回族区航海东路与中州大道交叉口西美景龙堂3c-1</div>
+	          </div>
+	        </div>
+	      </div>
+	      <!-- 门店卡 x3 -->
+	      <div class="store-card" data-toast="选择门店：脑商训练营梧桐街店 NO.001">
+	        <div class="sc-body center">
+	          <div class="store-img"><span>🏪</span><img src="https://loremflickr.com/200/200/storefront" alt="" onerror="this.style.display='none'"></div>
+	          <div class="sc-info">
+	            <div class="sc-name">脑商训练营梧桐街店 <span class="no-pill">NO.001</span></div>
+	            <div class="sc-meta">店长信息：李志远/19919988991</div>
+	            <div class="sc-meta addr">河南省郑州市管城回族区航海东路与中州大道交叉口西美景龙堂3c-1</div>
+	          </div>
+	          <span class="chev"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6.5 6.5L2 15"/></svg></span>
+	        </div>
+	      </div>
+	      <div class="store-card" data-toast="选择门店：脑商训练营梧桐街店 NO.001">
+	        <div class="sc-body center">
+	          <div class="store-img"><span>🏪</span><img src="https://loremflickr.com/200/200/storefront" alt="" onerror="this.style.display='none'"></div>
+	          <div class="sc-info">
+	            <div class="sc-name">脑商训练营梧桐街店 <span class="no-pill">NO.001</span></div>
+	            <div class="sc-meta">店长信息：李志远/19919988991</div>
+	            <div class="sc-meta addr">河南省郑州市管城回族区航海东路与中州大道交叉口西美景龙堂3c-1</div>
+	          </div>
+	          <span class="chev"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6.5 6.5L2 15"/></svg></span>
+	        </div>
+	      </div>
+	      <div class="store-card" data-toast="选择门店：脑商训练营梧桐街店 NO.001">
+	        <div class="sc-body center">
+	          <div class="store-img"><span>🏪</span><img src="https://loremflickr.com/200/200/storefront" alt="" onerror="this.style.display='none'"></div>
+	          <div class="sc-info">
+	            <div class="sc-name">脑商训练营梧桐街店 <span class="no-pill">NO.001</span></div>
+	            <div class="sc-meta">店长信息：李志远/19919988991</div>
+	            <div class="sc-meta addr">河南省郑州市管城回族区航海东路与中州大道交叉口西美景龙堂3c-1</div>
+	          </div>
+	          <span class="chev"><svg width="10" height="17" viewBox="0 0 10 17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6.5 6.5L2 15"/></svg></span>
+	        </div>
+	      </div>
+	    </div>
+	    <div class="home-bar"></div>
+	  </div>
+	</section>
+	<!-- ================= 屏 3：批发中心（已解锁） ================= -->
+	<section>
+	  <div class="shot-label">③ 批发中心 · 已解锁</div>
+	  <div class="phone" id="s3">
+	    <div class="screen">
+	      <div class="statusbar">
+	        <span class="time">9:41</span>
+	        <span class="sicons">
+	          <svg width="18" height="12" viewBox="0 0 18 12" fill="#fff"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+	          <svg width="17" height="12" viewBox="0 0 17 12" fill="#fff"><path d="M8.5 12l2.7-3a4.2 4.2 0 0 0-5.4 0l2.7 3z"/><path d="M8.5 5.3c1.9 0 3.6.7 5 1.9l1.7-2A9.6 9.6 0 0 0 8.5 2.6 9.6 9.6 0 0 0 1.8 5.2l1.7 2a7.4 7.4 0 0 1 5-1.9z"/></svg>
+	          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.2" stroke="#fff" opacity=".45" fill="none"/><rect x="2" y="2" width="18" height="8" rx="2" fill="#fff"/><path d="M23 4v4c1-.4 1.6-1.1 1.6-2S24 4.4 23 4z" fill="#fff" opacity=".45"/></svg>
+	        </span>
+	      </div>
+	      <div class="page-head">
+	        <span class="page-title">脑商批发中心</span>
+	        <div class="capsule"><span class="cap-dots"><i></i><i></i><i></i></span><span class="cap-sep"></span>
+	          <svg width="17" height="17" viewBox="0 0 17 17"><circle cx="8.5" cy="8.5" r="7" stroke="#fff" stroke-width="1.4" fill="none"/><circle cx="8.5" cy="8.5" r="3.1" fill="#fff"/></svg>
+	        </div>
+	      </div>
+	      <div class="user-row">
+	        <div class="avatar avatar-lg"><img src="https://randomuser.me/api/portraits/women/44.jpg" alt="" onerror="this.style.display='none'"></div>
+	        <div class="user-info">
+	          <div class="user-name">纳兰不败</div>
+	          <div class="user-meta">ID：SD0001<span class="gap"></span>邀请码：LXYA023
+	            <svg class="copy-ic" data-copy="LXYA023" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+	          </div>
+	        </div>
+	        <div class="switch-mod" data-toast="切换模块（演示）">
+	          <div class="switch-circle">
+	            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B2340" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.3 16.5v-9M9.3 7.5 6.8 10M9.3 7.5l2.5 2.5"/><path d="M14.7 7.5v9M14.7 16.5l-2.5-2.5M14.7 16.5l2.5-2.5"/></svg>
+	          </div>
+	          <span>切换模块</span>
+	        </div>
+	      </div>
+	      <div class="level-card">
+	        <div class="level-tag">当前等级</div>
+	        <div class="level-name">天使合伙人</div>
+	        <div class="level-desc">尊享x项权益，推广同级合伙人可快速升级</div>
+	        <div class="level-foot">
+	          <span>权益将在99天后到期</span>
+	          <span class="links"><a data-toast="查看经验明细（演示）">经验明细</a><a data-toast="查看晋升任务（演示）">晋升任务</a></span>
+	        </div>
+	      </div>
+	      <div class="quick-grid">
+	        <div class="quick" data-toast="收益（演示）">
+	          <svg width="30" height="30" viewBox="0 0 24 24"><path fill="#fff" d="M10 2.5h4c.3 0 .5.2.5.5l-.3 1.6c-.05.3-.3.5-.6.5h-3.2c-.3 0-.55-.2-.6-.5L9.5 3c0-.3.2-.5.5-.5z"/><path fill="#fff" d="M8.5 6.5h7c2.2 1.8 5 5.4 5 8.6 0 2.9-2.2 4.9-5.4 4.9H8.9c-3.2 0-5.4-2-5.4-4.9 0-3.2 2.8-6.8 5-8.6z"/><text x="12" y="17.8" font-size="7.5" font-weight="700" text-anchor="middle" fill="#233055">¥</text></svg>
+	          <div class="q-label">收益</div>
+	        </div>
+	        <div class="quick" data-toast="上级（演示）">
+	          <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="7.2" r="3.8"/><path d="M12 12.6c-4.6 0-7.6 2.7-7.6 6.4 0 .8.6 1.4 1.4 1.4h12.4c.8 0 1.4-.6 1.4-1.4 0-3.7-3-6.4-7.6-6.4z"/></svg>
+	          <div class="q-label">上级</div>
+	        </div>
+	        <div class="quick" data-toast="分享码（演示）">
+	          <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13.5" y="13.5" width="3" height="3" rx="1"/><rect x="18" y="13.5" width="3" height="3" rx="1"/><rect x="13.5" y="18" width="3" height="3" rx="1"/><rect x="18" y="18" width="3" height="3" rx="1"/></svg>
+	          <div class="q-label">分享码</div>
+	        </div>
+	        <div class="quick" data-toast="素材库（演示）">
+	          <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M9 3h10a2 2 0 0 1 2 2v10h-2.4V5.4H9V3z" opacity=".92"/><rect x="3" y="7" width="14" height="14" rx="2.5"/><circle cx="7.6" cy="11.6" r="1.7" fill="#1B2444"/><path d="M5.2 19.4l3.2-3.8 2.4 2.4 2.8-3.4 2.6 4.8H5.2z" fill="#1B2444"/></svg>
+	          <div class="q-label">素材库</div>
+	        </div>
+	      </div>
+	      <div class="stats">
+	        <div class="stat"><div class="s-label">团队人数</div><div class="s-num">29</div><div class="s-foot" data-toast="团队明细（演示）">团队明细<i class="tri"></i></div></div>
+	        <div class="stat"><div class="s-label">剩余VIP</div><div class="s-num">17</div><div class="s-foot" data-toast="进货明细（演示）">进货明细<i class="tri"></i></div></div>
+	        <div class="stat"><div class="s-label">已划拨VIP</div><div class="s-num">38</div><div class="s-foot" data-toast="划转明细（演示）">划转明细<i class="tri"></i></div></div>
+	      </div>
+	      <div class="benefit">
+	        <div class="b-title"><span class="star">✦</span>等级权益<span class="star">✦</span></div>
+	        <div class="b-tabs">
+	          <button>小批</button><button class="on">中批</button><button>大批</button><button>总批</button>
+	        </div>
+	        <div class="b-empty">
+	          <svg class="empty-box" width="180" height="160" viewBox="0 0 180 160" fill="none">
+	            <ellipse cx="90" cy="136" rx="56" ry="15" fill="url(#pedG)" opacity=".9"/>
+	            <ellipse cx="90" cy="129" rx="56" ry="15" fill="#DDE4F4"/>
+	            <polygon points="55,60 90,48 125,60 125,104 90,116 55,104" fill="url(#boxG)"/>
+	            <polygon points="55,60 90,72 90,116 55,104" fill="#A9B6D9"/>
+	            <polygon points="55,60 22,50 56,38 90,48" fill="#D7DFF2"/>
+	            <polygon points="90,48 125,60 158,50 124,36" fill="#C3CFE9"/>
+	            <rect x="63" y="78" width="20" height="5" rx="2.5" fill="#8FA0C8"/>
+	            <rect x="63" y="90" width="20" height="5" rx="2.5" fill="#8FA0C8"/>
+	            <rect x="34" y="24" width="10" height="10" rx="2.5" fill="#8FA0C8" transform="rotate(24 39 29)"/>
+	            <circle cx="146" cy="30" r="4.5" fill="#8FA0C8"/>
+	            <rect x="128" y="12" width="7" height="7" rx="2" fill="#A9B6D9" transform="rotate(-18 131 15)"/>
+	          </svg>
+	        </div>
+	      </div>
+	    </div>
+	    <div class="tabbar">
+	      <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E8ECF6" stroke-width="1.8" stroke-linejoin="round"><path d="M7 4h10l4 5-9 11L3 9l4-5z"/><path d="M3 9h18M9.5 4 8 9l4 10 4-10-1.5-5" opacity=".75"/></svg><span>会员</span></div>
+	      <div class="tab active-pill"><svg width="19" height="19" viewBox="0 0 24 24" fill="#fff"><path d="M12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5H14v-6h-4v6H4.5A1.5 1.5 0 0 1 3 20v-9.5L12 3z"/></svg><span>联营</span></div>
+	      <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="#E8ECF6"><path d="M4.5 3h15l1.8 4.6c.3 1-.2 2.1-1.2 2.5-.4.2-.9.3-1.3.2V20a1 1 0 0 1-1 1h-4.3v-5.5h-3.9V21H5.7a1 1 0 0 1-1-1v-9.7c-.4.1-.9.1-1.3-.1-1-.4-1.5-1.5-1.2-2.5L4.5 3z"/></svg><span>甄选</span></div>
+	      <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="#E8ECF6"><path d="M12 2.5A9.5 9.5 0 1 1 2.5 12 9.5 9.5 0 0 1 12 2.5zm-3.6 6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zm7.2 0a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zM7.4 14a.9.9 0 0 0-1.3 1.2 7 7 0 0 0 11.8 0A.9.9 0 0 0 16.6 14 5.6 5.6 0 0 1 12 16.2 5.6 5.6 0 0 1 7.4 14z"/></svg><span>我的</span></div>
+	    </div>
+	    <div class="home-bar"></div>
+	  </div>
+	</section>
+	<!-- ================= 屏 4：批发中心（未解锁） ================= -->
+	<section>
+	  <div class="shot-label">④ 批发中心 · 未解锁</div>
+	  <div class="phone" id="s4">
+	    <div class="screen">
+	      <div class="statusbar">
+	        <span class="time">9:41</span>
+	        <span class="sicons">
+	          <svg width="18" height="12" viewBox="0 0 18 12" fill="#fff"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+	          <svg width="17" height="12" viewBox="0 0 17 12" fill="#fff"><path d="M8.5 12l2.7-3a4.2 4.2 0 0 0-5.4 0l2.7 3z"/><path d="M8.5 5.3c1.9 0 3.6.7 5 1.9l1.7-2A9.6 9.6 0 0 0 8.5 2.6 9.6 9.6 0 0 0 1.8 5.2l1.7 2a7.4 7.4 0 0 1 5-1.9z"/></svg>
+	          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.2" stroke="#fff" opacity=".45" fill="none"/><rect x="2" y="2" width="18" height="8" rx="2" fill="#fff"/><path d="M23 4v4c1-.4 1.6-1.1 1.6-2S24 4.4 23 4z" fill="#fff" opacity=".45"/></svg>
+	        </span>
+	      </div>
+	      <div class="page-head">
+	        <span class="page-title">脑商批发中心</span>
+	        <div class="capsule"><span class="cap-dots"><i></i><i></i><i></i></span><span class="cap-sep"></span>
+	          <svg width="17" height="17" viewBox="0 0 17 17"><circle cx="8.5" cy="8.5" r="7" stroke="#fff" stroke-width="1.4" fill="none"/><circle cx="8.5" cy="8.5" r="3.1" fill="#fff"/></svg>
+	        </div>
+	      </div>
+	      <div class="user-row">
+	        <div class="avatar avatar-lg"><img src="https://randomuser.me/api/portraits/women/44.jpg" alt="" onerror="this.style.display='none'"></div>
+	        <div class="user-info">
+	          <div class="user-name">纳兰不败</div>
+	          <div class="user-meta">ID：SD0001<span class="gap"></span>邀请码：LXYA023
+	            <svg class="copy-ic" data-copy="LXYA023" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+	          </div>
+	        </div>
+	        <div class="switch-mod" data-toast="切换模块（演示）">
+	          <div class="switch-circle">
+	            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B2340" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.3 16.5v-9M9.3 7.5 6.8 10M9.3 7.5l2.5 2.5"/><path d="M14.7 7.5v9M14.7 16.5l-2.5-2.5M14.7 16.5l2.5-2.5"/></svg>
+	          </div>
+	          <span>切换模块</span>
+	        </div>
+	      </div>
+	      <div class="level-card">
+	        <div class="level-tag">当前等级</div>
+	        <div class="level-name">天使合伙人</div>
+	        <div class="level-desc">尊享x项权益，推广同级合伙人可快速升级</div>
+	        <div class="level-foot"><span>您暂未解锁合伙人权益</span></div>
+	      </div>
+	      <button class="pay-btn" data-toast="调起支付（演示）">支付¥200.00开通1年合伙权益</button>
+	      <div class="benefit">
+	        <div class="b-title"><span class="star">✦</span>等级权益<span class="star">✦</span></div>
+	        <div class="b-tabs">
+	          <button>小批</button><button class="on">中批</button><button>大批</button><button>总批</button>
+	        </div>
+	        <div class="b-empty">
+	          <svg class="empty-box" width="180" height="160" viewBox="0 0 180 160" fill="none">
+	            <ellipse cx="90" cy="136" rx="56" ry="15" fill="url(#pedG)" opacity=".9"/>
+	            <ellipse cx="90" cy="129" rx="56" ry="15" fill="#DDE4F4"/>
+	            <polygon points="55,60 90,48 125,60 125,104 90,116 55,104" fill="url(#boxG)"/>
+	            <polygon points="55,60 90,72 90,116 55,104" fill="#A9B6D9"/>
+	            <polygon points="55,60 22,50 56,38 90,48" fill="#D7DFF2"/>
+	            <polygon points="90,48 125,60 158,50 124,36" fill="#C3CFE9"/>
+	            <rect x="63" y="78" width="20" height="5" rx="2.5" fill="#8FA0C8"/>
+	            <rect x="63" y="90" width="20" height="5" rx="2.5" fill="#8FA0C8"/>
+	            <rect x="34" y="24" width="10" height="10" rx="2.5" fill="#8FA0C8" transform="rotate(24 39 29)"/>
+	            <circle cx="146" cy="30" r="4.5" fill="#8FA0C8"/>
+	            <rect x="128" y="12" width="7" height="7" rx="2" fill="#A9B6D9" transform="rotate(-18 131 15)"/>
+	          </svg>
+	          <div class="empty-tip">这里还没有内容～</div>
+	        </div>
+	      </div>
+	    </div>
+	    <div class="tabbar">
+	      <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E8ECF6" stroke-width="1.8" stroke-linejoin="round"><path d="M7 4h10l4 5-9 11L3 9l4-5z"/><path d="M3 9h18M9.5 4 8 9l4 10 4-10-1.5-5" opacity=".75"/></svg><span>会员</span></div>
+	      <div class="tab active-pill"><svg width="19" height="19" viewBox="0 0 24 24" fill="#fff"><path d="M12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5H14v-6h-4v6H4.5A1.5 1.5 0 0 1 3 20v-9.5L12 3z"/></svg><span>联营</span></div>
+	      <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="#E8ECF6"><path d="M4.5 3h15l1.8 4.6c.3 1-.2 2.1-1.2 2.5-.4.2-.9.3-1.3.2V20a1 1 0 0 1-1 1h-4.3v-5.5h-3.9V21H5.7a1 1 0 0 1-1-1v-9.7c-.4.1-.9.1-1.3-.1-1-.4-1.5-1.5-1.2-2.5L4.5 3z"/></svg><span>甄选</span></div>
+	      <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="#E8ECF6"><path d="M12 2.5A9.5 9.5 0 1 1 2.5 12 9.5 9.5 0 0 1 12 2.5zm-3.6 6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zm7.2 0a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zM7.4 14a.9.9 0 0 0-1.3 1.2 7 7 0 0 0 11.8 0A.9.9 0 0 0 16.6 14 5.6 5.6 0 0 1 12 16.2 5.6 5.6 0 0 1 7.4 14z"/></svg><span>我的</span></div>
+	    </div>
+	    <div class="home-bar"></div>
+	  </div>
+	</section>
+	</div>
+	<script>
+	/* 选项卡切换 */
+	document.querySelectorAll('.b-tabs').forEach(function(g){
+	  g.addEventListener('click',function(e){
+	    var b=e.target.closest('button'); if(!b) return;
+	    g.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+	  });
+	});
+	/* 底部 TabBar 切换 */
+	document.querySelectorAll('.tabbar').forEach(function(bar){
+	  bar.addEventListener('click',function(e){
+	    var t=e.target.closest('.tab'); if(!t) return;
+	    bar.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active-pill');});
+	    t.classList.add('active-pill');
+	  });
+	});
+	/* 复制 */
+	document.querySelectorAll('[data-copy]').forEach(function(el){
+	  el.addEventListener('click',function(){
+	    var t=el.getAttribute('data-copy');
+	    if(navigator.clipboard) navigator.clipboard.writeText(t).catch(function(){});
+	    showToast(el.closest('.phone'),'已复制 '+t);
+	  });
+	});
+	/* Toast */
+	document.querySelectorAll('[data-toast]').forEach(function(el){
+	  el.addEventListener('click',function(){ showToast(el.closest('.phone'), el.getAttribute('data-toast')); });
+	});
+	function showToast(phone,msg){
+	  if(!phone) return;
+	  var t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+	  phone.appendChild(t);
+	  requestAnimationFrame(function(){t.classList.add('show');});
+	  setTimeout(function(){t.classList.remove('show'); setTimeout(function(){t.remove();},300);},1400);
+	}
+	</script>
+	</body>
+	</html>

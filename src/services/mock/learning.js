@@ -1,13 +1,17 @@
 // TODO(API): MOCK-ONLY. Replace fixtures and remove local state after API integration.
 import { emptyContent } from '../../features/content/rich-content'
 import { mockFamily } from './family'
+import { mockChapterProgress } from './learning-progress'
 
 // mock-only navigation metadata. CMS benefits/templates stay empty. TODO(API): sample course metadata lives only in this mock adapter.
 const names = ['超级记忆', '实用记忆', '语文系统', '外语系统', '百科系统', '导图大师', '速读大师', '记忆大师', '潜能开发', '未来领袖']
 const tiers = ['一阶菁英会员', '二阶行能会员', '三阶羿烁会员']
 const states = new Map()
 function accountState(accountId) {
-  if (!states.has(accountId)) states.set(accountId, { grants: new Map(), codes: new Map(), operations: new Map() })
+  if (!states.has(accountId)) {
+    const saved = uni.getStorageSync?.(`naoshang-mock-grants:${accountId}`)
+    states.set(accountId, { grants: new Map((saved?.grants || []).map(([id, levels]) => [id, new Set(levels)])), codes: new Map(saved?.codes || []), operations: new Map(saved?.operations || []) })
+  }
   return states.get(accountId)
 }
 export function mockIdentities(user) {
@@ -25,22 +29,38 @@ export function mockLevels(identity) {
     id: `level-${index + 1}`, number: index + 1, name,
     tier: index === 0 ? 1 : index < 5 ? 2 : 3,
     tierName: tiers[index === 0 ? 0 : index < 5 ? 1 : 2],
-    unlocked: identity.mode === 'child' && (identity.memberId.endsWith('-1') || granted.has(`level-${index + 1}`)),
+    unlocked: identity.mode === 'child' && (identity.memberId === `demo-${identity.accountId}-1` || [...granted].some(id => {
+      const grantedIndex = names.findIndex((_, n) => id === `level-${n + 1}`)
+      return grantedIndex >= 0 && (grantedIndex === 0 ? 1 : grantedIndex < 5 ? 2 : 3) === (index === 0 ? 1 : index < 5 ? 2 : 3)
+    })),
   }))
 }
 export function mockLevelDetail(identity, levelId) {
   const level = mockLevels(identity).find(item => item.id === levelId)
   if (!level) throw new Error('该等级不存在')
-  return { ...level, content: emptyContent(), summary: '', covers: [], chapters: [{id:`${levelId}-article`,title:'联想记忆入门',type:'article',accessible:level.unlocked},{id:`${levelId}-video`,title:'观察与专注练习',type:'video',accessible:level.unlocked}], activationEnabled: identity.mode === 'child', revision: null }
+  const chapters = [
+    { id: `${levelId}-article`, title: '第1章：联想记忆入门', type: 'article' },
+    { id: `${levelId}-video`, title: '第2章：观察与专注练习', type: 'video' },
+    { id: `${levelId}-practice`, title: '第3章：建立自己的记忆故事', type: 'article' },
+    { id: `${levelId}-review`, title: '第4章：复习与回忆训练', type: 'video' },
+  ].map(chapter => ({ ...chapter, accessible: level.unlocked, progress: identity.mode === 'child' ? mockChapterProgress(identity, levelId, chapter.id) : null }))
+  return { ...level, content: emptyContent(), summary: '', covers: [], chapters, activationEnabled: identity.mode === 'child', revision: null }
 }
 export function mockPreviewActivation(identity, code, levelId) {
   const level = mockLevelDetail(identity, levelId)
   if (identity.mode !== 'child') throw new Error('请先选择需要激活的会员')
   if (level.unlocked) throw new Error('该会员已解锁此等级')
-  if (code !== `DEMO-L${level.number}`) throw new Error('激活码无效或不适用于此等级')
+  const legacyNumber = Number(/^DEMO-L(10|[1-9])$/.exec(code)?.[1])
+  const codeTier = /^DEMO-T([1-3])$/.exec(code)?.[1] || (legacyNumber ? legacyNumber === 1 ? 1 : legacyNumber < 6 ? 2 : 3 : null)
+  if (Number(codeTier) !== level.tier) throw new Error('激活码无效或不适用于此会员等级')
   if (accountState(identity.accountId).codes.has(code)) throw new Error('该激活码已使用')
-  return { code, levelId, levelName: level.name, memberId: identity.memberId, memberName: identity.name }
+  return { code, levelId, levelName: level.name, membershipTier: level.tier, membershipName: level.tierName, memberId: identity.memberId, memberName: identity.name }
 }
+export const mockAnnouncements = [
+  { id: 'notice-learning', title: '本周学习安排', summary: '请按目录完成当前等级的图文和视频练习。', publishedAtLabel: '2026.10.20' },
+  { id: 'notice-rights', title: '会员权益更新', summary: '等级权益说明由后台发布，这里只保留公告框架。', publishedAtLabel: '2026.10.08' },
+  { id: 'notice-service', title: '服务时间提示', summary: '如需激活会员，请联系所属门店获取激活码。', publishedAtLabel: '2026.09.18' },
+]
 export function mockActivate(identity, { code, levelId, idempotencyKey }) {
   const state = accountState(identity.accountId)
   const payload = JSON.stringify({ code, levelId, memberId: identity.memberId })
@@ -51,8 +71,11 @@ export function mockActivate(identity, { code, levelId, idempotencyKey }) {
   }
   mockPreviewActivation(identity, code, levelId)
   const grants = state.grants.get(identity.memberId) || new Set()
-  grants.add(levelId); state.grants.set(identity.memberId, grants); state.codes.set(code, identity.memberId)
-  const result = { activationId: `demo-activation-${state.operations.size + 1}`, levelId, memberId: identity.memberId }
+  const level = mockLevels(identity).find(item => item.id === levelId)
+  const unlockedLevelIds = mockLevels(identity).filter(item => item.tier === level.tier).map(item => item.id)
+  unlockedLevelIds.forEach(id => grants.add(id)); state.grants.set(identity.memberId, grants); state.codes.set(code, identity.memberId)
+  const result = { activationId: `demo-activation-${state.operations.size + 1}`, levelId, membershipTier: level.tier, unlockedLevelIds, expiresAt: null, memberId: identity.memberId }
   state.operations.set(idempotencyKey, { payload, result })
+  uni.setStorageSync(`naoshang-mock-grants:${identity.accountId}`, { grants: [...state.grants].map(([id, levels]) => [id, [...levels]]), codes: [...state.codes], operations: [...state.operations] })
   return result
 }

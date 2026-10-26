@@ -16,9 +16,14 @@ export function request(path, options = {}) {
   }))
 }
 export async function login(data) {
+  if (config.useMock && data.channel === 'coach') throw new Error('请联系门店开通健脑官账号')
   const result = config.useMock ? { token: 'demo-local-token', user: { name: '脑商体验官', id: 'LC0001', role: '家长' } } : await request('/auth/login', { method: 'POST', data })
-  uni.setStorageSync(SESSION_KEY, result)
-  return result
+  if (!result?.token || !result?.user?.id) throw new Error('登录信息异常，请重新登录')
+  if (result.accountType && !['parent', 'coach'].includes(result.accountType)) throw new Error('暂不支持该账号类型')
+  const session = { ...result, accountType: result.accountType || 'parent' }
+  uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
+  uni.setStorageSync(SESSION_KEY, session)
+  return session
 }
 export const getLevels = () => config.useMock ? Promise.resolve(['超级记忆','实用记忆','语文系统','外语系统','百科系统','导图大师','速读大师','记忆大师','潜能开发','未来领袖'].map((name, i) => ({ id: i + 1, name, unlocked: false }))) : request('/member/levels')
 export const getPartners = () => config.useMock ? Promise.resolve([{ title: '城市合伙人', desc: '连接优质教育资源，共建成长生态', tag: '合作共赢' }, { title: '学习中心', desc: '陪伴每一个家庭，发现更多可能', tag: '共同成长' }]) : request('/partners')

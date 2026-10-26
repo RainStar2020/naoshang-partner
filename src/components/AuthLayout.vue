@@ -12,10 +12,16 @@
 </template>
 
 <script setup>
-defineProps({ title: { type: String, default: '' } })
+const props = defineProps({
+  title: { type: String, default: '' },
+  // Parent handles the header back control, for example a multi-step form.
+  manualBack: { type: Boolean, default: false },
+})
 const emit = defineEmits(['back'])
 function goBack() {
+  const stay = props.manualBack
   emit('back')
+  if (stay) return
   if (getCurrentPages().length > 1) uni.navigateBack()
   else uni.reLaunch({ url: '/pages/login/index' })
 }
@@ -40,19 +46,19 @@ function goBack() {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 20rpx 48rpx;
-  padding-top: max(20rpx, var(--status-bar-height, 0px), env(safe-area-inset-top));
-  padding-bottom: max(20rpx, env(safe-area-inset-bottom));
+  padding: 12rpx 56rpx 24rpx;
+  padding-top: max(12rpx, var(--status-bar-height, 0px), env(safe-area-inset-top));
+  padding-bottom: max(24rpx, env(safe-area-inset-bottom));
   overflow-y: auto;
 }
 .auth-brand { display: flex; flex: 1 0 140rpx; align-items: center; justify-content: center; padding: 16rpx 0; }
 .auth-form { flex-shrink: 0; width: 100%; }
 .auth-footer { display: flex; flex: 1 0 180rpx; flex-direction: column; justify-content: center; padding: 24rpx 0 12rpx; }
-.auth-detail { background: linear-gradient(180deg, #10134e, #1d3468 47%, #030640); --auth-input-height: clamp(80rpx, 6.5vh, 104rpx); }
-.auth-navigation { flex-shrink: 0; display: flex; align-items: center; min-height: 72rpx; gap: 14rpx; font-size: 29rpx; padding-right: 180rpx; }
+.auth-detail { background: linear-gradient(180deg, #0c154c 0%, #17356e 46%, #0a184f 78%, #050838 100%); --auth-input-height: clamp(88rpx, 6.6vh, 104rpx); }
+.auth-navigation { flex-shrink: 0; display: flex; align-items: center; min-height: 88rpx; gap: 8rpx; color: #f4f7ff; font-size: 32rpx; line-height: 44rpx; padding-right: 180rpx; }
 .auth-back { font-size: 54rpx; line-height: 60rpx; padding-right: 8rpx; }
-.auth-wordmark { flex-shrink: 0; display: flex; align-items: center; gap: 12rpx; padding: 20rpx 0; font-size: 28rpx; font-weight: 600; }
-.auth-symbol { width: 64rpx; height: 64rpx; overflow: hidden; }
-.auth-symbol image { width: 64rpx; }
+.auth-wordmark { flex-shrink: 0; display: flex; align-items: center; gap: 16rpx; padding: 28rpx 0 8rpx; color: #f7f9ff; font-size: 30rpx; font-weight: 600; line-height: 42rpx; }
+.auth-symbol { width: 72rpx; height: 72rpx; overflow: hidden; flex-shrink: 0; }
+.auth-symbol image { display: block; width: 72rpx; }
 .auth-detail .auth-form { flex: 1 0 auto; display: flex; flex-direction: column; padding-bottom: 28rpx; }
 </style>

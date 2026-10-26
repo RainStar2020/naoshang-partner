@@ -2,18 +2,66 @@
  <view class="income-detail feature-page">
   <FeaturePageState :status="status" :error="error" @retry="load"/>
   <template v-if="status==='ready' && data">
-   <view class="income-main-card"><view class="income-main-top"><view><text>{{data.sourceOrder || `单号：${data.id}`}}</text><view>{{data.title}}</view><text>{{date(data.createdAt)}}</text></view><view><text class="income-channel">{{data.channel || '收益'}}</text><view class="income-amount">{{signed(data.amount)}}</view></view></view><view class="income-facts"><view><text>支付类型</text><text>{{data.paymentTypeLabel || data.channel || '—'}}</text></view><view><text>本人身份</text><text>{{data.identityLabel || context.label}}</text></view><view><text>业务提点</text><text>{{data.rateBps==null?'—':percent(data.rateBps)}}</text></view><view v-if="data.baseAmount!=null"><text>实付金额</text><text>¥{{money(data.baseAmount)}}</text></view><view v-if="data.allocationKind"><text>{{data.allocationKind==='inspection'?'巡查提点分配':'销售提点分配'}}</text><text>{{allocationLabel}}</text></view></view></view>
-   <view class="income-section-title">推荐人信息</view><view class="income-person-card"><view class="income-avatar">{{recommended.name?.slice(0,1) || '推'}}</view><view><view>{{recommended.name || '暂未提供'}}</view><text>{{recommended.roleLabel || '区域合伙人'}}</text><text>{{recommended.phone ? `联系方式：${recommended.phone}`:'联系方式待后台提供'}}</text></view></view>
-   <view class="income-section-title">购买人信息</view><view class="income-person-card"><view class="income-avatar">{{buyer.name?.slice(0,1) || '购'}}</view><view><view>{{buyer.name || '暂未提供'}}</view><text>{{buyer.roleLabel || '用户'}}</text><text>{{buyer.phone ? `联系方式：${buyer.phone}`:'联系方式待后台提供'}}</text><text v-if="buyer.address">门店地址：{{buyer.address}}</text></view></view>
-   <view class="income-section-title">支付门店</view><view class="income-store-card"><image src="/static/common/icon-store.png" mode="aspectFit"/><view><view>{{store.name || '暂无门店信息'}} <text v-if="store.number">{{store.number}}</text></view><text>{{store.address || '地址待后台提供'}}</text><text v-if="store.manager">店长信息：{{store.manager}}</text></view></view>
-   <text v-if="data.allocationStatus==='PENDING'" class="income-notice">待分配收益不会计入可提现金额。</text>
-   <text v-else-if="data.settlementStatus==='PENDING_SETTLEMENT'" class="income-notice">已分配提点，等待后台结算。</text>
-   <button v-if="data.allowedActions?.includes('allocate')" class="income-allocate" @click="openAllocation">{{data.allocationKind==='inspection'?'分配巡查提点':'分配销售提点'}}</button>
+   <view v-if="view.notice" class="income-notice">{{view.notice}}</view>
+   <view class="income-card">
+    <view class="income-hero">
+     <view>
+      <text v-if="data.partyLabel" class="income-kicker">{{data.partyLabel}}</text>
+      <view class="income-title">{{data.title}}</view>
+      <text class="income-kicker">{{date(data.createdAt)}}</text>
+     </view>
+     <view class="income-side">
+      <text class="income-pill">{{data.channel || '收益'}}</text>
+      <view class="income-amount">{{view.amount}}</view>
+     </view>
+    </view>
+    <view class="income-rule"></view>
+    <view v-for="fact in view.facts" :key="fact.label" class="income-fact">
+     <text>{{fact.label}}</text>
+     <view><text>{{fact.value}}</text><text v-if="fact.note" class="income-fact-note">{{fact.note}}</text></view>
+    </view>
+    <button v-if="data.allowedActions?.includes('allocate')" class="income-action" @click="openAllocation">{{data.allocationKind==='inspection'?'分配巡查提点':'分配销售提点'}}</button>
+   </view>
+   <template v-for="person in view.people" :key="person.title">
+    <view class="income-heading">{{person.title}}</view>
+    <view class="income-person">
+     <view class="income-avatar"><image v-if="person.avatarUrl" :src="person.avatarUrl" mode="aspectFill"/><text v-else>{{person.name?.slice(0,1) || '人'}}</text></view>
+     <view>
+      <view class="income-name">{{person.name}} <text v-if="person.badge" class="income-badge">{{person.badge}}</text></view>
+      <text v-for="line in person.lines" :key="line">{{line}}</text>
+     </view>
+    </view>
+   </template>
+   <template v-if="view.store">
+    <view class="income-heading">{{view.store.title}}</view>
+    <view class="income-store">
+     <view class="income-store-photo"><image :src="view.store.imageUrl" mode="aspectFill"/></view>
+     <view>
+      <view class="income-name">{{view.store.name}} <text class="income-badge">{{view.store.number}}</text></view>
+      <text>{{view.store.address}}</text>
+      <text>店长信息：{{view.store.manager}}</text>
+     </view>
+    </view>
+   </template>
   </template>
-  <view v-if="allocationOpen" class="income-mask" @click.self="allocationOpen=false"><view class="allocation-sheet"><view class="allocation-title">{{data?.allocationKind==='inspection'?'分配巡查提点':'分配销售提点'}}<button aria-label="关闭分配" @click="allocationOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view><text class="allocation-label">请选择{{data?.allocationKind==='inspection'?'巡查':'销售'}}受益人</text><view class="allocation-options"><button v-for="item in candidates" :key="item.value" :class="{selected:targetId===item.value}" @click="targetId=item.value">{{item.label}}</button></view><text v-if="operationError" class="allocation-error">{{operationError}}</text><view v-if="quote" class="allocation-quote"><view v-for="detail in quote.details" :key="detail.label"><text>{{detail.label}}</text><text>{{format(detail)}}</text></view></view><button class="allocation-confirm" :disabled="busy||!targetId" @click="quote?commit():preview">{{busy?'处理中…':quote?'确认分配':'确认'}}</button></view></view>
+  <view v-if="allocationOpen" class="income-mask" @click="closeAllocation">
+   <view class="allocation-sheet" role="dialog" :aria-label="sheetTitle" @click.stop>
+    <view class="allocation-title">{{sheetTitle}}<button aria-label="关闭分配" @click="closeAllocation"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view>
+    <text class="allocation-label">请选择{{data?.allocationKind==='inspection'?'巡查方':'销售方'}}</text>
+    <view class="allocation-options">
+     <button v-for="item in candidates" :key="item.value" :class="{selected:targetId===item.value}" @click="choose(item.value)">{{item.label}}</button>
+    </view>
+    <template v-if="targetId==='other'">
+     <text class="allocation-label">{{data?.allocationKind==='inspection'?'巡查方ID':'销售方ID'}}</text>
+     <input v-model="agentId" class="allocation-input" maxlength="32" placeholder="请输入"/>
+    </template>
+    <text v-if="operationError" class="allocation-error">{{operationError}}</text>
+    <view v-if="quote" class="allocation-quote"><view v-for="detail in quote.details" :key="detail.label"><text>{{detail.label}}</text><text>{{format(detail)}}</text></view></view>
+    <button class="income-action" :disabled="busy || !canConfirm" @click="quote ? commit() : preview()">{{busy?'处理中…':quote?'确认分配':'确定'}}</button>
+   </view>
+  </view>
  </view>
 </template>
-
 <script setup>
 import {computed,ref,watch} from 'vue'
 import {money,percent} from '../features/exclusive/format'
@@ -22,22 +70,107 @@ import {getBusinessContext,getBusinessIncomeDetail} from '../services/business'
 import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOperation} from '../services/business-operations'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
-const props=defineProps({pageQuery:Object}),context=ref(null),allocationOpen=ref(false),options=ref(null),targetId=ref(''),quote=ref(null),busy=ref(false),operationError=ref('');let attemptKey=''
-const {data,status,error,load}=useAsyncPage(async()=>{if(!props.pageQuery?.id)throw new Error('缺少收益记录编号');const ctx=await getBusinessContext(null,props.pageQuery.contextId);context.value=ctx;allocationOpen.value=false;quote.value=null;return getBusinessIncomeDetail(ctx.id,props.pageQuery.id)},false)
+const props=defineProps({pageQuery:Object})
+const context=ref(null),allocationOpen=ref(false),options=ref(null),targetId=ref(''),agentId=ref(''),quote=ref(null),busy=ref(false),operationError=ref('')
+let attemptKey=''
+const {data,status,error,load}=useAsyncPage(async()=>{
+  if(!props.pageQuery?.id)throw new Error('缺少收益记录编号')
+  const ctx=await getBusinessContext(null,props.pageQuery.contextId)
+  context.value=ctx
+  closeAllocation()
+  return getBusinessIncomeDetail(ctx.id,props.pageQuery.id)
+},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
-const recommended=computed(()=>data.value?.recommended || data.value?.referrer || {})
-const buyer=computed(()=>data.value?.buyer || data.value?.purchaser || {})
-const store=computed(()=>data.value?.store || data.value?.payingStore || {})
-const candidates=computed(()=>options.value?.fields?.find(field=>field.key==='targetId')?.options || [])
-const allocationLabel=computed(()=>({PENDING:'待分配',ALLOCATED:'已分配'}[data.value?.allocationStatus] || '待确认'))
-const signed=value=>value==null?'—':`${value>0?'+':''}¥${money(value)}`
+const view=computed(()=>{
+  const entry=data.value
+  if(entry?.presentation)return entry.presentation
+  const signed=entry?.amount==null?'—':`${entry.amount>0?'+':''}${entry.amount<0?'-':''}¥${money(Math.abs(entry.amount||0))}`
+  return {
+    amount:signed,
+    notice:entry?.pendingNote||'',
+    facts:[
+      {label:'支付类型',value:entry?.paymentTypeLabel||entry?.channel||'—'},
+      {label:'本人身份',value:entry?.identityLabel||context.value?.label||'—'},
+      {label:'业务提点',value:entry?.rateBps==null?'—':percent(entry.rateBps)},
+    ],
+    people:[entry?.recommended,entry?.buyer].filter(Boolean).map((item,index)=>({title:index?'购买人信息':'推荐人信息',name:item.name||'暂未提供',badge:item.roleLabel||'',avatarUrl:item.avatarUrl||'',lines:[item.phone?`联系方式：${item.phone}`:'联系方式待后台提供',item.address?`门店地址：${item.address}`:''].filter(Boolean)})),
+    store:entry?.store?.name?{title:'支付门店',name:entry.store.name,number:entry.store.number||'',address:entry.store.address||'',manager:entry.store.manager||'',imageUrl:entry.store.imageUrl||'/static/common/icon-store.png'}:null,
+  }
+})
+const candidates=computed(()=>options.value?.fields?.find(field=>field.key==='targetId')?.options||[])
+const sheetTitle=computed(()=>data.value?.allocationKind==='inspection'?'分配巡查提点':'分配销售提点')
+const canConfirm=computed(()=>targetId.value&&(targetId.value!=='other'||/^[A-Za-z0-9_-]{2,32}$/.test(agentId.value.trim())))
 const format=detail=>detail.kind==='money'?`¥${money(detail.value)}`:detail.kind==='percent'?percent(detail.value):detail.value??'—'
-async function openAllocation(){busy.value=true;operationError.value='';quote.value=null;attemptKey='';try{options.value=await getBusinessOperationOptions('allocation',context.value.id,data.value.id);targetId.value='';allocationOpen.value=true}catch(reason){operationError.value=reason.message||'无法获取分配对象'}finally{busy.value=false}}
-async function preview(){if(!targetId.value||busy.value)return;busy.value=true;operationError.value='';try{quote.value=await previewBusinessOperation('allocation',context.value.id,{targetId:targetId.value},data.value.id)}catch(reason){operationError.value=reason.message||'预览失败'}finally{busy.value=false}}
-async function commit(){if(!quote.value||busy.value)return;busy.value=true;operationError.value='';if(!attemptKey)attemptKey=`allocation-${Date.now()}-${Math.random().toString(36).slice(2)}`;try{await commitBusinessOperation('allocation',context.value.id,quote.value.id,attemptKey,data.value.id);allocationOpen.value=false;quote.value=null;await load()}catch(reason){operationError.value=reason.message||'分配失败'}finally{busy.value=false}}
+function closeAllocation(){allocationOpen.value=false;quote.value=null;targetId.value='';agentId.value='';operationError.value='';attemptKey=''}
+function choose(value){if(value!==targetId.value){targetId.value=value;quote.value=null;attemptKey='';operationError.value=''}}
+watch(agentId,()=>{quote.value=null;attemptKey=''})
+async function openAllocation(){
+  busy.value=true;operationError.value='';quote.value=null;attemptKey=''
+  try{options.value=await getBusinessOperationOptions('allocation',context.value.id,data.value.id);targetId.value='';agentId.value='';allocationOpen.value=true}
+  catch(reason){operationError.value=reason.message||'无法获取分配对象'}
+  finally{busy.value=false}
+}
+async function preview(){
+  if(!canConfirm.value||busy.value)return
+  busy.value=true;operationError.value=''
+  try{quote.value=await previewBusinessOperation('allocation',context.value.id,{targetId:targetId.value,agentId:agentId.value.trim()},data.value.id)}
+  catch(reason){operationError.value=reason.message||'预览失败'}
+  finally{busy.value=false}
+}
+async function commit(){
+  if(!quote.value||busy.value)return
+  busy.value=true;operationError.value=''
+  if(!attemptKey)attemptKey=`allocation-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  try{await commitBusinessOperation('allocation',context.value.id,quote.value.id,attemptKey,data.value.id);closeAllocation();await load()}
+  catch(reason){operationError.value=reason.message||'分配失败'}
+  finally{busy.value=false}
+}
 defineExpose({refresh:load})
 </script>
-
 <style scoped>
-.income-detail{min-height:100vh;padding:24rpx 24rpx calc(44rpx + env(safe-area-inset-bottom));box-sizing:border-box;background:#272c47;color:#eef5ff}.income-main-card{padding:22rpx;border-radius:18rpx;background:#343d61}.income-main-top{display:flex;justify-content:space-between;gap:18rpx}.income-main-top>view:first-child{min-width:0;flex:1}.income-main-top>view:first-child>text{display:block;color:#a9bbd5;font-size:20rpx;line-height:1.6;overflow-wrap:anywhere}.income-main-top>view:first-child>view{font-size:27rpx;font-weight:700;line-height:1.6;overflow-wrap:anywhere}.income-main-top>view:last-child{flex-shrink:0;text-align:right}.income-channel{display:inline-block;padding:2rpx 10rpx;border-radius:20rpx;background:#078eea;font-size:19rpx}.income-amount{margin-top:8rpx;color:#56cbff;font-size:31rpx;font-weight:700}.income-facts{margin-top:18rpx;border-radius:10rpx;overflow:hidden;background:#444d6e}.income-facts>view{display:flex;justify-content:space-between;gap:18rpx;padding:10rpx 14rpx;background:#3b4467;font-size:21rpx;line-height:1.6}.income-facts>view:nth-child(even){background:#414a6c}.income-facts text:first-child{color:#a9bbd4}.income-facts text:last-child{text-align:right;overflow-wrap:anywhere}.income-section-title{margin:28rpx 4rpx 14rpx;padding-left:12rpx;border-left:5rpx solid #00adff;font-size:27rpx;font-weight:700}.income-person-card,.income-store-card{display:flex;align-items:center;gap:16rpx;padding:18rpx;border-radius:16rpx;background:#343d61}.income-avatar{width:64rpx;height:64rpx;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#a7dcff,#3152a1);color:#162a53;font-size:28rpx}.income-person-card>view:last-child,.income-store-card>view{min-width:0;flex:1;font-size:25rpx;line-height:1.55;overflow-wrap:anywhere}.income-person-card text,.income-store-card text{display:block;color:#a9bad4;font-size:20rpx}.income-store-card image{width:96rpx;height:96rpx;flex-shrink:0;border-radius:10rpx;background:#465174}.income-store-card>view>view text{display:inline-block;background:#078eea;color:#fff;border-radius:18rpx;padding:0 8rpx;font-size:18rpx}.income-notice{display:block;margin-top:24rpx;color:#61c9ff;font-size:22rpx;line-height:1.7}.income-allocate,.allocation-confirm{display:block;width:100%;margin:28rpx 0 0;border-radius:34rpx;padding:16rpx;background:linear-gradient(90deg,#0b4cff,#009bf1);color:#fff;font-size:28rpx;line-height:1.5}.income-mask{position:fixed;z-index:100;inset:0;display:flex;align-items:flex-end;background:#000a}.allocation-sheet{width:100%;box-sizing:border-box;padding:32rpx 30rpx calc(28rpx + env(safe-area-inset-bottom));border-radius:32rpx 32rpx 0 0;background:#343d62}.allocation-title{position:relative;text-align:center;font-size:30rpx;font-weight:700}.allocation-title button{position:absolute;right:0;margin:0;padding:0;background:none}.allocation-title image{width:34rpx;height:34rpx}.allocation-label{display:block;margin:26rpx 0 14rpx;color:#aabbd5;font-size:22rpx}.allocation-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12rpx}.allocation-options button{margin:0;padding:12rpx;background:#4a5375;color:#d6e4fb;border-radius:8rpx;font-size:23rpx}.allocation-options button.selected{border:1rpx solid #16adff;background:#07396e;color:#3ac2ff}.allocation-error{display:block;margin-top:16rpx;color:#ff9ab1;font-size:22rpx}.allocation-quote{margin-top:18rpx;padding:14rpx;border-radius:12rpx;background:#414a6c}.allocation-quote>view{display:flex;justify-content:space-between;gap:18rpx;padding:5rpx 0;font-size:22rpx;line-height:1.6}.allocation-quote text:first-child{color:#aabbd5}.allocation-quote text:last-child{text-align:right}.allocation-confirm{margin-top:22rpx}@media(max-width:340px){.income-detail{padding:20rpx}.income-main-top>view:first-child>view{font-size:25rpx}.income-amount{font-size:29rpx}}
+.income-detail{max-width:750px;margin:0 auto;box-sizing:border-box;padding:1em 1em 2em;color:#fff;font-size:clamp(14px,3.7vw,16px);line-height:1.5}
+.income-notice{margin:0 0 .8em;color:#989eb6;font-size:.85em;text-align:center}
+.income-card,.income-person,.income-store{background:#353a59;border-radius:.75em;padding:1em}
+.income-hero{display:flex;justify-content:space-between;gap:.8em}
+.income-hero>view:first-child{min-width:0;flex:1}
+.income-kicker{display:block;color:#989eb6;font-size:.82em}
+.income-title{margin:.15em 0;font-size:1.05em;font-weight:600;overflow-wrap:anywhere}
+.income-side{flex-shrink:0;text-align:right}
+.income-pill{display:inline-block;padding:.05em .7em;border-radius:2em;background:linear-gradient(95deg,#0340ff,#009bff);font-size:.75em}
+.income-amount{margin-top:.25em;color:#57adff;font-size:1.35em;font-weight:600}
+.income-rule{height:1px;margin:.8em 0 .4em;background:#464c6b}
+.income-fact{display:flex;justify-content:space-between;gap:1em;padding:.35em 0;font-size:.92em}
+.income-fact>text{color:#989eb6;flex-shrink:0}
+.income-fact>view{min-width:0;text-align:right}
+.income-fact-note{display:block;color:#989eb6;font-size:.78em}
+.income-action{display:block;width:100%;margin:1em 0 0;padding:.55em 1em;border-radius:3em;background:linear-gradient(95deg,#0340ff,#009bff);color:#fff;font-size:1em;line-height:1.4}
+.income-heading{display:flex;align-items:center;gap:.45em;margin:1.2em .1em .55em;font-weight:600}
+.income-heading::before{content:'';width:.22em;height:1em;border-radius:1em;background:#57adff}
+.income-person,.income-store{display:flex;align-items:center;gap:.8em}
+.income-avatar,.income-store-photo{flex-shrink:0;overflow:hidden;background:#464c6b}
+.income-avatar{width:3.2em;height:3.2em;border-radius:50%}
+.income-store-photo{width:4.4em;height:4.4em;border-radius:.45em}
+.income-avatar image,.income-store-photo image{width:100%;height:100%;display:block}
+.income-person>view:last-child,.income-store>view:last-child{min-width:0;flex:1}
+.income-name{font-weight:600}
+.income-badge{display:inline-block;margin-left:.35em;padding:0 .45em;border-radius:2em;background:#2f6bff;font-size:.72em;font-weight:500;vertical-align:.1em}
+.income-person text,.income-store text{display:block;color:#989eb6;font-size:.82em;overflow-wrap:anywhere}
+.income-avatar{display:flex;align-items:center;justify-content:center}
+.income-avatar text{display:flex;color:#fff;font-size:1.1em}
+.income-name .income-badge{display:inline-block;color:#fff}
+.income-mask{position:fixed;z-index:100;top:0;right:0;bottom:0;left:0;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55)}
+.allocation-sheet{width:min(100%,750px);box-sizing:border-box;padding:1.2em 1.1em calc(1.1em + env(safe-area-inset-bottom));border-radius:1.2em 1.2em 0 0;background:#353a59}
+.allocation-title{position:relative;text-align:center;font-size:1.05em;font-weight:600}
+.allocation-title button{position:absolute;top:0;right:0;margin:0;padding:0;background:none;line-height:1}
+.allocation-title image{width:1.2em;height:1.2em}
+.allocation-label{display:block;margin:.9em 0 .45em;color:#c5cbe0;font-size:.9em}
+.allocation-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55em}
+.allocation-options button{margin:0;padding:.7em .4em;border-radius:.45em;background:#464c6b;color:#fff;font-size:.95em}
+.allocation-options button.selected{background:#123a86;color:#8ec8ff}
+.allocation-input{width:100%;box-sizing:border-box;margin:0;padding:.7em .8em;border-radius:.45em;background:#464c6b;color:#fff;font-size:1em}
+.allocation-error{display:block;margin-top:.6em;color:#ff9ab1;font-size:.85em}
+.allocation-quote{margin-top:.8em;padding:.7em .8em;border-radius:.5em;background:#464c6b}
+.allocation-quote>view{display:flex;justify-content:space-between;gap:.8em;padding:.2em 0;font-size:.88em}
+.allocation-quote text:first-child{color:#989eb6}
+@media(max-width:340px){.income-fact{flex-direction:column;gap:.15em}.income-fact>view{text-align:left}}
 </style>

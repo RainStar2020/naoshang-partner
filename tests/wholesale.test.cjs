@@ -9,20 +9,34 @@ test('designed wholesale reports preserve empty benefits and separate purchase, 
  const {business,operations}=await setup(),ctx=(await business.getBusinessContexts())[0],overview=await business.getBusinessOverview('wholesale',ctx.id)
  assert.ok(overview.benefits.every(x=>!x.content.nodes.length));assert.equal(overview.annualRemainingDays,99)
  const team=await business.getBusinessReport('wholesale','team',ctx.id),plans=(await operations.getBusinessOperationOptions('upgrade',ctx.id)).members
- assert.equal(team.items[0].levelLabel,'普通用户');assert.equal(plans[0].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,3)
- assert.equal(plans[1].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,2);assert.equal(plans[1].upgradePlans[0].disabled,true)
+ assert.equal(team.items[0].levelLabel,'普通用户');assert.equal(team.items.length,4);assert.equal(plans[0].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,3)
+ assert.equal(plans[1].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,3);assert.equal(plans[1].upgradePlans[0].disabled,false)
+ assert.equal(plans[2].levelLabel,'天使合伙人');assert.equal(plans[2].upgradePlans.find(x=>x.value==='DEMO-ANGEL').disabled,true);assert.equal(plans[2].upgradePlans[0].disabled,true)
+ assert.equal(plans[3].levelLabel,'VIP合伙人');assert.equal(plans[3].upgradePlans[0].disabled,true);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,2);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').listPrice,2980000);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').paidAmount,998000)
+ assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,23)
+ assert.equal(plans[2].upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,21)
+ assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id)).upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,24)
+ const batch=(await business.getBusinessReport('wholesale','quota-batches',ctx.id)).items[0];assert.equal(batch.expiresAt,null);assert.equal(batch.validityLabel,'永久有效');assert.equal(batch.transferable,false)
  const q=await operations.previewBusinessOperation('quota-transfer',ctx.id,{targetAccountId:team.items[0].id,quantity:'2'});await operations.commitBusinessOperation('quota-transfer',ctx.id,q.id,'transfer')
- assert.equal((await business.getBusinessReport('wholesale','quota-ledger',ctx.id)).items.length,0)
+ const ledger=await business.getBusinessReport('wholesale','quota-ledger',ctx.id);assert.ok(ledger.items.every(item=>item.quantity>0));assert.equal(ledger.items.some(item=>item.title==='划拨名额'),false)
  assert.equal((await business.getBusinessReport('wholesale','quota-transfers',ctx.id)).items[0].quantity,-2)
  const promotion=await business.getBusinessReport('wholesale','experience',ctx.id,{filter:'promotion'}),products=await business.getBusinessReport('wholesale','experience',ctx.id,{filter:'products'})
  assert.equal(promotion.items[0].initialLevel,'普通用户');assert.ok(products.items.every(x=>x.id.startsWith('experience-product')))
 })
-test('inviter binds by code, rejects self and survives a reload',async()=>{
+
+test('promotion denominators use three same-rank referrals while progress remains supplied by API',async()=>{
+ for(const [beforeName,target] of [['VIP合伙人',3],['天使合伙人',9],['私董合伙人',18]]){
+  const ctx={id:'wholesale:A',module:'wholesale',accountId:'A',capabilities:['wholesale:promotion']}
+  const {business}=await setup(new Map(),async url=>url==='/me/bootstrap'?{businessContexts:[ctx]}:{items:[],hasMore:false,nextCursor:null,promotion:{beforeName,progress:7,canClaim:false,target:999}})
+  const report=await business.getBusinessReport('wholesale','promotion',ctx.id)
+  assert.equal(report.promotion.target,target);assert.equal(report.promotion.progress,7);assert.equal(report.promotion.canClaim,false)
+ }
+})
+test('users cannot bind or change their superior from business pages',async()=>{
  const {business,storage}=await setup(),ctx=(await business.getBusinessContexts())[0]
- await assert.rejects(business.bindBusinessSuperior(ctx.id,'INVITE-A'),/自己/)
- await business.bindBusinessSuperior(ctx.id,'CODE-OWNER')
- const reloaded=await setup(storage);assert.ok((await reloaded.business.getBusinessReport('wholesale','superior',ctx.id)).superior)
- await assert.rejects(reloaded.business.bindBusinessSuperior(ctx.id,'ANOTHER'),/已绑定/)
+ await assert.rejects(business.bindBusinessSuperior(ctx.id,'INVITE-A'),/仅总部/)
+ await assert.rejects(business.bindBusinessSuperior(ctx.id,'CODE-OWNER'),/仅总部/)
+ const reloaded=await setup(storage);assert.equal((await reloaded.business.getBusinessReport('wholesale','superior',ctx.id)).superior?.levelLabel,'私董合伙人');assert.equal(storage.size,0)
 })
 test('withdrawal payee is tokenized and bank card storage is masked; account types cannot be crossed',async()=>{
  const {business,operations,storage}=await setup(),ctx=(await business.getBusinessContexts())[0],number='6222000000001234567'

@@ -6,26 +6,43 @@
     <view v-else-if="status === 'error'" class="page-state"><text>{{ error }}</text><button class="retry-button" @click="load">重新加载</button></view>
     <template v-else>
       <view v-if="selected" class="identity-card">
+        <image class="identity-frame" src="/static/member/bg-identity-frame.png" mode="scaleToFill" aria-hidden="true" />
         <text class="current-label">当前身份</text>
         <view class="identity-row">
-          <view class="member-avatar">{{ selected.name?.slice(0, 1) || '会' }}</view>
-          <view class="identity-info"><view class="identity-name">{{ selected.name }}</view><text class="identity-badge">{{ selected.badge }}</text><view class="identity-meta">ID：{{ selected.displayId }}<text v-if="selected.grade">　年级：{{ selected.grade }}</text></view></view>
-          <button class="switch-button" @click="pickerOpen = true"><image class="switch-image" src="/static/common/icon-switch.png" mode="aspectFit" /><text>切换身份</text></button>
+          <view class="identity-person">
+            <view class="member-avatar">{{ selected.name?.slice(0, 1) || '会' }}</view>
+            <view class="identity-main">
+              <view class="identity-name-line"><text class="identity-name">{{ selected.name }}</text><text class="identity-badge">{{ selected.badge }}</text></view>
+              <view class="identity-meta-line">
+                <text class="identity-meta">ID：{{ selected.displayId }}</text>
+                <text v-if="selected.grade" class="identity-meta">年级：{{ selected.grade }}</text>
+              </view>
+            </view>
+          </view>
+          <view class="identity-actions">
+            <button class="switch-button" @click="openFans"><image class="switch-image" :src="membershipActive ? '/static/partner/icon-superior.png' : '/static/common/icon-superior-muted.png'" mode="aspectFit" /><text>粉丝会员</text></button>
+            <button class="switch-button" @click="pickerOpen = true"><image class="switch-image" src="/static/common/icon-switch.png" mode="aspectFit" /><text>切换身份</text></button>
+          </view>
         </view>
       </view>
       <view v-else class="page-state">暂无可用身份，请联系服务人员</view>
-      <button class="announcement-link" @click="openAnnouncements"><image src="/static/member/icon-announcement.png" mode="aspectFit" /><text>公告榜</text></button>
       <view v-if="levelStatus === 'loading'" class="page-state">正在加载成长等级…</view>
       <view v-else-if="levelStatus === 'error'" class="page-state"><text>{{ levelError }}</text><button class="retry-button" @click="loadLevels">重试</button></view>
       <view v-else-if="!levels.length" class="page-state">暂无等级</view>
-      <view v-else class="journey">
-        <view v-for="level in reversedLevels" :key="level.id" class="level-row" :class="[`tier-${level.tier}`, `position-${level.number}`]">
-          <view v-if="[8, 5, 1].includes(level.number)" class="tier-marker"><image :src="`/static/member/bg-tier-${level.tier}.png`" mode="scaleToFill" /><text>{{ level.tierName }}</text></view>
-          <button class="level-node" :class="{ unlocked: level.unlocked }" :aria-label="`L${level.number} ${level.name}，${level.unlocked ? '已解锁' : '未解锁'}`" @click="openLevel(level)">
-            <image :src="`/static/common/icon-lv${[1, 2, 3].includes(level.tier) ? level.tier : 1}${level.unlocked ? '-active' : ''}.png`" mode="scaleToFill" />
-            <text class="level-number">L{{ level.number }}</text><text class="level-name">{{ level.name }}</text>
-            <text class="level-status">{{ level.unlocked ? '已解锁' : '未解锁' }}</text>
-          </button>
+      <view v-else class="journey" aria-label="会员成长等级">
+        <button class="announcement-link" aria-label="公告榜" @click="openAnnouncements"><image src="/static/member/icon-announcement.png" mode="aspectFit"/><text>公告榜</text></button>
+        <view v-for="tier in [3, 2, 1]" :key="tier" class="tier-band" :class="`tier-${tier}`">
+          <button class="tier-marker" :aria-label="`查看${['一阶','二阶','三阶'][tier - 1]}会员课程`" @click="openTier(tier)"><image :src="`/static/member/bg-tier-${tier}.png`" mode="scaleToFill"/><text>{{ ['一阶','二阶','三阶'][tier - 1] }}</text><text>{{ ['菁英会员','行能会员','羿烁会员'][tier - 1] }}</text></button>
+          <view v-for="level in reversedLevels.filter(item => item.tier === tier)" :key="level.id" class="level-row" :class="`position-${level.number}`">
+            <button role="button" class="level-node" :class="{ unlocked: level.unlocked }" :aria-label="`L${level.number} ${level.name}，${level.unlocked ? '已解锁' : '未解锁'}`" @click="openLevel(level)">
+              <image :src="`/static/common/icon-lv${level.tier}${level.unlocked ? '-active' : ''}.png`" mode="scaleToFill"/>
+              <text class="level-number">L{{level.number}}</text><text class="level-name">{{level.name}}</text>
+            </button>
+            <view v-if="level.number === 1" class="journey-extra">
+              <button class="tier-chip" @click="openTier(1)"><image :src="level.unlocked ? '/static/member/bg-coding-tag-active.png' : '/static/member/bg-coding-tag.png'" mode="scaleToFill" /><text>编码</text></button>
+              <button class="tier-chip" aria-label="查看菁英会员课程" @click="openTier(1)"><image :src="level.unlocked ? '/static/member/bg-coding-tag-active.png' : '/static/member/bg-coding-tag.png'" mode="scaleToFill" /><text>菁英会员</text></button>
+            </view>
+          </view>
         </view>
       </view>
     </template>
@@ -36,7 +53,6 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onShow, onUnload } from '@dcloudio/uni-app'
-import { config } from '../../config'
 import { useAuth } from '../../composables/useAuth'
 import { getSession } from '../../services/api'
 import { getLearningIdentities, getSelectedIdentity, selectLearningIdentity, getLearningLevels } from '../../services/learning'
@@ -45,10 +61,10 @@ import AppTabBar from '../../components/AppTabBar.vue'
 import { useAppTabBar } from '../../composables/useAppTabBar'
 useAuth()
 useAppTabBar()
-const isMock = config.useMock
 const identities = ref([]), selected = ref(null), levels = ref([]), pickerOpen = ref(false)
 const status = ref('loading'), error = ref(''), levelStatus = ref('loading'), levelError = ref('')
 const reversedLevels = computed(() => [...levels.value].sort((a, b) => b.number - a.number))
+const membershipActive = computed(() => levels.value.some(level => level.unlocked))
 let loadEpoch = 0, levelEpoch = 0
 async function load() {
   if (!getSession()) return
@@ -76,27 +92,29 @@ function switchIdentity(id) {
   catch (reason) { uni.showToast({ title: reason.message, icon: 'none' }) }
 }
 function openLevel(level) {
-  if (!selected.value) return
-  uni.navigateTo({ url: `/pages/learning/level-detail?levelId=${encodeURIComponent(level.id)}&contextId=${encodeURIComponent(selected.value.id)}` })
+  if (!selected.value || !level?.id) return
+  uni.navigateTo({ url: `/pages/learning/level-detail?levelId=${encodeURIComponent(level.id)}&contextId=${encodeURIComponent(selected.value.id)}&tab=catalog` })
+}
+function openTier(tier) {
+  const level = [...levels.value].filter(item => item.tier === tier).sort((a, b) => a.number - b.number)[0]
+  if (level) openLevel(level)
 }
 function openAnnouncements() { uni.navigateTo({ url: '/pages/learning/announcements' }) }
+function openFans() { openTier(1) }
 onShow(load)
 onUnload(() => { ++loadEpoch; ++levelEpoch })
 </script>
 <style scoped>
-.member-page.member-page{position:relative;z-index:0;background:#283c73}.member-background{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
-.switch-image{width:48rpx;height:48rpx;display:block;margin:0 auto 8rpx}
-.announcement-link.announcement-link{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;width:84rpx;color:#ffe900;font-size:20rpx;line-height:1.3}
-.announcement-link image{width:72rpx;height:72rpx}.announcement-link text{border:1rpx solid #00bcff;padding:2rpx 4rpx;background:#003557}
-.level-node.level-node image{opacity:1;filter:none}
-.tier-marker.tier-marker{background:none!important;overflow:hidden;padding:12rpx 10rpx;min-height:80rpx;display:flex;align-items:center;justify-content:center}
-.tier-marker image{position:absolute;inset:0;width:100%;height:100%}.tier-marker text{position:relative;z-index:1}
-.announcement-link{color:#8fe1ff;margin:0 24rpx;padding:8rpx 18rpx;line-height:1.8;border:1rpx solid #218ec6;background:#143a62;font-size:23rpx;display:inline-block;border-radius:8rpx}
-.member-page .member-brand{padding-top:calc(20rpx + var(--status-bar-height, 0px));padding-right:210rpx;min-height:88rpx}
-.member-page{min-height:100vh;max-width:750px;margin:0 auto;color:#f6f9ff;background:radial-gradient(ellipse at 85% 22%,#64306a55,transparent 45%),radial-gradient(ellipse at 10% 92%,#007c994d,transparent 50%),linear-gradient(#34366e,#303364 48%,#063e68);padding-bottom:36rpx}
-.member-brand{display:flex;align-items:center;gap:14rpx;padding:20rpx 30rpx;background:#1b3563;font-size:32rpx;font-weight:600}.member-brand image{width:62rpx;height:62rpx}.demo-label{margin-left:auto;font-size:20rpx;font-weight:400;color:#9aaecd}
-.identity-card{position:relative;margin:32rpx 24rpx 24rpx;border:2rpx solid #108dff;border-radius:0 0 22rpx 22rpx;padding:58rpx 22rpx 28rpx;background:#2d3264;border-top:16rpx solid #0987fa}.current-label{position:absolute;top:-22rpx;left:-2rpx;background:linear-gradient(100deg,#154383,#2b3770);border:2rpx solid #13b9ff;padding:9rpx 40rpx;font-size:30rpx;font-weight:600}.identity-row{display:flex;gap:18rpx;align-items:center}.member-avatar{width:84rpx;height:84rpx;flex-shrink:0;border-radius:50%;background:#263d6b;border:2rpx solid #e1eeff;display:flex;align-items:center;justify-content:center;font-size:36rpx}.identity-info{flex:1;min-width:0}.identity-name{font-size:30rpx;font-weight:600;overflow-wrap:anywhere}.identity-badge{display:inline-block;font-size:21rpx;border-radius:28rpx;padding:2rpx 14rpx;background:linear-gradient(90deg,#00b8e8,#3155ff);margin-top:5rpx}.identity-meta{font-size:22rpx;color:#9ca8c9;margin-top:12rpx;overflow-wrap:anywhere}.switch-button{padding:0;background:none;color:#c4d7f8;font-size:23rpx;line-height:1.5;flex-shrink:0;margin:0}
-.page-state{text-align:center;display:flex;flex-direction:column;gap:20rpx;color:#b5c2dd;padding:80rpx 32rpx;font-size:26rpx;line-height:1.7}.retry-button{background:#185491;color:#fff;font-size:26rpx;line-height:64rpx;padding:0 36rpx;border-radius:32rpx;margin:auto}
-.journey{position:relative;overflow:hidden;padding:12rpx 24rpx 32rpx;background-image:radial-gradient(circle at 20% 15%,#deecff66 1rpx,transparent 3rpx),radial-gradient(circle at 80% 65%,#a6beff55 1rpx,transparent 3rpx);background-size:113rpx 151rpx,173rpx 119rpx}.level-row{height:100rpx;display:flex;align-items:center;position:relative}.level-node{position:relative;width:270rpx;height:84rpx;flex-shrink:0;margin:0;padding:0;background:none;color:#fff;line-height:1}.level-node image{position:absolute;inset:0;width:100%;height:100%;opacity:.8}.level-node.unlocked image{opacity:1}.level-number{position:absolute;left:8rpx;top:20rpx;width:64rpx;text-align:center;font-size:32rpx;font-weight:700}.level-name{position:absolute;left:86rpx;right:16rpx;top:18rpx;text-align:center;font-size:27rpx;font-weight:600}.level-status{position:absolute;left:86rpx;right:16rpx;bottom:15rpx;color:#a8bad8;font-size:17rpx}.unlocked .level-status{color:#c1eaff}.position-10,.position-6{padding-left:55%}.position-9,.position-7{padding-left:35%}.position-8{padding-left:15%}.position-5{padding-left:63%;margin-top:30rpx}.position-4{padding-left:46%}.position-3{padding-left:29%}.position-2{padding-left:12%}.position-1{margin-top:24rpx}.tier-marker{position:absolute;right:-24rpx;top:12rpx;background:#75164e;color:#fff;width:112rpx;padding:14rpx 12rpx;font-size:22rpx;font-weight:600;text-align:center;border-radius:20rpx 0 0 20rpx}.tier-2 .tier-marker{left:-24rpx;right:auto;background:#174baa;border-radius:0 20rpx 20rpx 0}.tier-1 .tier-marker{background:#007e91}.position-5 .level-node{width:250rpx}.position-5 .level-name{font-size:25rpx}
-@media(max-width:340px){.level-node{width:250rpx}.position-5{padding-left:60%}.position-5 .level-node{width:245rpx}.identity-row{gap:12rpx}.member-avatar{width:64rpx;height:64rpx}}
+.member-page{position:relative;isolation:isolate;display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:750px;margin:auto;overflow:hidden;color:#fff;background:#283c73;box-sizing:border-box;font-size:clamp(12px,3.5vw,17px)}
+.member-background{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+.member-brand{display:flex;align-items:center;gap:.5em;flex-shrink:0;padding:calc(.55em + var(--status-bar-height,0px)) 7em .55em 1em;background:#1b3563;font-size:1.05em;font-weight:600}.member-brand image{width:2em;height:2em}
+.identity-card{position:relative;flex-shrink:0;margin:1.25em .8em .6em;border:0;padding:0;background:transparent;aspect-ratio:702 / 216;min-height:0;overflow:hidden;box-sizing:border-box}.identity-frame{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}.current-label{position:absolute;z-index:2;left:3.4%;top:9%;width:22.5%;height:12%;display:flex;flex-direction:row;align-items:center;justify-content:center;color:#fff;font-size:.95em;font-weight:600;line-height:1;letter-spacing:.06em}.identity-row{position:relative;z-index:1;display:flex;flex-direction:row;align-items:center;height:100%;box-sizing:border-box;gap:.4em;padding:8.6% 3% 1.4% 3.2%}.identity-person{display:flex;flex-direction:row;align-items:center;gap:.42em;flex:1;min-width:0}.member-avatar{width:3.5em;height:3.5em;flex-shrink:0;border-radius:50%;background:#263d6b;border:1rpx solid #e1eeff;display:flex;align-items:center;justify-content:center;font-size:1.2em}.identity-main{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.16em}.identity-name-line{display:flex;flex-direction:row;align-items:center;gap:.32em;min-width:0}.identity-name{min-width:0;font-size:1.34em;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.identity-badge{flex-shrink:0;font-size:.8em;line-height:1.3;border-radius:2em;padding:.08em .5em;background:linear-gradient(90deg,#00b8e8,#3155ff)}.identity-meta-line{display:flex;flex-direction:row;align-items:center;gap:.45em;min-width:0}.identity-meta{flex-shrink:0;font-size:.9em;color:#9ca8c9;line-height:1.25;white-space:nowrap}.identity-actions{display:flex;flex-direction:row;align-items:flex-end;gap:.7em;margin-left:auto;flex-shrink:0;transform:translateY(-.28em)}.switch-button{display:flex;flex-direction:column;align-items:center;gap:.1em;padding:0;background:none;color:#9ca8c9;font-size:.9em;line-height:1.25;flex-shrink:0;margin:0}.switch-image{width:2.5em;height:2.5em;display:block;flex-shrink:0}
+.page-state{flex:1;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:1em;color:#b5c2dd;padding:2em 1em;font-size:.95em;line-height:1.7}.retry-button{background:#185491;color:#fff;font-size:1em;padding:0 1.2em;border-radius:2em;margin:0 auto}
+.journey{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}.tier-band{position:relative;display:flex;flex-direction:column;min-height:0;box-sizing:border-box}.tier-band.tier-3{flex:5;background:linear-gradient(120deg,#622e6c44,#4a245c44)}.tier-band.tier-2{flex:4;border-top:1rpx solid #2caff488;background:linear-gradient(120deg,#10469b88,#124f9255)}.tier-band.tier-1{flex:1.25;border-top:1rpx solid #18d6e488;background:linear-gradient(100deg,#007e9c77,#02678466)}
+.level-row{flex:1;min-height:0;display:flex;align-items:center;position:relative}.level-node{position:relative;width:34%;height:84%;max-height:2.8em;margin:0;padding:0;flex-shrink:0;background:none;color:#fff;font-size:clamp(11px,3.5vw,17px);line-height:1}.level-node::after{border:0}.level-node image{position:absolute;inset:0;width:100%;height:100%}.level-number{position:absolute;left:0;top:50%;transform:translateY(-50%);width:28%;text-align:center;font-size:1.25em;font-weight:700}.level-name{position:absolute;left:29%;right:5%;top:50%;transform:translateY(-50%);white-space:nowrap;text-align:center;font-size:1em;font-weight:600}
+.position-10,.position-6{padding-left:56%}.position-9,.position-7{padding-left:39%}.position-8{padding-left:22%}.position-5{padding-left:64%}.position-4{padding-left:47%}.position-3{padding-left:30%}.position-2{padding-left:13%}.position-1{padding-left:2%}.position-1 .level-node{width:27vw}.level-row{box-sizing:content-box}.level-node{width:34vw;max-width:255px}.journey-extra{display:flex;align-items:center;gap:.35em;margin-left:.35em;min-width:0}.tier-chip{position:relative;display:flex;align-items:center;justify-content:center;height:1.4em;margin:0;padding:0 .7em;flex-shrink:0;background:transparent;color:#fff;font-weight:600;line-height:1;white-space:nowrap}.tier-chip image{position:absolute;inset:0;width:100%;height:100%}.tier-chip text{position:relative;font-size:clamp(11px,3.5vw,17px);font-weight:600}.tier-marker{position:absolute;z-index:1;right:0;top:44%;width:15%;height:18%;max-height:3.6em;min-height:2.5em;font-size:.8em;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;line-height:1.3}.tier-marker image{position:absolute;inset:0;width:100%;height:100%;z-index:-1}.tier-2 .tier-marker{left:0;right:auto;top:12%}.tier-1 .tier-marker{top:20%;height:65%;min-height:0}
+.announcement-link{position:absolute;z-index:2;left:.7em;top:.7em;padding:0;margin:0;display:flex;flex-direction:column;align-items:center;background:none;color:#ffe900;font-size:.72em;line-height:1.3}.announcement-link image{width:2.8em;height:2.8em}.announcement-link text{border:1rpx solid #00bcff;padding:0 .2em;background:#003557}
+.tier-marker{margin:0;padding:0;background:transparent;color:inherit;border-radius:0}.tier-marker::after,.tier-chip::after{border:0}
+@media(max-height:650px){.identity-card{margin-top:1em;padding-top:1.2em;padding-bottom:.5em}.member-brand{padding-top:calc(.3em + var(--status-bar-height,0px));padding-bottom:.3em}.member-avatar{width:2.3em;height:2.3em}}
+@media(orientation:landscape) and (max-height:500px){.member-brand{display:none}.identity-card{margin:.4em .8em}.member-avatar{width:2em;height:2em}.identity-row{padding-top:9%;padding-bottom:1.6%}.tier-3,.tier-2{flex:1!important}.journey{flex-direction:row;gap:.5em}.tier-band{flex:1!important;border-top:1rpx solid #18d6e488}.level-row{padding-left:15%}.level-node{width:80%;height:90%}.tier-marker{display:none}.announcement-link{display:none}.journey-extra{display:none}}
 </style>

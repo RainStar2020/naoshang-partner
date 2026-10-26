@@ -13,5 +13,5 @@ const assets = {
 }
 </script>
 <style scoped>
-.profile-icon{height:72rpx;width:72rpx;flex-shrink:0;display:flex;align-items:center;justify-content:center}.profile-icon image{height:64rpx;width:64rpx}
+.profile-icon{height:2.6em;width:2.6em;flex-shrink:0;display:flex;align-items:center;justify-content:center}.profile-icon image{height:2.3em;width:2.3em}.profile-icon.disc,.profile-icon.disc image{height:3.1em;width:3.1em}
 </style>

@@ -13,7 +13,7 @@ async function setup({useMock=true,preview=true,remote=()=>{throw new Error('Une
 }
 test('maximum preview exposes all three modules only in explicit Mock mode, preserving blank CMS benefits',async()=>{
   const {service,catalog}=await setup(),contexts=await service.getBusinessContexts()
-  assert.equal(contexts.length,8);assert.equal(new Set(contexts.map(x=>x.module)).size,3)
+  assert.equal(contexts.length,12);assert.equal(new Set(contexts.map(x=>x.module)).size,3)
   for(const context of contexts){const result=await service.getBusinessOverview(context.module,context.id);assert.ok(result.tools.length);assert.ok(result.benefits.every(item=>item.content.nodes.length===0))}
   assert.equal(catalog.visibleBusinessTools(contexts[0],{useMock:false,previewAllBusinessFeatures:true}).length,0)
   const restricted=await setup({preview:false}),ctx=(await restricted.service.getBusinessContexts())[0]
@@ -26,7 +26,8 @@ test('contexts are account-owned and contract wallets stay isolated across store
   await operations.commitBusinessOperation('withdraw',first.id,quote.id,'withdraw-once')
   assert.equal((await service.getBusinessOverview('costore',first.id)).available,190000)
   assert.equal((await service.getBusinessOverview('costore',second.id)).available,200000)
-  assert.equal((await service.getBusinessWithdrawals(first.id)).items.length,1)
+  assert.equal((await service.getBusinessWithdrawals(first.id)).items.length,4)
+  assert.equal((await service.getBusinessWithdrawals(second.id)).items.length,3)
   session.user.id='B';await assert.rejects(service.getBusinessContext(null,first.id),/无权/)
 })
 test('quota transfers are integer, scoped, versioned and idempotent; unpaid purchases do not mint quota',async()=>{
@@ -78,14 +79,17 @@ test('agency node traversal cannot invent a parent or read across another accoun
 })
 test('store staff save never exposes credentials; rejection requires a reason and approval does not move ownership',async()=>{
   const {service,store}=await setup(),context=(await service.getBusinessContexts()).find(x=>x.agencyType==='STORE'),workspace=await store.getBusinessStore(context.id)
-  const payload={name:'演示新增健脑官',loginAccount:'coach-test'}
+  assert.equal(context.store.name,'脑商训练营桐柏路店');assert.equal(context.store.number,'NO.001')
+  assert.equal(workspace.owners.length,2);assert.equal(workspace.owners[0].feeAmount,418800);assert.equal(workspace.owners[0].daysRemaining,68)
+  assert.equal(workspace.staff.length,4);assert.equal(workspace.staff.every(item=>!Object.keys(item).some(key=>/password/i.test(key))),true)
+  const payload={name:'演示新增健脑官',loginAccount:'coach-test',password:'Coach-test-123'}
   const a=await store.saveBusinessCoach(context.id,workspace.store.id,'',payload,'coach-add'),b=await store.saveBusinessCoach(context.id,workspace.store.id,'',payload,'coach-add')
-  assert.equal(a.coach.id,b.coach.id);assert.equal(a.coach.invitationStatus,'PENDING');assert.equal(Object.keys(a.coach).some(key=>/password/i.test(key)),false)
+  assert.equal(a.coach.id,b.coach.id);assert.equal(a.coach.invitationStatus,'ACTIVE');assert.equal(a.coach.credentialSet,true);assert.equal(Object.keys(a.coach).some(key=>/password/i.test(key)),false)
   await assert.rejects(store.saveBusinessCoach(context.id,'other-store','',payload,'other'),/无权/)
-  const application=workspace.approvals[0]
+  const application=workspace.approvals.find(item=>item.type==='TRANSFER' && item.status==='PENDING')
   await assert.rejects(store.decideBusinessApplication(context.id,workspace.store.id,application.id,{decision:'REJECT',reason:'',version:application.version,idempotencyKey:'reject'}),/原因/)
   const result=await store.decideBusinessApplication(context.id,workspace.store.id,application.id,{decision:'APPROVE',version:application.version,idempotencyKey:'approve'})
-  assert.equal(result.status,'APPROVED');assert.match(result.nextStep,/不自动改门店归属/)
+  assert.equal(result.status,'PENDING');assert.match(result.nextStep,/双方同意/)
 })
 test('real errors, malformed lists and late responses cannot become full-permission mock success',async()=>{
   const context={id:'real-context',module:'wholesale',accountId:'A',capabilities:['wholesale:income']}

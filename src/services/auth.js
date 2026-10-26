@@ -24,8 +24,10 @@ function checkMockCode(phone, purpose, code) {
   if (code !== '123456') throw new Error('验证码不正确')
 }
 function saveSession(result) {
-  uni.setStorageSync('naoshang-session', result)
-  return result
+  const session = { ...result, accountType: result.accountType || 'parent' }
+  if (session.user?.id) uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
+  uni.setStorageSync('naoshang-session', session)
+  return session
 }
 export function getWechatBinding() {
   if (wechatBinding?.expiresAt > Date.now()) return wechatBinding

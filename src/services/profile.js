@@ -1,7 +1,7 @@
 import {mockCommerceState,mockOrders} from './mock/commerce'
 import { config } from '../config'
 import { request, getSession } from './api'
-import { mockProfileState, copy } from './mock/profile'
+import { mockProfileState, mockBoundStore, copy } from './mock/profile'
 import { normalizeContent } from '../features/content/rich-content'
 const fail = message => { throw new Error(message) }
 function pageResult(result, label) {
@@ -17,7 +17,7 @@ async function scoped(operation) {
 }
 export function getMyProfile() {
   return scoped(async user => {
-    const result = config.useMock ? { profile: copy(mockProfileState(user).profile), store: null, orderCounts: { pendingPayment: mockOrders(user,{filter:'pending-payment'}).items.length, waitingShipment: mockOrders(user,{filter:'waiting-shipment'}).items.length, waitingReceipt: mockOrders(user,{filter:'waiting-receipt'}).items.length, completed: mockOrders(user,{filter:'completed'}).items.length }, support: { phone: '', description: '' } } : await request('/me')
+    const result = config.useMock ? { profile: copy(mockProfileState(user).profile), store: mockBoundStore(), orderCounts: { pendingPayment: mockOrders(user,{filter:'pending-payment'}).items.length, waitingShipment: mockOrders(user,{filter:'waiting-shipment'}).items.length, waitingReceipt: mockOrders(user,{filter:'waiting-receipt'}).items.length, completed: mockOrders(user,{filter:'completed'}).items.length }, support: { phone: '', description: '' } } : await request('/me')
     if (result?.profile?.id !== user.id) fail('个人资料格式异常')
     return result
   })
@@ -103,7 +103,7 @@ export function deleteAddress(id, version) {
 export function getCoupons(status, cursor = null) {
   if (!['available','used','void'].includes(status)) fail('优惠券状态无效')
   return scoped(async user => {
-    const result = config.useMock ? { items: copy(mockCommerceState(user).coupons.filter(item=>item.status===status).map(item=>({...item,discountAmount:item.amount,thresholdText:item.minAmount?`满${item.minAmount/100}可用`:'无门槛',validUntilLabel:`有效期至${item.expiresAt.slice(0,10)}`,scopeLabel:'全部商品可用'}))), nextCursor: null, hasMore: false } : await request('/coupons', { data: { status, cursor, pageSize: 20 } })
+    const result = config.useMock ? { items: copy(mockCommerceState(user).coupons.filter(item=>item.status===status).map(item=>({...item,discountAmount:item.amount,thresholdText:item.thresholdLabel||(item.minAmount?`满${item.minAmount/100}可用`:'无门槛'),validUntilLabel:`有效期至${String(item.expiresAt||'').slice(0,10).replaceAll('-','/')}`,scopeLabel:item.scopeLabel||'全部商品可用'}))), nextCursor: null, hasMore: false } : await request('/coupons', { data: { status, cursor, pageSize: 20 } })
     return pageResult(result, '优惠券')
   })
 }

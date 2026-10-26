@@ -25,9 +25,12 @@ test('customer-managed benefits and material templates stay empty in mock mode',
   assert.equal(overview.levelName,'普通用户')
   assert.ok(overview.benefits.every(item=>item.content.nodes.length===0))
   for(const type of ['image','article','video']) {
-    assert.equal((await material.getMaterialCategories(type)).length,0)
+    assert.ok((await material.getMaterialCategories(type)).length>=1)
     const rows=await material.getMaterials(type)
-    assert.equal(rows.items.length,0);assert.equal(rows.hasMore,false)
+    assert.ok(rows.items.length>=1);assert.equal(rows.hasMore,false)
+    assert.ok(rows.items.every(item=>item.type===type && item.coverUrl.startsWith('/static/')))
+    const detail=await material.getMaterial(rows.items[0].id)
+    assert.equal(detail.content.nodes.length,0)
   }
   await assert.rejects(material.getMaterial('invented-template'),/不存在/)
   assert.throws(()=>material.getMaterials('unknown'),/类型/)

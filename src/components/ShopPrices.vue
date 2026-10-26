@@ -5,7 +5,7 @@
       <view class="catalog-price-card"><text class="catalog-price-label">活动价</text><text class="catalog-price-number">{{price(product.activityAmount)}}</text></view>
       <view class="catalog-member-anchor">
         <button role="button" tabindex="0" class="catalog-price-card catalog-member-button" :aria-label="`${product.title}会员价查看详情`" :aria-expanded="isExpanded" :aria-controls="tooltipId" @click.stop="toggle"><text class="catalog-price-label">会员价</text><text class="catalog-price-number catalog-price-detail">查看详情</text></button>
-        <view v-if="isExpanded" :id="tooltipId" role="tooltip" class="catalog-member-tooltip" @click.stop>
+        <view v-if="showTooltip&&isExpanded" :id="tooltipId" role="tooltip" class="catalog-member-tooltip" @click.stop>
           <view v-for="item in product.memberPrices" :key="item.label" class="catalog-member-tier" :class="{current:item.current===true}"><text class="catalog-member-label">{{item.label}}</text><text class="catalog-member-value">{{item.discountLabel?item.discountLabel+'/':''}}{{price(item.amount)}}</text></view>
           <text v-if="!product.memberPrices?.length" class="catalog-member-empty">暂无会员价</text>
         </view>
@@ -16,7 +16,7 @@
 <script setup>
 import {ref,computed,watch} from 'vue'
 import {money} from '../features/exclusive/format'
-const props=defineProps({product:{type:Object,required:true},expanded:{type:Boolean,default:null}}),emit=defineEmits(['toggle'])
+const props=defineProps({product:{type:Object,required:true},expanded:{type:Boolean,default:null},showTooltip:{type:Boolean,default:true}}),emit=defineEmits(['toggle'])
 const localOpen=ref(false),isExpanded=computed(()=>props.expanded===null?localOpen.value:props.expanded),single=computed(()=>props.product.pricePresentation==='standard-only'),tooltipId=computed(()=>`member-prices-${props.product.id}`)
 const price=value=>money(value).replace(/\.00$/,'')
 function setExpanded(value){if(props.expanded===null)localOpen.value=value;emit('toggle',value)}

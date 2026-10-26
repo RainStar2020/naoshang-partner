@@ -4,7 +4,14 @@
     <view v-else-if="status === 'error'" class="announcement-state"><text>{{ error }}</text><button class="secondary" @click="load(true)">重新加载</button></view>
     <view v-else-if="!items.length" class="announcement-state">暂无公告</view>
     <template v-else>
-      <button v-for="item in items" :key="item.id" class="announcement-card" @click="open(item.id)"><view class="announcement-title">{{ item.title }}</view><view v-if="item.summary" class="announcement-summary">{{ item.summary }}</view><view class="announcement-foot"><text>{{ item.publishedAtLabel || '' }}</text><text>查看详情</text></view></button>
+      <button v-for="item in items" :key="item.id" class="announcement-card" @click="open(item.id)">
+        <view class="announcement-title">{{item.pinned ? '置顶 · ' : ''}}{{ item.title }}</view>
+        <view v-if="item.summary" class="announcement-summary">{{ item.summary }}</view>
+        <view class="announcement-foot">
+          <text class="announcement-date">{{ item.publishedAtLabel || '' }}</text>
+          <text class="announcement-more">{{ item.read ? '已读' : '查看详情' }}</text>
+        </view>
+      </button>
       <button v-if="hasMore" class="secondary" :disabled="loadingMore" @click="load(false)">{{ loadingMore ? '正在加载…' : '加载更多' }}</button>
       <text v-if="moreError" class="more-error">{{ moreError }}</text>
     </template>
@@ -40,5 +47,5 @@ function open(id) { uni.navigateTo({ url: `/pages/learning/announcement-detail?i
 onShow(() => load(true)); onUnload(() => { ++epoch })
 </script>
 <style scoped>
-.announcements-page{min-height:100vh;background:#272c47;padding:24rpx;max-width:750px;margin:auto}.announcement-state{display:flex;flex-direction:column;gap:24rpx;padding:80rpx 24rpx;text-align:center;color:#aeb9d1}.announcement-state button{min-width:200rpx;margin:auto;padding:0 28rpx}.announcement-card{width:100%;padding:28rpx;margin-bottom:24rpx;text-align:left;background:#343a5b;color:#fff;border-radius:24rpx;line-height:1.7}.announcement-title{font-size:32rpx;font-weight:600;overflow-wrap:anywhere}.announcement-summary{margin-top:22rpx;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:26rpx;color:#aab5cf}.announcement-foot{display:flex;justify-content:space-between;gap:20rpx;margin-top:24rpx;color:#a5afc7;font-size:24rpx}.announcement-foot text:last-child{color:#00baff}.more-error{display:block;color:#ff9caf;margin:20rpx;text-align:center}
+.announcements-page{min-height:100vh;background:#272c47;padding:24rpx;max-width:750px;margin:auto;box-sizing:border-box}.announcement-state{display:flex;flex-direction:column;gap:24rpx;padding:80rpx 24rpx;text-align:center;color:#aeb9d1}.announcement-state button{min-width:200rpx;margin:auto;padding:0 28rpx}.announcement-card{display:block;width:100%;padding:28rpx 24rpx;margin:0 0 20rpx;text-align:left;background:#343a5b;color:#fff;border-radius:24rpx;line-height:1.6}.announcement-card::after{border:0}.announcement-title{font-size:32rpx;font-weight:600;overflow-wrap:anywhere}.announcement-summary{margin-top:10rpx;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:26rpx;color:#aab5cf}.announcement-foot{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin-top:14rpx}.announcement-date{color:#8ea0c4;font-size:24rpx}.announcement-more{flex-shrink:0;color:#1aa7ff;font-size:26rpx}.more-error{display:block;color:#ff9caf;margin:20rpx;text-align:center}
 </style>

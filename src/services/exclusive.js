@@ -2,7 +2,8 @@ import { config } from '../config'
 import { request, getSession } from './api'
 import { visibleExclusiveFeatures } from '../features/exclusive/catalog'
 import { normalizeContent, isMediaUrl } from '../features/content/rich-content'
-import { mockExclusiveState, mockCostoreOptions, mockFounderAwards } from './mock/exclusive'
+import { mockExclusiveState, saveMockExclusiveState, mockCostoreOptions, mockFounderAwards } from './mock/exclusive'
+import { mockCostorePaymentOrder } from './mock/commerce'
 const copy = value => JSON.parse(JSON.stringify(value))
 export function accountSnapshot() {
   const user = getSession()?.user
@@ -49,27 +50,47 @@ export function quoteCostore(storeId, durationId) {
       const options = mockCostoreOptions(), store = options.stores.find(x => x.id === storeId), duration = options.durations.find(x => x.id === durationId)
       if (!store || !duration) throw new Error('请选择有效门店和开通时长')
       const state = mockExclusiveState(user), id = `demo-quote-${state.quotes.size + 1}`
-      result = { id, storeId, durationId, store, durationLabel: duration.label, payableAmount: duration.months * 10000, currency: 'CNY', expiresAt: Date.now() + 300000, serverTime: Date.now(), mockOnly: true }
+      result = { id, storeId, durationId, store, durationLabel: duration.label, payableAmount: duration.months * store.monthlyFee, currency: 'CNY', expiresAt: Date.now() + 300000, serverTime: Date.now(), mockOnly: true }
       state.quotes.set(id, copy(result))
+      saveMockExclusiveState(user)
     } else result = await request('/costore/application-quotes', { method: 'POST', data: { storeId, durationId, contextId: access.contextId } })
     if (!result?.id || !Number.isInteger(result.payableAmount) || result.payableAmount < 0 || !Number.isFinite(result.expiresAt) || !Number.isFinite(result.serverTime)) throw new Error('费用试算数据异常')
     return result
   })
+}
+const costoreIntentKey=id=>`naoshang-costore-application-intent:${id}`
+export function getCostoreApplicationIntent(){const id=getSession()?.user?.id;return id?uni.getStorageSync(costoreIntentKey(id)) || null:null}
+export function clearCostoreApplicationIntent(){uni.removeStorageSync(costoreIntentKey(accountSnapshot().id))}
+export function rememberCostoreApplicationIntent(quote,idempotencyKey,agreementVersion){
+  const key=costoreIntentKey(accountSnapshot().id),old=uni.getStorageSync(key)
+  if(old&&(old.quoteId!==quote.id||old.idempotencyKey!==idempotencyKey||old.agreementVersion!==agreementVersion))throw new Error('上一笔合店申请结果待确认，请重试原申请')
+  const intent={quoteId:quote.id,quote:copy(quote),idempotencyKey,agreementVersion};uni.setStorageSync(key,intent);return intent
 }
 export function submitCostoreApplication({ quoteId, idempotencyKey, agreementVersion }) {
   return withExclusive('costore-application', async (user, access) => {
     if (!quoteId || !idempotencyKey) throw new Error('请先获取有效报价')
     if (!config.useMock) {
       if (!agreementVersion) throw new Error('合店协议尚未发布，暂不能提交正式申请')
-      return request('/applications/costore', { method: 'POST', data: { quoteId, idempotencyKey, agreementVersion, contextId: access.contextId } })
+      const key=costoreIntentKey(user.id),old=uni.getStorageSync(key)
+      if(old&&(old.quoteId!==quoteId||old.idempotencyKey!==idempotencyKey||old.agreementVersion!==agreementVersion))throw new Error('上一笔合店申请结果待确认，请重试原申请')
+      uni.setStorageSync(key,old||{quoteId,idempotencyKey,agreementVersion})
+      try{
+        const result=await request('/applications/costore', { method: 'POST', data: { quoteId, idempotencyKey, agreementVersion, contextId: access.contextId } })
+        checkAccount(user)
+        if(!result?.application?.id||!(result.orderId||result.application.orderId))throw new Error('申请结果待确认，请重试原申请')
+        uni.removeStorageSync(key);return result
+      }catch(error){if(getSession()?.user?.id===user.id&&([400,422].includes(error.statusCode)||(error.statusCode===409&&['QUOTE_EXPIRED','INVALID_QUOTE','VALIDATION_ERROR'].includes(error.code))))uni.removeStorageSync(key);throw error}
     }
     const state = mockExclusiveState(user), previous = state.operations.get(idempotencyKey)
     if (previous) { if (previous.quoteId !== quoteId) throw new Error('重复提交参数不一致'); return copy(previous.result) }
     const quote = state.quotes.get(quoteId)
     if (!quote || quote.expiresAt <= Date.now()) throw new Error('报价已失效，请重新试算')
-    const application = { id: `demo-application-${state.applications.length + 1}`, title: `申请开通${quote.durationLabel}合店老板`, applicationStatus: 'PENDING_REVIEW', paymentStatus: 'NOT_STARTED', contractStatus: 'NOT_SIGNED', entitlementStatus: 'NOT_OPEN', store: quote.store, payableAmount: quote.payableAmount, createdAt: new Date().toISOString(), mockOnly: true }
+    if (quote.consumed) throw new Error('该报价已创建申请，请到我的申请继续付款')
+    const application = { id: `demo-application-${state.applications.length + 1}`, title: `申请开通${quote.durationLabel}合店老板`, applicationStatus: 'PENDING_PAYMENT', paymentStatus: 'PENDING', contractStatus: 'NOT_SIGNED', entitlementStatus: 'NOT_OPEN', store: quote.store, payableAmount: quote.payableAmount, createdAt: new Date().toISOString(), mockOnly: true }
     state.applications.unshift(application)
-    const result = { application: copy(application), mockOnly: true }; state.operations.set(idempotencyKey, { quoteId, result }); return result
+    application.orderId = mockCostorePaymentOrder(user, application)
+    quote.consumed = true
+    const result = { application: copy(application), orderId: application.orderId, mockOnly: true }; state.operations.set(idempotencyKey, { quoteId, result }); saveMockExclusiveState(user);uni.removeStorageSync(costoreIntentKey(user.id));return result
   })
 }
 export function getMyApplications(cursor = null) {

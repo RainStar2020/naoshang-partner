@@ -1,0 +1,47 @@
+@font-face {
+  font-family: "Source Han Sans CN";
+  src: url("../static/fonts/SourceHanSansCN-Bold.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Alimama ShuHeiTi";
+  src: url("../static/fonts/AlimamaShuHeiTi-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "YouSheBiaoTiHei";
+  src: url("../static/fonts/YouSheBiaoTiHei.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+page {
+  --font-body: "PingFang SC", "苹方-简", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-page-title: "Source Han Sans CN", "思源黑体 CN", "Noto Sans SC", sans-serif;
+  --font-module-title: "Alimama ShuHeiTi", "阿里妈妈数黑体", sans-serif;
+}
+
+.me-heading,
+.business-header,
+.agency-heading,
+.costore-heading,
+.page-title,
+.business-page-header > text {
+  font-family: var(--font-page-title);
+  font-weight: 700;
+}
+
+.me-section-title,
+.detail-section-title,
+.section-title,
+.wh-section-heading {
+  font-family: var(--font-module-title);
+  font-weight: 700;
+}

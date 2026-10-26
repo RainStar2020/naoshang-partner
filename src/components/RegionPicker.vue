@@ -33,7 +33,7 @@ function confirm({ detail }) {
 }
 </script>
 <style scoped>
-.region-input { height: var(--auth-input-height, 104rpx); border-radius: 26rpx; padding: 0 24rpx; display: flex; align-items: center; gap: 16rpx; font-size: 28rpx; background: linear-gradient(90deg, #aabbe22e, #aabbe21f 45%, #aabbe200); }
+.region-input { height: var(--auth-input-height, 104rpx); border-radius: 32rpx; padding: 0 24rpx; display: flex; align-items: center; gap: 16rpx; font-size: 30rpx; background: linear-gradient(90deg, rgba(176, 196, 236, .24) 0%, rgba(176, 196, 236, .12) 42%, rgba(176, 196, 236, .04) 72%, rgba(176, 196, 236, 0) 100%); }
 .region-icon { width: 48rpx; height: 48rpx; flex-shrink: 0; }
 .region-input>text:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .placeholder { color: #8291b9; }

@@ -43,8 +43,8 @@ const emit = defineEmits(['update:modelValue', 'focus', 'blur', 'confirm'])
   width: 100%;
   height: var(--auth-input-height, 104rpx);
   padding: 0 24rpx;
-  border-radius: 26rpx;
-  background: linear-gradient(90deg, rgba(170, 187, 226, .18) 0%, rgba(170, 187, 226, .12) 45%, rgba(170, 187, 226, .04) 75%, rgba(170, 187, 226, 0) 100%);
+  border-radius: 32rpx;
+  background: linear-gradient(90deg, rgba(176, 196, 236, .24) 0%, rgba(176, 196, 236, .12) 42%, rgba(176, 196, 236, .04) 72%, rgba(176, 196, 236, 0) 100%);
 }
 .input-icon { flex-shrink: 0; width: 48rpx; height: 48rpx; margin-right: 16rpx; }
 .input-control { flex: 1; min-width: 0; width: 0; height: 56rpx; line-height: 56rpx; color: #eff5ff; font-size: 30rpx; }

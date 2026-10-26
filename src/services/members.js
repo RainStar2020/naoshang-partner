@@ -3,7 +3,7 @@ import {mockFeedbackList,mockFeedback} from './mock/training'
 import { config } from '../config'
 import { request } from './api'
 import { withExclusive, listResult } from './exclusive'
-import { mockFamily, memberDictionaries } from './mock/family'
+import { mockFamily, persistMockFamily, memberDictionaries } from './mock/family'
 import { mockProfileState } from './mock/profile'
 import { mockLevels, mockPreviewActivation, mockActivate, mockMemberBadge } from './mock/learning'
 import { normalizeContent } from '../features/content/rich-content'
@@ -45,6 +45,7 @@ export function saveFamilyMember(id, draft) {
     if (old) family.members[family.members.indexOf(old)] = result; else family.members.push(result)
     const response = { member: copy(result), mockOnly: true }
     if (!id) family.operations.set(draft.idempotencyKey, { fingerprint, result: copy(response) })
+    persistMockFamily(user)
     return response
   })
 }
@@ -53,10 +54,10 @@ export function previewMemberActivation(memberId, code) {
     const value = String(code || '').trim()
     if (!value) throw new Error('请输入激活码')
     if (!config.useMock) return request('/activations/preview', { method: 'POST', data: { memberId, code: value, contextId: access.contextId } })
-    const member = ownedMember(user,memberId), number = /^DEMO-L(10|[1-9])$/.exec(value)?.[1]
-    if (!number) throw new Error('演示激活码为DEMO-L1至DEMO-L10')
+    const member = ownedMember(user,memberId), tier = Number(/^DEMO-T([1-3])$/.exec(value)?.[1]), number = /^DEMO-L(10|[1-9])$/.exec(value)?.[1] || ({1:1,2:2,3:6})[tier]
+    if (!number) throw new Error('演示会员激活码为DEMO-T1至DEMO-T3')
     const result = mockPreviewActivation(identity(user,member), value, `level-${number}`)
-    return { ...result, targetType: 'level', targetId: result.levelId, mockOnly: true }
+    return { ...result, targetType: 'membership-tier', targetId: result.membershipTier, mockOnly: true }
   })
 }
 export function activateFamilyMember(memberId, preview, idempotencyKey) {
@@ -64,7 +65,7 @@ export function activateFamilyMember(memberId, preview, idempotencyKey) {
     if (preview?.memberId !== memberId || !idempotencyKey || !preview.targetId || !preview.code) throw new Error('激活预览已失效，请重新校验')
     if (!config.useMock) return request('/activations', { method: 'POST', data: { memberId, code: preview.code, targetType: preview.targetType, targetId: preview.targetId, idempotencyKey, contextId: access.contextId } })
     const member = ownedMember(user,memberId)
-    return { ...mockActivate(identity(user,member), { code: preview.code, levelId: preview.targetId, idempotencyKey }), mockOnly: true }
+    return { ...mockActivate(identity(user,member), { code: preview.code, levelId: preview.levelId, idempotencyKey }), mockOnly: true }
   })
 }
 export function getMemberRecords(memberId, kind, cursor = null) {

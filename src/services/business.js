@@ -3,6 +3,7 @@ import { getSession,request } from './api'
 import { businessModules,findBusinessTool,businessPreview,visibleBusinessTools } from '../features/business/catalog'
 import { normalizeContent,isMediaUrl } from '../features/content/rich-content'
 import { mockBusinessContexts,mockBusinessOverview,mockBusinessReport,mockBusinessState,mockAgencyTree,mockClone,saveMockBusinessState } from './mock/business'
+import { incomePresentation } from './mock/income-detail'
 const selectionKey=id=>`naoshang-business-context:${id}`
 export function businessAccount(){const session=getSession();if(!session?.user?.id)throw new Error('请先登录');return {...session.user,sessionToken:session.token}}
 export function checkBusinessAccount(account){const session=getSession();if(session?.user?.id!==account.id||session.token!==account.sessionToken)throw new Error('登录账号已变化，请重新加载')}
@@ -33,7 +34,7 @@ export async function getBusinessOverview(module,id){
   const result=config.useMock?mockBusinessOverview(account,context):await request(module==='wholesale'?'/partner/overview':module==='agency'?'/agency/overview':'/costore/overview',{data:{contextId:context.id,assignmentId:context.assignmentId,contractId:context.contractId}})
   checkBusinessAccount(account)
   if(result?.accountId!==account.id||result.contextId!==context.id||!Array.isArray(result.benefits))throw new Error('工作台身份或数据格式异常')
-  return {...result,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
+  return {...result,annualValidUntil:result.annualValidUntil ?? result.entitlement?.expiresAt ?? null,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
 }
 function normalizeList(result){if(!Array.isArray(result?.items)||typeof result.hasMore!=='boolean'||(result.hasMore&&(typeof result.nextCursor!=='string'||!result.nextCursor)))throw new Error('经营列表格式异常');return result}
 export function getBusinessReport(module,id,contextId,params={}){
@@ -44,13 +45,17 @@ export function getBusinessReport(module,id,contextId,params={}){
     const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:{...params,contextId:context.id,contractId:context.contractId,assignmentId:context.assignmentId,pageSize:20}})
     const normalized=normalizeList(result)
     if(resource.type==='share'&&!config.useMock&&(result.accountId!==account.id||result.contextId!==context.id))throw new Error('分享码身份不匹配')
-    return {...normalized,qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
+    const promotion=normalized.promotion
+    const target=promotion?({'VIP合伙人':3,'天使合伙人':9,'私董合伙人':18})[promotion.beforeName]:null
+    return {...normalized,...(promotion?{promotion:{...promotion,target:target ?? promotion.target}}:{}),qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
   })
 }
 export function getBusinessIncomeDetail(contextId,id){
   return withBusinessContext(contextId,context=>`${context.module}:income`,async(account,context)=>{
     const result=config.useMock?mockClone(mockBusinessState(account,context).entries.find(item=>item.id===id)):await request(`/income/entries/${encodeURIComponent(id)}`,{data:{contextId:context.id}})
-    if(!result?.id)throw new Error('收益记录不存在或无权访问');return result
+    if(!result?.id)throw new Error('收益记录不存在或无权访问')
+    if(config.useMock)result.presentation=incomePresentation(result,context)
+    return result
   })
 }
 export function getBusinessTeamNode(contextId,id){
@@ -64,4 +69,10 @@ export function getBusinessWithdrawals(contextId,cursor=null){
   return withBusinessContext(contextId,'wallet:read',async(account,context)=>normalizeList(config.useMock?{items:mockClone(mockBusinessState(account,context).withdrawals),hasMore:false,nextCursor:null}:await request('/wallet/withdrawals',{data:{contextId:context.id,cursor,pageSize:20}})))
 }
 export { normalizeList }
-export function bindBusinessSuperior(contextId,inviteCode){return withBusinessContext(contextId,'wholesale:superior',async(account,context)=>{if(context.module!=='wholesale'||! /^[a-zA-Z0-9_-]{4,32}$/.test(String(inviteCode)))throw new Error('请输入4—32位有效邀请码');if(!config.useMock)return request('/partner/superior',{method:'POST',data:{contextId,inviteCode}});const state=mockBusinessState(account,context);if(state.superior)throw new Error('已绑定上级，请联系门店调整');if(inviteCode===account.inviteCode||inviteCode===account.id)throw new Error('不能绑定自己的邀请码');state.superior={name:'合伙团队负责人',phone:'',levelLabel:'私董合伙人',scopeLabel:'合伙团队'};saveMockBusinessState(account,context);return {superior:state.superior}})}
+export async function bindBusinessSuperior(){throw new Error('仅总部可以调整上级，请联系总部处理')}
+// Proposed API: eligibility, VIP-equivalent progress and the resulting rank are server decisions.
+export function claimBusinessPromotion(contextId,task,idempotencyKey){return withBusinessContext(contextId,'wholesale:promotion',async(account,context)=>{
+  if(context.module!=='wholesale'||!task?.id||!idempotencyKey)throw new Error('晋升任务信息不完整，请刷新')
+  if(config.useMock)throw new Error('演示模式不计算晋升资格，请接入晋升API')
+  return request('/partner/promotion-claims',{method:'POST',data:{contextId,taskId:task.id,version:task.version,idempotencyKey}})
+})}

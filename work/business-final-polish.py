@@ -1,0 +1,12 @@
+from pathlib import Path
+p=Path('src/services/business-store.js');s=p.read_text(encoding='utf-8-sig').replace("import {mockBusinessState,mockClone} from './mock/business'", "import {mockBusinessState,mockClone,mockStoreWorkspace} from './mock/business'")
+s=s.replace('  const state=config.useMock?mockBusinessState(account,context):null\n','')
+start=s.index('  const result=config.useMock?');end=s.index(":await request('/agency/store-workspace'",start)
+s=s[:start]+'  const result=config.useMock?mockStoreWorkspace(account,context)'+s[end:];p.write_text(s,encoding='utf8')
+p=Path('src/components/BusinessDashboard.vue');s=p.read_text(encoding='utf-8-sig');s=s.replace('<button v-if="context.module===\'agency\'" class="business-text-button"', '<button v-if="context.module===\'wholesale\'&&overview.inviteCode" class="business-text-button business-invite" @click="copyInvite"><text>邀请码：{{overview.inviteCode}}</text><image src="/static/common/icon-copy.png" mode="aspectFit"/></button><button v-if="context.module===\'agency\'" class="business-text-button"')
+s=s.replace('let epoch=0,contextId=\'\'', 'let epoch=0,contextId=\'\',switching=false')
+s=s.replace("async function switchContext(id){try{", "async function switchContext(id){if(switching)return;switching=true;moduleOpen.value=false;contextOpen.value=false;try{")
+s=s.replace("uni.showToast({title:reason.message,icon:'none'})}}\nfunction switchModule", "uni.showToast({title:reason.message,icon:'none'})}finally{switching=false}}\nfunction switchModule")
+s=s.replace('function showRelation(kind)',"function copyInvite(){if(overview.value?.inviteCode)uni.setClipboardData({data:overview.value.inviteCode,fail:()=>uni.showToast({title:'复制失败，请重试',icon:'none'})})}\nfunction showRelation(kind)")
+p.write_text(s,encoding='utf8')
+p=Path('src/styles/business.css');s=p.read_text(encoding='utf8');s+='\n.business-invite{display:flex;align-items:center;gap:.4em;overflow-wrap:anywhere}.business-invite image{height:1.2em;width:1.2em;flex-shrink:0}\n';p.write_text(s,encoding='utf8')

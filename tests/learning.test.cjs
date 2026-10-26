@@ -4,8 +4,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
 
-async function setup(useMock = true, remote = () => { throw new Error('Unexpected network') }) {
-  const storage = new Map(), session = { user: { id: 'account-A', name: '体验家长' }, token: 'mock' }
+async function setup(useMock = true, remote = () => { throw new Error('Unexpected network') }, storage = new Map()) {
+  const session = { user: { id: 'account-A', name: '体验家长' }, token: 'mock' }
   const context = vm.createContext({ console, uni: {
     getStorageSync: key => storage.get(key), setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: key => storage.delete(key),
   } })
@@ -95,4 +95,69 @@ test('a late bootstrap response is rejected after the logged-in account changes'
   session.user.id = 'account-B'
   finish({ contexts: [{ id: 'parent:account-A', accountId: 'account-A', mode: 'parent' }] })
   await assert.rejects(result, /账号已变化/)
+})
+
+test('child video progress resumes, never regresses completion, survives reload and is isolated from siblings', async () => {
+  const {learning:api,storage}=await setup(),rows=await api.getLearningIdentities()
+  const query={contextId:rows[1].id,levelId:'level-1',chapterId:'level-1-video'}
+  assert.equal((await api.getLearningLevelDetail(query.contextId,query.levelId)).chapters[1].progress,null)
+  assert.equal((await api.saveLearningProgress(query,{positionSeconds:24,durationSeconds:60})).percent,40)
+  const rewound=await api.saveLearningProgress(query,{positionSeconds:8,durationSeconds:60})
+  assert.equal(rewound.percent,40);assert.equal(rewound.positionSeconds,8)
+  const reloaded=(await setup(true,undefined,storage)).learning
+  const resumed=(await reloaded.getLearningLevelDetail(query.contextId,query.levelId)).chapters[1].progress
+  assert.equal(resumed.positionSeconds,8);assert.ok(resumed.lastStudiedAt)
+  await reloaded.saveLearningProgress(query,{positionSeconds:60,durationSeconds:60,ended:true})
+  const replay=await reloaded.saveLearningProgress(query,{positionSeconds:3,durationSeconds:60})
+  assert.equal(replay.percent,100);assert.equal(replay.completed,true)
+  assert.equal((await reloaded.getLearningLevelDetail(rows[2].id,query.levelId)).chapters[1].progress,null)
+})
+
+test('article completion is explicit; progress rejects parents, locked children, invalid chapters and invalid numbers', async () => {
+  const {learning:api}=await setup(),rows=await api.getLearningIdentities()
+  const query={contextId:rows[1].id,levelId:'level-1',chapterId:'level-1-article'}
+  assert.equal((await api.getLearningLevelDetail(query.contextId,query.levelId)).chapters[0].progress,null)
+  assert.equal((await api.saveLearningProgress(query,{completed:true})).percent,100)
+  await assert.rejects(api.saveLearningProgress({...query,contextId:rows[0].id},{completed:true}),/无权/)
+  await assert.rejects(api.saveLearningProgress({...query,contextId:rows[2].id},{completed:true}),/无权/)
+  await assert.rejects(api.saveLearningProgress({...query,chapterId:'forged'},{completed:true}),/无权/)
+  await assert.rejects(api.saveLearningProgress(query,{positionSeconds:NaN}),/无效/)
+  await assert.rejects(api.saveLearningProgress(query,{durationSeconds:-1}),/无效/)
+})
+
+test('same-account token replacement invalidates a late progress write', async () => {
+  let finish
+  const {learning:api,session}=await setup(false,()=>new Promise(resolve=>{finish=resolve}))
+  const attempt=api.saveLearningProgress({contextId:'child:account-A:1',levelId:'level-1',chapterId:'video'},{positionSeconds:1,durationSeconds:60})
+  session.token='new-login'
+  finish({contexts:[{id:'child:account-A:1',accountId:'account-A',memberId:'m1',mode:'child'}]})
+  await assert.rejects(attempt,/账号已变化/)
+})
+
+test('a membership activation unlocks every level in that tier permanently, without granting another tier or sibling', async () => {
+  const {learning:api}=await setup(),rows=await api.getLearningIdentities(),child=rows[2]
+  const preview=await api.previewLevelActivation(child.id,'DEMO-T2','level-4')
+  assert.equal(preview.membershipTier,2)
+  const result=await api.activateLearningLevel(child.id,{code:'DEMO-T2',levelId:'level-4',idempotencyKey:'tier-2'})
+  assert.equal(result.expiresAt,null)
+  const levels=await api.getLearningLevels(child)
+  assert.ok(levels.filter(level=>level.tier===2).every(level=>level.unlocked))
+  assert.ok(levels.filter(level=>level.tier!==2).every(level=>!level.unlocked))
+  await assert.rejects(api.previewLevelActivation(child.id,'DEMO-L3','level-3'),/已解锁/)
+})
+
+test('announcement read receipts are idempotent and scoped to the login account', async () => {
+  const {learning:api,session,storage}=await setup()
+  await api.markAnnouncementRead('notice-learning');await api.markAnnouncementRead('notice-learning')
+  assert.equal((await api.getAnnouncements()).items.find(x=>x.id==='notice-learning').read,true)
+  assert.equal(Object.keys(storage.get('naoshang-announcement-reads:account-A')).length,1)
+  session.user.id='account-B'
+  assert.equal((await api.getAnnouncements()).items.find(x=>x.id==='notice-learning').read,false)
+})
+
+test('remote tier authorization works without the obsolete per-level unlocked field',async()=>{
+ const remote=async url=>url==='/me/bootstrap'?{contexts:[{id:'child:account-A:1',accountId:'account-A',memberId:'member-1',mode:'child'}]}:{id:'level-2',membershipUnlocked:true,membershipTierId:'tier-2',chapters:[{id:'chapter',accessible:true}],content:null}
+ const {learning:api}=await setup(false,remote)
+ const detail=await api.getLearningLevelDetail('child:account-A:1','level-2')
+ assert.equal(detail.unlocked,true);assert.equal(detail.chapters[0].accessible,true)
 })

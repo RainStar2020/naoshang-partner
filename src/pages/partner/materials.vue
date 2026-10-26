@@ -1,13 +1,12 @@
 <template>
   <view class="materials-page">
     <view class="type-tabs"><button v-for="option in materialTypes" :key="option.id" :class="{ active: type === option.id }" @click="changeType(option.id)">{{ option.label }}</button></view>
-    <scroll-view v-if="categories.length" scroll-x class="category-scroll"><view class="category-tabs"><button :class="{ selected: !categoryId }" @click="changeCategory('')">全部</button><button v-for="category in categories" :key="category.id" :class="{ selected: categoryId === category.id }" @click="changeCategory(category.id)">{{ category.name }}</button></view></scroll-view>
     <view v-if="status === 'loading'" class="materials-state">正在加载素材…</view>
     <view v-else-if="status === 'error'" class="materials-state"><text>{{ error }}</text><button class="secondary" @click="load">重新加载</button></view>
     <EmptyState v-else-if="!items.length" text="暂无素材" />
     <template v-else>
       <view v-for="group in groups" :key="group.id" class="material-group"><view v-if="group.title" class="group-title">{{ group.title }}</view><view class="material-grid" :class="`kind-${type}`"><view v-for="item in group.items" :key="item.id" class="material-card"><view class="material-cover" @click="openMaterial(item.id)"><image v-if="item.coverUrl" :src="item.coverUrl" mode="aspectFill" /><view v-else class="cover-placeholder"><image src="/static/partner/icon-materials.png" mode="aspectFit" /></view><image v-if="type === 'video'" class="video-play" src="/static/media/icon-play-small.png" mode="aspectFit" /></view><view class="material-information"><view class="material-title">{{ item.title }}</view><text v-if="type === 'article' && item.summary" class="material-summary">{{ item.summary }}</text><button class="use-material" @click="openMaterial(item.id)">使用</button></view></view></view></view>
-      <button v-if="hasMore" class="load-more" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? '正在加载…' : '加载更多' }}</button><text v-else class="list-end">已显示全部素材</text><text v-if="moreError" class="more-error">{{ moreError }}</text>
+      <button v-if="hasMore" class="load-more" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? '正在加载…' : '加载更多' }}</button><text v-if="moreError" class="more-error">{{ moreError }}</text>
     </template>
   </view>
 </template>
@@ -47,7 +46,6 @@ async function load() {
   } catch (reason) { if (current === epoch) { status.value = 'error'; error.value = reason.message || '素材加载失败' } }
 }
 function changeType(next) { if (next !== type.value) { type.value = next; categoryId.value = ''; load() } }
-function changeCategory(next) { if (next !== categoryId.value) { categoryId.value = next; load() } }
 async function loadMore() {
   if (!hasMore.value || loadingMore.value) return
   const current = epoch; loadingMore.value = true; moreError.value = ''

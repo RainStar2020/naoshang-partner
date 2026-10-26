@@ -1,7 +1,8 @@
-<template><WholesaleReport v-if="module === 'wholesale'" ref="page" :tool-id="toolId" :page-query="pageQuery" :overlay="['share','promotion','superior'].includes(toolId)" @close="close"/><BusinessGenericReport v-else ref="page" :module="module" :tool-id="toolId" :page-query="pageQuery"/></template>
+<template><WholesaleReport v-if="module === 'wholesale'" ref="page" :tool-id="toolId" :page-query="pageQuery" :overlay="['share','promotion','superior'].includes(toolId)" @close="close"/><CostoreReport v-else-if="module === 'costore'" ref="page" :tool-id="toolId" :page-query="pageQuery"/><BusinessGenericReport v-else ref="page" :module="module" :tool-id="toolId" :page-query="pageQuery"/></template>
 <script setup>
 import {ref} from 'vue'
 import WholesaleReport from './WholesaleReport.vue'
+import CostoreReport from './CostoreReport.vue'
 import BusinessGenericReport from './BusinessGenericReport.vue'
 defineProps({module:String,toolId:String,pageQuery:Object})
 const page=ref(null)

@@ -35,5 +35,5 @@ export function visibleBusinessTools(context,config) {
   return businessTools.filter(item=>item.module===context?.module&&(businessPreview(config)||context.capabilities?.includes(item.capability)))
 }
 
-// Home hierarchy follows design 19; full capabilities remain available to child pages.
-export const businessHomeTools=(tools,context)=>tools.filter(item=>context?.module!=='wholesale'||['income','superior','share','materials','global-awards'].includes(item.id))
+// Paid angel keeps four shortcuts. Founder status adds the global award. Child pages keep the full set.
+export const businessHomeTools=(tools,context,partnerStatus)=>tools.filter(item=>context?.module!=='wholesale'||(partnerStatus==='ANGEL'?['income','superior','share','materials']:['income','superior','share','materials','global-awards']).includes(item.id))
