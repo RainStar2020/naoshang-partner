@@ -46,8 +46,12 @@ export function getBusinessReport(module,id,contextId,params={}){
     const normalized=normalizeList(result)
     if(resource.type==='share'&&!config.useMock&&(result.accountId!==account.id||result.contextId!==context.id))throw new Error('分享码身份不匹配')
     const promotion=normalized.promotion
-    const target=promotion?({'VIP合伙人':3,'天使合伙人':9,'私董合伙人':18})[promotion.beforeName]:null
-    return {...normalized,...(promotion?{promotion:{...promotion,target:target ?? promotion.target}}:{}),qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
+    // Progress counts same-level direct referrals (need 3). VIP equivalent is only for copy: VIP/天使/私董 → 3/9/18.
+    const vipEquivalent=promotion?({'VIP合伙人':3,'天使合伙人':9,'私董合伙人':18})[promotion.beforeName] ?? promotion.vipEquivalent:null
+    const target=3
+    const expired=promotion&&Number.isFinite(Date.parse(promotion.validUntil))&&Date.parse(promotion.validUntil)<Date.now()
+    const canClaim=!!promotion&&!expired&&Number(promotion.progress)>=target
+    return {...normalized,...(promotion?{promotion:{...promotion,target,vipEquivalent:vipEquivalent ?? promotion.target,canClaim,statusLabel:expired?'已过期':(promotion.statusLabel||'进行中')}}:{}),qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
   })
 }
 export function getBusinessIncomeDetail(contextId,id){
@@ -69,7 +73,14 @@ export function getBusinessWithdrawals(contextId,cursor=null){
   return withBusinessContext(contextId,'wallet:read',async(account,context)=>normalizeList(config.useMock?{items:mockClone(mockBusinessState(account,context).withdrawals),hasMore:false,nextCursor:null}:await request('/wallet/withdrawals',{data:{contextId:context.id,cursor,pageSize:20}})))
 }
 export { normalizeList }
-export async function bindBusinessSuperior(){throw new Error('仅总部可以调整上级，请联系总部处理')}
+export async function bindBusinessSuperior(contextId,inviteCode){return withBusinessContext(contextId,'wholesale:superior',async(account,context)=>{
+  const code=String(inviteCode||'').trim()
+  if(!/^[a-zA-Z0-9_-]{1,64}$/.test(code))throw new Error('请输入正确的上级邀请码')
+  if(context.module!=='wholesale')throw new Error('当前身份不能绑定上级')
+  if(code===(account.inviteCode||''))throw new Error('不能绑定自己为上级')
+  if(config.useMock){const state=mockBusinessState(account,context);if(state.superior)throw new Error('已绑定上级');state.superior={name:code,phone:'',levelLabel:'上级',inviteCode:code};state.version++;saveMockBusinessState(account,context);return {superior:mockClone(state.superior)}}
+  return request('/partner/superior-bindings',{method:'POST',data:{contextId:context.id,inviteCode:code}})
+})}
 // Proposed API: eligibility, VIP-equivalent progress and the resulting rank are server decisions.
 export function claimBusinessPromotion(contextId,task,idempotencyKey){return withBusinessContext(contextId,'wholesale:promotion',async(account,context)=>{
   if(context.module!=='wholesale'||!task?.id||!idempotencyKey)throw new Error('晋升任务信息不完整，请刷新')

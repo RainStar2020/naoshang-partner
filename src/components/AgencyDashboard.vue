@@ -20,11 +20,19 @@
     <button @click="open('income')"><image src="/static/partner/icon-agency-income.png" mode="aspectFit"/><view><text>代理收益</text><strong>¥{{money(overview.agencyIncome ?? overview.available)}}</strong></view></button>
    </view>
    <view class="agency-relation-grid">
-    <button v-for="kind in relations" :key="kind.key" class="agency-relation" @click="relationOpen=true">
+    <button v-for="kind in relations" :key="kind.key" class="agency-relation" @click="relationOpen=kind.key">
      <view class="agency-relation-label">{{kind.label}}</view>
-     <image v-if="overview[kind.key]?.avatarUrl" class="agency-relation-avatar" :src="overview[kind.key].avatarUrl" mode="aspectFill"/>
-     <view v-else class="agency-avatar">{{(overview[kind.key]?.name || '—').slice(0,1)}}</view>
-     <view class="agency-relation-copy"><view><text>{{overview[kind.key]?.name || '暂未提供'}}</text><em>{{overview[kind.key]?.agencyLabel || '—'}}</em></view><text>{{overview[kind.key]?.regionLabel || overview[kind.key]?.scopeLabel || '信息待后台提供'}}</text></view>
+     <view class="agency-relation-body">
+      <image v-if="overview[kind.key]?.avatarUrl" class="agency-relation-avatar" :src="overview[kind.key].avatarUrl" mode="aspectFill"/>
+      <view v-else class="agency-avatar">{{(overview[kind.key]?.name || '—').slice(0,1)}}</view>
+      <view class="agency-relation-copy">
+       <view class="agency-relation-name">
+        <text>{{overview[kind.key]?.name || '暂未提供'}}</text>
+        <text v-if="agencyIdentity(overview[kind.key],kind.key)" class="agency-relation-role">{{agencyIdentity(overview[kind.key],kind.key)}}</text>
+       </view>
+       <text class="agency-relation-region">{{overview[kind.key]?.regionLabel || overview[kind.key]?.scopeLabel || '信息待后台提供'}}</text>
+      </view>
+     </view>
     </button>
    </view>
    <view class="agency-benefits">
@@ -52,20 +60,20 @@
   <view v-if="moduleOpen" class="agency-mask module-mask" @click="moduleOpen=false">
    <view class="agency-module-dialog" role="dialog" aria-label="切换模块" @click.stop>
     <view class="agency-module-title">切换模块<button aria-label="关闭模块切换" @click="moduleOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view>
-    <view class="agency-module-options"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button></view>
+    <view class="agency-module-options" :style="{gridTemplateColumns:`repeat(${Math.min(Math.max(modules.length,1),3)},minmax(0,1fr))`}"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button></view>
    </view>
   </view>
-  <view v-if="relationOpen" class="agency-mask relation-mask" @click="relationOpen=false">
+  <view v-if="relationOpen" class="agency-mask relation-mask" @click="relationOpen=''">
    <view class="agency-relation-sheet" @click.stop>
-    <button class="relation-close" aria-label="关闭关系信息" @click="relationOpen=false">×</button>
-    <view v-for="kind in relations" :key="kind.key" class="relation-detail-card">
+    <button class="relation-close" aria-label="关闭关系信息" @click="relationOpen=''">×</button>
+    <view class="relation-detail-card">
      <view class="relation-detail-copy">
-      <view><text>{{overview[kind.key]?.name || '暂未提供'}}</text><em v-if="overview[kind.key]?.partnerLabel">{{overview[kind.key].partnerLabel}}</em></view>
-      <text>{{relationIdentityLabel(kind.key)}}：{{overview[kind.key]?.rankLabel || overview[kind.key]?.agencyLabel || '—'}}</text>
-      <text>联系方式：{{overview[kind.key]?.phone || '—'}}</text>
-      <text>{{relationRegionLabel(kind.key)}}：{{overview[kind.key]?.regionLabel || overview[kind.key]?.scopeLabel || '—'}}</text>
+      <view><text>{{relationPerson?.name || '暂未提供'}}</text><text v-if="relationPerson?.partnerLabel" class="relation-partner-badge">{{relationPerson.partnerLabel}}</text></view>
+      <text v-if="relationOpen==='superior'">代理等级：{{agencyIdentity(relationPerson,'superior') || '—'}}</text>
+      <text v-else>合伙身份：{{relationPerson?.partnerLabel || '—'}}</text>
+      <text>{{relationOpen==='superior'?'代理地区':'所在地区'}}：{{relationPerson?.regionLabel || relationPerson?.scopeLabel || '—'}}</text>
      </view>
-     <view class="relation-photo"><view class="relation-arch"><image v-if="overview[kind.key]?.avatarUrl" :src="overview[kind.key].avatarUrl" mode="aspectFill"/><view v-else>{{(overview[kind.key]?.name || '—').slice(0,1)}}</view></view><text>{{kind.sheetLabel}}</text></view>
+     <view class="relation-photo"><view class="relation-arch"><image v-if="relationPerson?.avatarUrl" :src="relationPerson.avatarUrl" mode="aspectFill"/><view v-else>{{(relationPerson?.name || '—').slice(0,1)}}</view></view><text>{{relationOpen==='superior'?'区域上级':'推荐人'}}</text></view>
     </view>
    </view>
   </view>
@@ -86,7 +94,7 @@ import EmptyState from './EmptyState.vue'
 import AppTabBar from './AppTabBar.vue'
 useAuth();useAppTabBar()
 const emit=defineEmits(['left'])
-const status=ref('loading'),error=ref(''),overview=ref(null),contexts=ref([]),allContexts=ref([]),tierId=ref(''),contextOpen=ref(false),relationOpen=ref(false),moduleOpen=ref(false)
+const status=ref('loading'),error=ref(''),overview=ref(null),contexts=ref([]),allContexts=ref([]),tierId=ref(''),contextOpen=ref(false),relationOpen=ref(''),moduleOpen=ref(false)
 let active=true,epoch=0,selectedId='',tierContextId=''
 const moduleTitle=businessModules.find(item=>item.id==='agency')?.title||'代理中心'
 const context=computed(()=>overview.value?.context)
@@ -102,16 +110,23 @@ const storeShortcuts=[
   {id:'income',label:'代理收益',icon:'/static/partner/icon-agency-income.png'},
 ]
 const benefit=computed(()=>overview.value?.benefits?.find(item=>item.id===tierId.value))
-const relations=[{key:'superior',label:'区域上级',sheetLabel:'区县上级'},{key:'referrer',label:'推荐人',sheetLabel:'推荐人'}]
+const relations=[{key:'superior',label:'区域上级'},{key:'referrer',label:'推荐人'}]
+const relationPerson=computed(()=>overview.value?.[relationOpen.value])
 const typeMeta={PROVINCE:'省代',CITY:'市代',COUNTY:'区代',STORE:'单店'}
 const tierLabel={STORE:'区县',COUNTY:'区县',CITY:'市代',PROVINCE:'省代'}
 const contextGroups=computed(()=>['PROVINCE','CITY','COUNTY','STORE'].map(key=>({key,label:typeMeta[key],items:contexts.value.filter(item=>item.agencyType===key)})).filter(group=>group.items.length))
 const modules=computed(()=>businessModules.filter(item=>allContexts.value.some(row=>row.module===item.id)))
 function contextTitle(item){return item.agencyType==='STORE'?(item.store?.name||item.regionLabel||item.label):(item.regionLabel||item.label)}
 function contextSubtitle(item){return item.agencyType==='STORE'?(item.store?.address||item.scopeLabel||''):({PROVINCE:'省代',CITY:'市代',COUNTY:'区县代理'}[item.agencyType]||item.scopeLabel||'')}
-function relationIdentityLabel(key){return key==='superior'?'代理等级':'合伙等级'}
-function relationRegionLabel(key){return key==='superior'?'代理地区':'所在地区'}
-async function load(){const current=++epoch;status.value=overview.value?'ready':'loading';error.value='';contextOpen.value=false;relationOpen.value=false;moduleOpen.value=false;try{const rows=await getBusinessContexts();const ctx=await getBusinessContext('agency',selectedId||undefined);const result=await getBusinessOverview('agency',ctx.id);if(!active||current!==epoch)return;allContexts.value=rows;contexts.value=rows.filter(item=>item.module==='agency');overview.value=result;if(tierContextId!==ctx.id||!result.benefits.some(item=>item.id===tierId.value)){tierId.value=result.benefits.find(item=>item.label===tierLabel[ctx.agencyType])?.id||result.benefits[0]?.id||'';tierContextId=ctx.id}selectedId=ctx.id;status.value='ready'}catch(reason){if(active&&current===epoch){error.value=reason.message||'代理工作台加载失败';status.value=reason.code==='FORBIDDEN'?'forbidden':'error'}}}
+function agencyIdentity(person,key){
+  if(key==='referrer') return String(person?.partnerLabel || '').trim().replace(/合伙人$/, '')
+  const label=String(person?.agencyLabel || typeMeta[person?.agencyType] || '').trim()
+  if(!label) return ''
+  // Show agency roles only; hide partner-only titles.
+  if(/合伙人|VIP|天使|私董|联创/.test(label) && !/代理|省代|市代|区代|区县|单店/.test(label)) return ''
+  return label
+}
+async function load(){const current=++epoch;status.value=overview.value?'ready':'loading';error.value='';contextOpen.value=false;relationOpen.value='';moduleOpen.value=false;try{const rows=await getBusinessContexts();const ctx=await getBusinessContext('agency',selectedId||undefined);const result=await getBusinessOverview('agency',ctx.id);if(!active||current!==epoch)return;allContexts.value=rows;contexts.value=rows.filter(item=>item.module==='agency');overview.value=result;if(tierContextId!==ctx.id||!result.benefits.some(item=>item.id===tierId.value)){tierId.value=result.benefits.find(item=>item.label===tierLabel[ctx.agencyType])?.id||result.benefits[0]?.id||'';tierContextId=ctx.id}selectedId=ctx.id;status.value='ready'}catch(reason){if(active&&current===epoch){error.value=reason.message||'代理工作台加载失败';status.value=reason.code==='FORBIDDEN'?'forbidden':'error'}}}
 async function chooseContext(id){try{const selected=await selectBusinessContext(id);selectedId=selected.id;await load()}catch(reason){uni.showToast({title:reason.message||'切换失败',icon:'none'})}}
 async function switchModule(moduleId){if(moduleId===context.value?.module){moduleOpen.value=false;return}const selected=allContexts.value.find(item=>item.module===moduleId);if(!selected)return;try{const next=await selectBusinessContext(selected.id);moduleOpen.value=false;if(next.module!=='agency'){emit('left',next.id);const route=getCurrentPages().slice(-1)[0]?.route;if(route!=='pages/partners/index')uni.switchTab({url:'/pages/partners/index'});return}selectedId=next.id;await load()}catch(reason){uni.showToast({title:reason.message||'切换失败',icon:'none'})}}
 function open(tool){uni.navigateTo({url:`/pages/agency/${tool}?contextId=${encodeURIComponent(context.value.id)}`})}
@@ -126,8 +141,8 @@ defineExpose({refresh:load})
 .agency-page button::after{border:0}
 .agency-background{position:absolute;left:0;top:0;width:100%;height:22em;opacity:.45;z-index:0}
 .agency-heading,.agency-identity,.agency-summary,.agency-shortcuts,.agency-relation-grid,.agency-benefits{position:relative;z-index:1}
-.agency-heading{padding:calc(.85em + var(--status-bar-height,0px)) 6em .2em 1.15em;font-family:var(--font-page-title);font-size:1.15em;font-weight:700;line-height:1.6}
-.agency-identity{display:flex;align-items:center;justify-content:space-between;gap:.8em;padding:1.15em 1.15em .7em}
+.agency-heading{padding:calc(.85em + var(--status-bar-height,0px)) 6em .35em 1.4em;font-family:var(--font-page-title);font-size:1.15em;font-weight:700;line-height:1.6}
+.agency-identity{display:flex;align-items:center;justify-content:space-between;gap:1em;padding:1.25em 1.4em .95em}
 .agency-identity-copy{min-width:0;flex:1}
 .agency-title-line{display:flex;align-items:center;gap:.4em;min-width:0}
 .agency-title{min-width:0;font-size:1.35em;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
@@ -135,30 +150,33 @@ defineExpose({refresh:load})
 .agency-subtitle{display:flex;align-items:center;gap:.7em;margin-top:.2em;color:#949fbd;font-size:.9em}
 .agency-subtitle button{display:inline-flex;align-items:center;gap:.25em;color:#1eb6ff;font-size:1em}
 .agency-subtitle image{width:1em;height:1em}
-.agency-switch{flex:none;display:flex;flex-direction:column;align-items:center;gap:.15em;color:#edf4ff;font-size:.75em;line-height:1.3}
-.agency-switch image{width:2.5em;height:2.5em}
+.agency-page button.agency-switch{flex:none;display:flex;flex-direction:column;align-items:center;background:none;padding:0;margin:0;color:#fff;font-size:.75em;line-height:1.5}
+.agency-page button.agency-switch image{width:2.2em;height:2.2em;display:block;margin:0 auto .3em}
 .agency-shortcuts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.15em;padding:.35em .35em 1em}
 .agency-shortcuts button{display:flex;flex-direction:column;align-items:center;gap:.35em;min-width:0}
 .agency-shortcuts image{width:2.15em;height:2.15em}
 .agency-shortcuts text{max-width:100%;font-size:clamp(10px,2.9vw,13px);line-height:1.25;text-align:center;white-space:nowrap}
-.agency-summary{display:flex;align-items:center;margin:0 1.3em .9em}
-.agency-summary button{display:flex;align-items:center;gap:.55em;flex:1;min-width:0;text-align:left}
+.agency-summary{display:flex;align-items:center;margin:.15em 1.5em 1.25em}
+.agency-summary button{display:flex;align-items:center;justify-content:center;gap:.55em;flex:1;min-width:0;text-align:left}
 .agency-summary image{width:2.15em;height:2.15em;flex:none}
 .agency-summary button>view{display:flex;flex-direction:column;min-width:0}
 .agency-summary button text{color:#bdc6db;font-size:.78em;line-height:1.35}
 .agency-summary strong{font-size:1.15em;font-weight:700;line-height:1.35;white-space:nowrap}
-.agency-summary-divider{width:1px;height:2.4em;margin:0 .35em;background:#6b779d;flex:none}
-.agency-relation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7em;padding:0 1em .9em}
-.agency-relation{position:relative;display:block;min-width:0;min-height:5.6em;padding:2.15em .55em .55em;border:1px solid #4174d2;border-radius:.7em;background:linear-gradient(160deg,#254c91 0%,#17336a 48%,#152148 100%);box-shadow:inset 0 1px rgba(205,233,255,.28);text-align:left;overflow:visible}
-.agency-relation-label{position:absolute;z-index:2;top:0;left:50%;transform:translate(-50%,-1px);padding:.18em .7em .22em;border-radius:0 0 .55em .55em;background:linear-gradient(90deg,#01b8f4,#315bff);color:#fff;font-size:.78em;font-weight:700;line-height:1.4;white-space:nowrap}
-.agency-relation-avatar,.agency-avatar{position:absolute;top:2.15em;left:.55em;width:2.35em;height:2.35em;border:2px solid #69d7ff;border-radius:50%;background:#2f5da5;box-sizing:border-box}
-.agency-avatar{display:flex;align-items:center;justify-content:center;color:#fff;font-size:.85em;font-weight:700}
-.agency-relation-copy{min-width:0;margin-left:2.7em}
-.agency-relation-copy>view{display:flex;align-items:center;gap:.3em;min-width:0}
-.agency-relation-copy>view>text{min-width:0;font-size:.9em;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.agency-relation-copy em{flex:none;padding:.05em .45em;border-radius:1em;background:#ddecff;color:#23427a;font-size:.68em;font-style:normal;line-height:1.6}
-.agency-relation-copy>text{display:block;margin-top:.25em;color:#aebbd8;font-size:.72em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.agency-benefits{min-height:18em;padding:1.1em 1em 1.2em;border-radius:1.3em 1.3em 0 0;background:linear-gradient(#293b68,#22294d)}
+.agency-summary-divider{width:1px;height:2.4em;margin:0 .55em;background:#6b779d;flex:none}
+.agency-relation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75em;padding:.2em 1.4em 1.35em;padding-left:max(1.4em,env(safe-area-inset-left));padding-right:max(1.4em,env(safe-area-inset-right))}
+.agency-page button.agency-relation{position:relative;display:flex;flex-direction:column;min-width:0;height:100%;padding:2.9em .75em 1em;box-sizing:border-box;border:0;border-radius:20rpx;background:linear-gradient(180deg,rgba(45,99,193,.52),rgba(31,65,133,.25) 55%,rgba(16,27,64,0) 100%);text-align:left;overflow:hidden}
+.agency-page button.agency-relation::before{content:'';position:absolute;inset:0;pointer-events:none;border:2rpx solid rgba(123,174,255,.5);border-bottom:0;border-radius:inherit;mask-image:linear-gradient(#000,transparent 85%);-webkit-mask-image:linear-gradient(#000,transparent 85%)}
+.agency-relation-label{position:absolute;top:0;left:50%;transform:translateX(-50%);padding:.28em 1.05em .35em;border-radius:0 0 24rpx 24rpx;background:linear-gradient(90deg,#01b8f4,#315bff);color:#102c66;font-size:.86em;line-height:1.5;white-space:nowrap}
+.agency-relation-body{display:flex;align-items:center;gap:.6em;min-width:0;width:100%}
+.agency-relation-avatar,.agency-avatar{flex:none;width:2.8em;height:2.8em;border:0;border-radius:50%;background:#2f5da5;box-sizing:border-box}
+.agency-relation-avatar{display:block}
+.agency-avatar{display:flex;align-items:center;justify-content:center;color:#fff;font-size:1em;font-weight:700}
+.agency-relation-copy{min-width:0;flex:1}
+.agency-relation-name{display:flex;align-items:center;gap:.35em;min-width:0}
+.agency-relation-name>text:first-child{min-width:0;font-size:.95em;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agency-relation-role{flex:none;max-width:50%;box-sizing:border-box;padding:.08em .65em;border-radius:1em;background:linear-gradient(145deg,#F4F9FF 0%,#C2DAFF 100%);color:#16366a;font-size:.74em;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agency-relation-region{display:block;margin-top:.3em;color:#8f9fbe;font-size:.8em;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agency-benefits{min-height:18em;padding:1.25em 1.2em 1.2em;border-radius:1.3em 1.3em 0 0;background:linear-gradient(#293b68,#22294d)}
 .agency-benefit-title{text-align:center;font-size:1em;font-weight:700}
 .agency-benefit-title text{padding:0 .35em;color:#d7e6ff}
 .agency-tiers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45em;margin:.85em 0 .4em}
@@ -179,40 +197,43 @@ defineExpose({refresh:load})
 .agency-context-group>button>image{width:1em;height:1em;flex:none;opacity:.8}
 .agency-mask{position:fixed;z-index:120;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.78)}
 .module-mask{align-items:center;justify-content:center;padding:1.5em;box-sizing:border-box}
-.agency-module-dialog{width:100%;max-width:22em;box-sizing:border-box;padding:1.3em 1em 1.4em;border-radius:1.2em;background:#343c62}
+.agency-module-dialog{width:100%;max-width:22em;box-sizing:border-box;padding:1.3em 1em 1.4em;border-radius:24rpx;background:linear-gradient(180deg,#28345C 0%,#22274D 100%)}
 .agency-module-title{position:relative;text-align:center;font-size:1.05em;font-weight:600;line-height:1.8}
 .agency-module-title button{position:absolute;right:0;top:0}
 .agency-module-title image{width:1.3em;height:1.3em}
-.agency-module-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4em;margin-top:1.1em}
-.agency-module-options button{display:flex;flex-direction:column;align-items:center;gap:.45em;min-width:0;color:#d5e4ff;font-size:.85em}
-.agency-module-options image{width:2.6em;height:2.6em}
-.relation-mask{align-items:center;justify-content:center;padding:2.2em 1.4em;box-sizing:border-box}
+.agency-module-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8em;margin-top:2em}
+.agency-module-options button{display:flex;flex-direction:column;align-items:center;gap:.8em;min-width:0;color:#d9eaff;background:none;margin:0;padding:0;font-size:1em;line-height:1.6}
+.agency-module-options image{width:3em;height:3em}
+.relation-mask{align-items:center;justify-content:center;padding:calc(2.2em + env(safe-area-inset-top)) max(1.4em,env(safe-area-inset-right)) calc(2.2em + env(safe-area-inset-bottom)) max(1.4em,env(safe-area-inset-left));box-sizing:border-box}
 .agency-relation-sheet{position:relative;width:100%;max-width:24em}
 .relation-close{position:absolute;z-index:2;right:0;top:-1.8em;color:#fff;font-size:1.8em;line-height:1}
-.relation-detail-card{position:relative;min-height:7.4em;margin-bottom:4.8em;padding:1.15em 6.8em 1em 1.1em;box-sizing:border-box;border-radius:1em;background:#343c60}
-.relation-detail-card:last-child{margin-bottom:0}
-.relation-detail-copy>view{display:flex;align-items:center;gap:.4em;min-width:0;margin-bottom:.45em}
-.relation-detail-copy>view>text{font-size:1.15em;font-weight:700}
-.relation-detail-copy em{flex:none;padding:.05em .5em;border-radius:1em;background:linear-gradient(100deg,#00b7ff,#3157ff);color:#fff;font-size:.68em;font-style:normal;line-height:1.7}
-.relation-detail-copy>text{display:block;margin-top:.28em;color:#b6c0d7;font-size:.78em;line-height:1.45;overflow-wrap:anywhere}
+.relation-detail-card{position:relative;min-height:9em;padding:1.3em 7em 1.2em 1.25em;box-sizing:border-box;border-radius:1em;background:#343c60}
+.relation-detail-copy>view{display:flex;flex-wrap:wrap;align-items:center;gap:.4em;min-width:0;margin-bottom:.8em}
+.relation-detail-copy>view>text:first-child{font-size:1.15em;font-weight:700;overflow-wrap:anywhere}
+.relation-partner-badge{max-width:100%;padding:.1em .65em;border-radius:1em;background:linear-gradient(145deg,#F4F9FF 0%,#C2DAFF 100%);color:#16366a;font-size:.68em;line-height:1.7;overflow-wrap:anywhere}
+.relation-detail-copy>text{display:block;margin-top:.5em;color:#b6c0d7;font-size:.78em;line-height:1.5;overflow-wrap:anywhere}
 .relation-photo{position:absolute;right:.9em;top:-.7em;display:flex;flex-direction:column;align-items:center;gap:.4em}
-.relation-arch{width:4.2em;height:4.7em;padding:.22em .22em .28em;box-sizing:border-box;border-radius:0 0 2.2em 2.2em;overflow:hidden;background:linear-gradient(#12b4f4,#1262ff)}
-.relation-arch image,.relation-arch>view{display:block;width:100%;height:100%;border-radius:0 0 2em 2em;object-fit:cover}
+.relation-arch{display:flex;align-items:flex-end;justify-content:center;width:4.8em;height:5.8em;padding:.45em;box-sizing:border-box;border-radius:.55em .55em 2.4em 2.4em;overflow:hidden;background:linear-gradient(145deg,#00b7f4,#245dff)}
+.relation-arch image,.relation-arch>view{display:block;width:3.9em;height:3.9em;border-radius:50%;overflow:hidden}
 .relation-arch>view{display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2em}
 .relation-photo>text{padding:.12em .55em;border-radius:1em;background:linear-gradient(90deg,#00c4ee,#3157ff);font-size:.72em;line-height:1.45;white-space:nowrap}
 @media(max-width:340px){
- .agency-identity{padding-left:.8em;padding-right:.8em}
+ .agency-heading{padding-left:1em;padding-right:5.5em}
+ .agency-identity{padding-left:1em;padding-right:1em}
  .agency-title{font-size:1.05em}
  .agency-store-badge{font-size:.58em}
  .agency-shortcuts{padding-left:.15em;padding-right:.15em}
  .agency-shortcuts text{font-size:10px}
- .agency-summary{margin-left:.7em;margin-right:.7em}
+ .agency-summary{margin-left:1em;margin-right:1em}
  .agency-summary strong{font-size:1em}
- .agency-relation-grid{gap:.4em;padding-left:.7em;padding-right:.7em}
- .agency-relation-copy>view>text{font-size:.8em}
- .relation-mask{padding-left:.8em;padding-right:.8em}
+ .agency-relation-grid{gap:.6em;padding-left:max(1em,env(safe-area-inset-left));padding-right:max(1em,env(safe-area-inset-right))}
+ .agency-page button.agency-relation{padding-left:.6em;padding-right:.6em}
+ .agency-relation-body{gap:.4em}
+ .agency-relation-name>text:first-child{font-size:.8em}
+ .relation-mask{padding-left:max(.8em,env(safe-area-inset-left));padding-right:max(.8em,env(safe-area-inset-right))}
  .relation-detail-card{padding-right:5.2em}
  .relation-arch{width:3.5em;height:3.9em}
+ .relation-arch image,.relation-arch>view{width:2.6em;height:2.6em}
  .agency-tiers{gap:.25em}
  .agency-tiers button{font-size:.75em}
 }

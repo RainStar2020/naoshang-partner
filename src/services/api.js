@@ -1,6 +1,10 @@
 import { config } from '../config'
 const SESSION_KEY = 'naoshang-session'
-export const getSession = () => uni.getStorageSync(SESSION_KEY) || null
+export const getSession = () => {
+  const session = uni.getStorageSync(SESSION_KEY) || null
+  if (config.useMock && session?.user?.id === 'LC0001') session.user = { ...session.user, id: 'VIP0001', displayId: 'VIP0001' }
+  return session
+}
 export const logout = () => {
   const accountId = getSession()?.user?.id
   if (accountId) uni.removeStorageSync(`naoshang-learning-identity:${accountId}`)
@@ -17,7 +21,7 @@ export function request(path, options = {}) {
 }
 export async function login(data) {
   if (config.useMock && data.channel === 'coach') throw new Error('请联系门店开通健脑官账号')
-  const result = config.useMock ? { token: 'demo-local-token', user: { name: '脑商体验官', id: 'LC0001', role: '家长' } } : await request('/auth/login', { method: 'POST', data })
+  const result = config.useMock ? { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长' } } : await request('/auth/login', { method: 'POST', data })
   if (!result?.token || !result?.user?.id) throw new Error('登录信息异常，请重新登录')
   if (result.accountType && !['parent', 'coach'].includes(result.accountType)) throw new Error('暂不支持该账号类型')
   const session = { ...result, accountType: result.accountType || 'parent' }

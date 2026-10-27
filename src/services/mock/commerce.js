@@ -6,7 +6,7 @@ import {mockChapterProgress} from './learning-progress'
 import {mockExclusiveState,saveMockExclusiveState} from './exclusive'
 import {mockBusinessState,mockBusinessContexts,saveMockBusinessState} from './business'
 const accounts=new Map(),copy=value=>JSON.parse(JSON.stringify(value))
-export const commerceCategories=[{id:'physical',label:'脑力核心'},{id:'software',label:'软件卡'},{id:'special',label:'特色产品'},{id:'admin',label:'行政费'},{id:'column',label:'专栏产品'}]
+export const commerceCategories=[{id:'physical',label:'脑力核心'},{id:'software',label:'软件卡'},{id:'special',label:'特色产品'},{id:'admin',label:'行政费'},{id:'column',label:'专栏产品'},{id:'coaching',label:'陪练卡'},{id:'camp',label:'训练营'}]
 const catalogSummary='这里是简介这里是简介，这里是简介'
 const detailContent={format:'nodes',version:1,nodes:[
   {name:'p',children:[{type:'text',text:'各位亲爱的用户，非常抱歉，我们的平台将在8月21日开启维护，维护期间您将无法登录，维护的时长为6小时，在此期间给您带来的不便深感抱歉'}]},
@@ -37,9 +37,11 @@ function catalogProduct(category,fields){return {id:`product-${category.id}`,cat
 export const commerceProducts=[
   catalogProduct(commerceCategories[0],{title:'平板',fulfillmentType:'PHYSICAL',requiresMember:false,pricePresentation:'tiered',standardAmount:198000,activityAmount:158000,memberAmounts:[142200,126400,118500,102700],specGroups:[{id:'speed',label:'变速',options:speedOptions},{id:'gear',label:'档位',options:gearOptions}],skus:physicalSkus()}),
   catalogProduct(commerceCategories[1],{title:'xxx软件卡',fulfillmentType:'ACTIVATION_CODE',requiresMember:false,pricePresentation:'tiered',standardAmount:36000,activityAmount:30000,memberAmounts:[27000,24000,22500,19500],specGroups:pairGroups(['月卡','年卡']),skus:pairSkus('software',['月卡','年卡'],[30000,120000]),checkoutNotice:'软件卡商品下单后联系门店获取激活码'}),
-  catalogProduct(commerceCategories[2],{title:'xxxxxx集训营',fulfillmentType:'OFFLINE_SERVICE',requiresMember:true,pricePresentation:'tiered',standardAmount:128000,activityAmount:108000,memberAmounts:[97200,86400,81000,70200],specGroups:pairGroups(['10课时','假期营']),skus:pairSkus('special',['10课时','假期营'],[108000,168000])}),
+  {...catalogProduct(commerceCategories[6],{title:'xxxxxx训练营',fulfillmentType:'OFFLINE_SERVICE',requiresMember:true,pricePresentation:'tiered',standardAmount:128000,activityAmount:108000,memberAmounts:[97200,86400,81000,70200],specGroups:pairGroups(['10课时','假期营']),skus:pairSkus('special',['10课时','假期营'],[108000,168000])}),id:'product-special'},
   catalogProduct(commerceCategories[3],{title:'XXX期训练营行政费',fulfillmentType:'OFFLINE_SERVICE',requiresMember:true,pricePresentation:'standard-only',standardAmount:20000,activityAmount:20000,memberAmounts:[20000,20000,20000,20000],specGroups:pairGroups(['默认','进阶版']),skus:pairSkus('admin',['默认','进阶版'],[20000,25000])}),
   catalogProduct(commerceCategories[4],{title:'BZ-《记忆基础》',summary:'这里是后台编辑的简介内容，这里是后台编辑的简介内容这里是后台编辑的简介内容',fulfillmentType:'COLUMN_ACCESS',requiresMember:false,pricePresentation:'tiered',standardAmount:9900,activityAmount:7900,memberAmounts:[7110,6320,5925,5135],specGroups:pairGroups(['默认','进阶版']),skus:pairSkus('column',['默认','进阶版'],[7900,12900]),checkoutNotice:'专栏产品下单后联系门店获取激活码',content:columnContent}),
+  catalogProduct(commerceCategories[5],{title:'陪练卡',fulfillmentType:'OFFLINE_SERVICE',requiresMember:true,pricePresentation:'tiered',standardAmount:120000,activityAmount:100000,memberAmounts:[90000,80000,75000,65000],specGroups:pairGroups(['10课时','20课时']),skus:pairSkus('coaching',['10课时','20课时'],[100000,180000])}),
+  {...catalogProduct(commerceCategories[2],{title:'特色产品',fulfillmentType:'PHYSICAL',requiresMember:false,pricePresentation:'tiered',standardAmount:10000,activityAmount:8000,memberAmounts:[7200,6400,6000,5200],specGroups:pairGroups(['默认']),skus:pairSkus('featured',['默认'],[8000])}),id:'product-featured'},
 ]
 const stores=[{id:'shop-1',name:'脑商训练营梧桐街店',number:'NO.001',address:'河南省郑州市管城回族区航海东路与中州大道交叉口西美景龙堂3c-1',managerName:'李志远',phone:'19919988991',coverUrl:'/static/agency/store-wutong.png'},{id:'shop-2',name:'脑商训练营文化路店',number:'NO.002',address:'郑州市文化路成长中心',managerName:'李老师',phone:'',coverUrl:'/static/common/icon-store.png'}]
 // checkoutDiscountLabel, rolePrices and coupon scope/threshold labels are layout fixtures.

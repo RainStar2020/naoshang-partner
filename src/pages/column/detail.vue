@@ -113,9 +113,9 @@ onShow(load)
 .cover-badge, .cover-index { position: absolute; bottom: .7em; padding: .08em .55em; border-radius: .3em; background: rgba(12, 18, 40, .55); font-size: .78em; line-height: 1.5; }
 .cover-badge { left: .7em; }
 .cover-index { right: .7em; }
-.detail-role-pop { position: absolute; right: .7em; bottom: .7em; width: 11.2em; max-width: calc(100% - 1.4em); padding: .35em; background: #0c2650; border: 1px solid #418cff; border-radius: .35em; z-index: 2; }
+.detail-role-pop { position: absolute; right: .7em; bottom: .7em; width: max-content; min-width: 13em; max-width: calc(100% - 1.4em); padding: .35em; background: #0c2650; border: 1px solid #418cff; border-radius: .35em; z-index: 2; }
 .detail-role-pop::after { content: ''; position: absolute; right: 1.4em; bottom: -.36em; width: .6em; height: .6em; background: #0c2650; border-right: 1px solid #418cff; border-bottom: 1px solid #418cff; transform: rotate(45deg); }
-.detail-role-row { display: flex; align-items: center; justify-content: space-between; gap: .4em; padding: .48em .4em; color: rgba(255, 255, 255, .78); line-height: 1.35; }
+.detail-role-row { display: flex; align-items: center; justify-content: space-between; gap: .8em; padding: .48em .4em; color: rgba(255, 255, 255, .78); line-height: 1.35; white-space: nowrap; overflow-x: auto; }
 .detail-role-row.current { background: #1b3b68; }
 .detail-role-row text:last-child { color: #59b6ff; font-weight: 700; }
 .column-page .shop-body { padding: 1em 1em 1.2em; }

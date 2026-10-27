@@ -94,7 +94,7 @@ export async function registerAccount(data) {
   let result
   if (config.useMock) {
     checkMockCode(data.phone, 'register', data.code)
-    result = { token: 'demo-local-token', user: { name: '脑商体验官', id: 'LC0001', role: '家长', region: data.region, inviteCode: data.inviteCode } }
+    result = { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长', region: data.region, inviteCode: data.inviteCode } }
   } else result = await request('/auth/register', { method: 'POST', data: payload })
   saveSession(result); codes.delete(keyFor(data.phone, 'register')); wechatBinding = null; clearInvitation()
   return result

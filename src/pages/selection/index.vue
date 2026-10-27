@@ -4,10 +4,10 @@
       <view class="shop-selection-head">甄选</view>
       <FeaturePageState :status="status" :error="error" @retry="load" />
       <view v-if="data" class="shop-side-layout">
-        <view class="shop-categories">
-          <button v-for="category in data.categories" :key="category.id" :class="{ selected: categoryId === category.id }" @click="categoryId = category.id">{{ category.label }}</button>
-        </view>
-        <view class="shop-products">
+        <scroll-view class="shop-categories" scroll-y>
+          <button v-for="category in visibleCategories" :key="category.id" :class="{ selected: categoryId === category.id }" @click="categoryId = category.id">{{ category.label }}</button>
+        </scroll-view>
+        <scroll-view class="shop-products" scroll-y @scroll="activePriceId = ''">
           <view v-for="section in sections" :key="section.id" class="selection-section">
             <text class="shop-subtitle">{{ section.label }}</text>
             <view v-for="product in section.items" :key="product.id" class="shop-list-item">
@@ -34,7 +34,7 @@
               <ShopPrices :product="subcategoryProduct" :expanded="activePriceId === subcategoryProduct.id" @toggle="activePriceId = $event ? subcategoryProduct.id : ''" />
             </view>
           </view>
-        </view>
+        </scroll-view>
       </view>
     </view>
     <AppTabBar active="selection" />
@@ -55,7 +55,8 @@ useAppTabBar()
 const activePriceId = ref('')
 const categoryId = ref('all')
 const { data, status, error, load } = useAsyncPage(getCatalog, false)
-const products = computed(() => data.value?.items.filter(item => categoryId.value === 'all' || item.categoryId === categoryId.value) || [])
+const visibleCategories = computed(() => data.value?.categories.filter(item => item.id !== 'special') || [])
+const products = computed(() => data.value?.items.filter(item => item.categoryId !== 'special' && (categoryId.value === 'all' || item.categoryId === categoryId.value)) || [])
 const subcategoryProduct = computed(() => {
   if (categoryId.value !== 'all') return null
   const source = products.value.find(item => item.categoryId === 'column')
@@ -76,14 +77,14 @@ onShow(() => { activePriceId.value = ''; load() })
 </script>
 <style>@import '../../styles/commerce.css';</style>
 <style scoped>
-.selection-catalog { background: #26376b; padding-bottom: 0; }
-.selection-frame { max-width: 750px; margin: 0 auto; }
+.selection-catalog { height: 100vh; overflow: hidden; background: #26376b; padding-bottom: 0; }
+.selection-frame { display: flex; flex-direction: column; height: calc(100vh - 118rpx - env(safe-area-inset-bottom)); max-width: 750px; margin: 0 auto; }
 .selection-catalog .shop-selection-head { font-size: 1.15em; padding: calc(.9em + var(--status-bar-height, 0px)) 1.4em .85em; background: #1e3164; line-height: 1.5; }
-.selection-catalog .shop-side-layout { background: #26376b; min-height: calc(100vh - 7em); }
-.selection-catalog .shop-categories { width: 26.4%; background: #364a84; }
+.selection-catalog .shop-side-layout { flex: 1; min-height: 0; overflow: hidden; background: #26376b; }
+.selection-catalog .shop-categories { flex: none; width: 26.4%; height: 100%; background: #364a84; }
 .selection-catalog .shop-categories button { display: block; width: 100%; min-height: 3.45em; padding: .85em .5em; font-size: 1em; line-height: 1.65; text-align: center; color: #b4c3e1; }
 .selection-catalog .shop-categories .selected { background: linear-gradient(90deg, #2d518c, #0084b8); color: #fff; border-right: 2px solid #00c8ff; }
-.selection-catalog .shop-products { display: block; padding: 1em .85em 1.5em; min-width: 0; }
+.selection-catalog .shop-products { display: block; flex: 1; width: 0; height: 100%; padding: 1em .85em 1.5em; min-width: 0; }
 .selection-section + .selection-section { margin-top: .35em; }
 .selection-catalog .shop-list-item { position: relative; padding: 0 0 1.1em; }
 .selection-catalog .shop-subtitle { display: block; font-size: 1em; line-height: 1.5; color: #b6c5e0; margin-bottom: .85em; }

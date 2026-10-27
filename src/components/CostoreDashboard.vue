@@ -45,7 +45,7 @@
   <view v-if="moduleOpen" class="costore-mask" @click="moduleOpen=false">
    <view class="costore-module" role="dialog" aria-label="切换模块" @click.stop>
     <view class="costore-module-title">切换模块<button aria-label="关闭模块切换" @click="moduleOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view>
-    <view class="costore-module-options"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button></view>
+    <view class="costore-module-options" :style="{gridTemplateColumns:`repeat(${Math.min(Math.max(modules.length,1),3)},minmax(0,1fr))`}"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button></view>
    </view>
   </view>
   <AppTabBar v-if="!storesOpen" active="partners"/>
@@ -92,8 +92,8 @@ defineExpose({refresh:load})
 .costore-identity{display:flex;align-items:center;justify-content:space-between;gap:.8em;padding:1em 1.15em .7em}
 .costore-title{font-size:1.35em;font-weight:700;line-height:1.35}
 .costore-identity>view>text{display:block;margin-top:.15em;color:#949fbd;font-size:.9em}
-.costore-switch{flex:none;display:flex;flex-direction:column;align-items:center;gap:.15em;color:#edf4ff;font-size:.75em;line-height:1.3}
-.costore-switch image{width:2.5em;height:2.5em}
+.costore-page button.costore-switch{flex:none;display:flex;flex-direction:column;align-items:center;background:none;padding:0;margin:0;color:#fff;font-size:.75em;line-height:1.5}
+.costore-page button.costore-switch image{width:2.2em;height:2.2em;display:block;margin:0 auto .3em}
 .costore-store,.costore-store-list button{display:flex;align-items:flex-start;gap:.7em;margin:0 1em .9em;padding:.75em;border-radius:.75em;background:#353a59;text-align:left}
 .costore-cover{width:4.8em;height:4.4em;flex:none;border-radius:.35em;background:#2a314c}
 .costore-store-copy{min-width:0;flex:1}
@@ -117,12 +117,12 @@ defineExpose({refresh:load})
 .costore-store-list button{width:calc(100% - 2em);align-items:center}
 .costore-chevron{width:1em;height:1em;flex:none}
 .costore-mask{position:fixed;z-index:100;inset:0;display:flex;align-items:center;justify-content:center;padding:1.5em;box-sizing:border-box;background:rgba(0,0,0,.72)}
-.costore-module{width:100%;max-width:22em;box-sizing:border-box;padding:1.3em 1em 1.4em;border-radius:1.2em;background:#343c62}
+.costore-module{width:100%;max-width:22em;box-sizing:border-box;padding:1.3em 1em 1.4em;border-radius:24rpx;background:linear-gradient(180deg,#28345C 0%,#22274D 100%)}
 .costore-module-title{position:relative;margin-bottom:1em;text-align:center;font-size:1.05em;font-weight:700}
 .costore-module-title button{position:absolute;right:0;top:0}
 .costore-module-title image{width:1.25em;height:1.25em}
-.costore-module-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6em}
-.costore-module-options button{display:flex;flex-direction:column;align-items:center;gap:.35em}
-.costore-module-options image{width:2.4em;height:2.4em}
+.costore-module-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8em;margin-top:2em}
+.costore-module-options button{display:flex;flex-direction:column;align-items:center;gap:.8em;min-width:0;color:#d9eaff;background:none;margin:0;padding:0;font-size:1em;line-height:1.6}
+.costore-module-options image{width:3em;height:3em}
 @media(max-width:340px){.costore-store-name{flex-wrap:wrap}.costore-shortcuts text{font-size:.78em}}
 </style>
