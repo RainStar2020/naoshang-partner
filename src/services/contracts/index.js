@@ -1991,3 +1991,201 @@ export const getApiRegionTeam = (input = {}) => callEndpoint("GET /api/region/te
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
 export const postApiRegionMonth = (input = {}) => callEndpoint("POST /api/region/month", input)
+
+/**
+ * 分红权益与动态门槛
+ * GET /partner/dividend-rights
+ * 参数：contextId, months?, kind?
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getPartnerDividendRights = (input = {}) => callEndpoint("GET /partner/dividend-rights", input)
+
+/**
+ * 门店收益规则与独立收入渠道
+ * GET /income/store-income-rules
+ * 参数：contextId
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getIncomeStoreIncomeRules = (input = {}) => callEndpoint("GET /income/store-income-rules", input)
+
+/**
+ * 分配模式：self_assign/fixed
+ * GET /partner/allocation-scheme
+ * 参数：contextId
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getPartnerAllocationScheme = (input = {}) => callEndpoint("GET /partner/allocation-scheme", input)
+
+/**
+ * 撤销未生效分配
+ * POST /income/entries/{id}/allocations/{allocationId}/revoke
+ * 参数：contextId
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const postIncomeEntriesByIdAllocationsByAllocationIdRevoke = (input = {}) => callEndpoint("POST /income/entries/{id}/allocations/{allocationId}/revoke", input)
+
+/**
+ * 经验汇总（不是金额）
+ * GET /partner/experience/summary
+ * 参数：contextId
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getPartnerExperienceSummary = (input = {}) => callEndpoint("GET /partner/experience/summary", input)
+
+/**
+ * L1–L10 成长阶梯
+ * GET /partner/ladder
+ * 参数：contextId
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getPartnerLadder = (input = {}) => callEndpoint("GET /partner/ladder", input)
+
+/**
+ * 按 register/agent 查询邀请码
+ * GET /me/invite-codes
+ * 参数：contextId, type?
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getMeInviteCodes = (input = {}) => callEndpoint("GET /me/invite-codes", input)
+
+/**
+ * 生成类型化邀请码
+ * POST /me/invite-codes
+ * 参数：contextId, type, maxUse?, ttlDays?
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const postMeInviteCodes = (input = {}) => callEndpoint("POST /me/invite-codes", input)
+
+/**
+ * 专栏列表
+ * GET /columns
+ * 参数：cursor?, pageSize?
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getColumns = (input = {}) => callEndpoint("GET /columns", input)
+
+/**
+ * 账号级专栏学习进度
+ * PUT /columns/{id}/learning-progress
+ * 参数：chapterId, positionSeconds, durationSeconds, completed
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const putColumnsByIdLearningProgress = (input = {}) => callEndpoint("PUT /columns/{id}/learning-progress", input)
+
+/**
+ * 正式支付发起入口（sandbox/live）
+ * POST /orders/{id}/payment
+ * 参数：channel, idempotencyKey
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const postOrdersByIdPayment = (input = {}) => callEndpoint("POST /orders/{id}/payment", input)
+
+/**
+ * 本店已支付订单核销
+ * POST /stores/{storeId}/orders/{orderNo}/verify
+ * 参数：contextId, verifyCode
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const postStoresByStoreIdOrdersByOrderNoVerify = (input = {}) => callEndpoint("POST /stores/{storeId}/orders/{orderNo}/verify", input)
+
+/**
+ * 代理申请费用、上传与协议要求
+ * GET /agency/application-options
+ * 参数：agencyType, tierIndex?, promotionCode?
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getAgencyApplicationOptions = (input = {}) => callEndpoint("GET /agency/application-options", input)
+
+/**
+ * 代理申请报价
+ * POST /agency/application-quotes
+ * 参数：contextId, agencyType, regionCode, tierIndex（完整必填项仍待确认）
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const postAgencyApplicationQuotes = (input = {}) => callEndpoint("POST /agency/application-quotes", input)
+
+/**
+ * 上传资源就绪状态
+ * GET /assets/{id}
+ * 参数：无
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getAssetsById = (input = {}) => callEndpoint("GET /assets/{id}", input)
+
+/**
+ * 14 类业务详情与分配角色字典
+ * GET /income/biz-types
+ * 参数：无额外参数（鉴权照常）
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getIncomeBizTypes = (input = {}) => callEndpoint("GET /income/biz-types", input)
+
+/**
+ * 晋升领取状态
+ * GET /partner/promotion-claims
+ * 参数：contextId
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const getPartnerPromotionClaims = (input = {}) => callEndpoint("GET /partner/promotion-claims", input)
+
+/**
+ * 幂等领取晋升资格
+ * POST /partner/promotion-claims
+ * 参数：contextId（taskId/version/idempotencyKey 的要求未明确）
+ * 返回：详见 docs/api/前端对接API文档-2026-10-27.md
+ * 2026-10-27 已审阅的增量契约；未定义字段不推断。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const postPartnerPromotionClaims = (input = {}) => callEndpoint("POST /partner/promotion-claims", input)

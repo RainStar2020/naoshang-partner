@@ -1,4 +1,5 @@
-/** 金额在本地 Mock 中为人民币整数分。真实后端当前为元，联调须确认后转换。 */
+/** Legacy page/Mock DTOs. New wire contracts and explicit Yuan/Cents types: ./v3-types. */
+/** 旧页面和本地 Mock 金额为分；新版业务金额为元，商城展示字段为分，禁止全局转换。 */
 export type Money = number
 export type PaymentChannel = 'wechat' | 'alipay' | 'bank_card' | 'unionpay'
 export type MemberLevel = 'normal' | 'fs' | 'jy' | 'cj' | 'xn' | 'ys'
@@ -12,7 +13,7 @@ export interface EndpointInput {
 }
 /** 通用端点完整字段暂未冻结；禁止将未知引擎结果误标为已确认 DTO。 */
 export type DocumentedResponse = Record<string, unknown> | string
-export interface ApiError { code: string; message: string; requestId?: string; fieldErrors?: Record<string, string> }
+export interface ApiError { error?: string; code?: string; message?: string; requestId?: string; fieldErrors?: Record<string, string>; verifyFailCount?: number; verifyLocked?: boolean }
 export interface LockedResponse {
   locked: true; entitlementState: EntitlementState; entitlementAmount: Money
   frozen: boolean; canExportBills: boolean; message: string; displayId: string

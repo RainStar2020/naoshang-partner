@@ -4,6 +4,7 @@ import {withBusinessContext,businessAccount,checkBusinessAccount} from './busine
 import {mockOperationOptions,mockOperationPreview,mockOperationCommit} from './mock/business-operations'
 import {parseBusinessAmount} from '../features/business/format'
 import {mockBusinessState,saveMockBusinessState} from './mock/business'
+import { validAllocationQuote, allocationKind } from './contracts/v3'
 const known=['quota-transfer','quota-purchase','upgrade','entitlement','bind-store','withdraw','allocation']
 const trackedKinds=['quota-transfer','quota-purchase','upgrade','bind-store','withdraw']
 const intentKey=(accountId,kind,contextId)=>`naoshang-business-intent:${JSON.stringify([accountId,contextId,kind])}`
@@ -35,7 +36,8 @@ export function previewBusinessOperation(kind,contextId,input,entryId=''){
     if(['quota-transfer','quota-purchase'].includes(kind)&&!/^[1-9]\d{0,3}$/.test(String(input.quantity)))throw new Error('请输入1—9999的整数名额')
     if(kind==='upgrade' && [input.standardQuantity,input.activityQuantity].some(value=>value!=null && (!Number.isInteger(Number(value))||Number(value)<0||Number(value)>9999)))throw new Error('使用名额须为0—9999的整数')
     const payload={planId:input.planId,targetAccountId:input.targetAccountId,quantity:['quota-transfer','quota-purchase'].includes(kind)?Number(input.quantity):undefined,targetLevel:input.targetLevel,standardQuantity:kind==='upgrade'&&input.standardQuantity!=null?Number(input.standardQuantity):undefined,activityQuantity:kind==='upgrade'&&input.activityQuantity!=null?Number(input.activityQuantity):undefined,storeId:input.storeId,accountType:input.accountType,payeeToken:input.payeeToken,amount:kind==='withdraw'?parseAmount(input.amount):undefined,targetId:input.targetId}
-    if(!config.useMock){const result=await request(quoteEndpoint(kind,entryId),{method:'POST',data:{...payload,contextId:context.id,entryId}});validateQuote(result);return result}
+    if(kind==='allocation')Object.assign(payload,{agentId:input.agentId,percent:input.percent??100,allocationKind:allocationKind(input.allocationKind),targets:input.targets})
+    if(!config.useMock){const result=await request(quoteEndpoint(kind,entryId),{method:'POST',data:{...payload,contextId:context.id,entryId}});if(kind==='allocation')validAllocationQuote(result);validateQuote(result);return result}
     return mockOperationPreview(kind,account,context,input,entryId,payload)
   })
 }

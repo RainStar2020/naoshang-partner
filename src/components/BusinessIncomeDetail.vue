@@ -49,7 +49,7 @@
     <view class="allocation-title">{{sheetTitle}}<button aria-label="关闭分配" @click="closeAllocation"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view>
     <text class="allocation-label">请选择{{data?.allocationKind==='inspection'?'巡查方':'销售方'}}</text>
     <view class="allocation-options">
-     <button v-for="item in candidates" :key="item.value" :class="{selected:targetId===item.value}" @click="choose(item.value)">{{item.label}}</button>
+     <button v-for="item in candidates" :key="item.value" :disabled="item.available===false" :title="item.unavailableReason" :class="{selected:targetId===item.value}" @click="choose(item.value)">{{item.label}}</button>
     </view>
     <template v-if="targetId==='other'">
      <text class="allocation-label">{{data?.allocationKind==='inspection'?'巡查方ID':'销售方ID'}}</text>
@@ -99,21 +99,21 @@ const view=computed(()=>{
 })
 const candidates=computed(()=>options.value?.fields?.find(field=>field.key==='targetId')?.options||[])
 const sheetTitle=computed(()=>data.value?.allocationKind==='inspection'?'分配巡查提点':'分配销售提点')
-const canConfirm=computed(()=>targetId.value&&(targetId.value!=='other'||/^[A-Za-z0-9_-]{2,32}$/.test(agentId.value.trim())))
+const canConfirm=computed(()=>targetId.value&&candidates.value.some(item=>item.value===targetId.value&&item.available!==false)&&(targetId.value!=='other'||/^[A-Za-z0-9_-]{2,32}$/.test(agentId.value.trim())))
 const format=detail=>detail.kind==='money'?`¥${money(detail.value)}`:detail.kind==='percent'?percent(detail.value):detail.value??'—'
 function closeAllocation(){allocationOpen.value=false;quote.value=null;targetId.value='';agentId.value='';operationError.value='';attemptKey=''}
 function choose(value){if(value!==targetId.value){targetId.value=value;quote.value=null;attemptKey='';operationError.value=''}}
 watch(agentId,()=>{quote.value=null;attemptKey=''})
 async function openAllocation(){
   busy.value=true;operationError.value='';quote.value=null;attemptKey=''
-  try{options.value=await getBusinessOperationOptions('allocation',context.value.id,data.value.id);targetId.value='';agentId.value='';allocationOpen.value=true}
+  try{options.value=await getBusinessOperationOptions('allocation',context.value.id,data.value.id);if(options.value.scheme?.mode==='fixed'){data.value={...data.value,allowedActions:data.value.allowedActions.filter(action=>action!=='allocate')};throw new Error('当前使用固定分配方案，不支持自行分配')}targetId.value='';agentId.value='';allocationOpen.value=true}
   catch(reason){operationError.value=reason.message||'无法获取分配对象'}
   finally{busy.value=false}
 }
 async function preview(){
   if(!canConfirm.value||busy.value)return
   busy.value=true;operationError.value=''
-  try{quote.value=await previewBusinessOperation('allocation',context.value.id,{targetId:targetId.value,agentId:agentId.value.trim()},data.value.id)}
+  try{quote.value=await previewBusinessOperation('allocation',context.value.id,{targetId:targetId.value,agentId:agentId.value.trim(),allocationKind:data.value.allocationKind,percent:100},data.value.id)}
   catch(reason){operationError.value=reason.message||'预览失败'}
   finally{busy.value=false}
 }

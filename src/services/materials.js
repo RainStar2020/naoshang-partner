@@ -1,3 +1,4 @@
+import { normalizeUploadIntent, isUploadReady } from './upload-contract'
 import { config } from '../config'
 import { getSession, request } from './api'
 import { normalizeContent, isMediaUrl } from '../features/content/rich-content'
@@ -67,13 +68,13 @@ export function uploadMaterialQr(file) {
     const info = await new Promise((resolve,reject) => uni.getImageInfo({ src: file.path, success: resolve, fail: reject }))
     if (!['png','jpg','jpeg'].includes(info.type)) throw new Error('请选择PNG或JPG二维码图片')
     const mimeType = info.type === 'png' ? 'image/png' : 'image/jpeg'
-    const intent = await request('/assets/upload-intents', { method: 'POST', data: { purpose: 'material-qr', fileName: `qr.${info.type === 'png' ? 'png' : 'jpg'}`, mimeType, size: file.size } })
+    const intent = normalizeUploadIntent(await request('/assets/upload-intents', { method: 'POST', data: { purpose: 'material-qr', fileName: `qr.${info.type === 'png' ? 'png' : 'jpg'}`, mimeType, size: file.size } }))
     // Contract proposal: explicitly signed multipart POST, not an assumed S3 PUT.
     if (!intent?.assetId || !isMediaUrl(intent.uploadUrl) || intent.mode !== 'multipart') throw new Error('暂不支持此上传方式，请联系服务人员')
     if (intent.limits?.maxSize && file.size > intent.limits.maxSize) throw new Error('图片超过上传大小限制')
     await new Promise((resolve,reject) => uni.uploadFile({ url: intent.uploadUrl, filePath: file.path, name: intent.fileField || 'file', header: intent.headers || {}, formData: intent.fields || {}, success: response => response.statusCode >= 200 && response.statusCode < 300 ? resolve() : reject(new Error('图片上传失败，请重试')), fail: reject }))
-    const result = await request(`/assets/${encodeURIComponent(intent.assetId)}/complete`, { method: 'POST' })
-    if (result.status !== 'ready') throw new Error('图片尚未处理完成，请稍后重试')
-    return { assetId: intent.assetId }
+    const result = await request(`/assets/${encodeURIComponent(intent.assetId)}/completions`, { method: 'POST' })
+    if (!isUploadReady(result)) throw new Error('图片尚未处理完成，请稍后重试')
+    return { assetId: intent.assetId, fileId: intent.fileId }
   })
 }

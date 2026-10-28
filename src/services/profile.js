@@ -1,3 +1,4 @@
+import { normalizeUploadIntent, isUploadReady } from './upload-contract'
 import {mockCommerceState,mockOrders} from './mock/commerce'
 import { config } from '../config'
 import { request, getSession } from './api'
@@ -128,13 +129,13 @@ export function uploadProfileImage(file, purpose) {
     }
     const info = await new Promise((resolve, reject) => uni.getImageInfo({ src: file.path, success: resolve, fail: reject }))
     if (!['png','jpg','jpeg'].includes(info.type)) fail('请选择PNG或JPG图片')
-    const intent = await request('/assets/upload-intents', { method: 'POST', data: { purpose, size: file.size, mimeType: info.type === 'png' ? 'image/png' : 'image/jpeg', fileName: `image.${info.type === 'png' ? 'png' : 'jpg'}` } })
+    const intent = normalizeUploadIntent(await request('/assets/upload-intents', { method: 'POST', data: { purpose, size: file.size, mimeType: info.type === 'png' ? 'image/png' : 'image/jpeg', fileName: `image.${info.type === 'png' ? 'png' : 'jpg'}` } }))
     if (!intent?.assetId || !/^https:\/\//.test(intent.uploadUrl) || intent.mode !== 'multipart') fail('上传配置暂不可用，请稍后重试')
     if (intent.limits?.maxSize && file.size > intent.limits.maxSize) fail('图片超过允许大小')
     await new Promise((resolve,reject) => uni.uploadFile({ url: intent.uploadUrl, filePath: file.path, name: intent.fileField || 'file', header: intent.headers || {}, formData: intent.fields || {}, success: result => result.statusCode >= 200 && result.statusCode < 300 ? resolve() : reject(new Error('图片上传失败')), fail: reject }))
-    const result = await request(`/assets/${encodeURIComponent(intent.assetId)}/complete`, { method: 'POST' })
-    if (result.status !== 'ready') fail('图片尚未处理完成，请稍后重试')
-    return { assetId: intent.assetId, previewUrl: file.path }
+    const result = await request(`/assets/${encodeURIComponent(intent.assetId)}/completions`, { method: 'POST' })
+    if (!isUploadReady(result)) fail('图片尚未处理完成，请稍后重试')
+    return { assetId: intent.assetId, fileId: intent.fileId, previewUrl: result.previewUrl || file.path }
   })
 }
 export function submitSupportFeedback({ content, imageAssetIds = [], idempotencyKey }) {

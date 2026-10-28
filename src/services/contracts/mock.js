@@ -14,6 +14,11 @@ let sequence = 0
 const nextId = prefix => `contract-${prefix}-${++sequence}`
 const fail = (message, code = 'VALIDATION_ERROR', statusCode = 422) => { throw Object.assign(new Error(message), { code, statusCode }) }
 const content = { format: 'nodes', version: 1, nodes: [] }
+function fingerprint(value) {
+  if (Array.isArray(value)) return value.map(fingerprint)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, fingerprint(value[key])]))
+  return typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value) ? Number(value) : value
+}
 
 /** Override a fixture to test empty lists, entitlement locks, errors or pending payments. */
 export function registerContractMock(key, handler) { handlers.set(key, handler); return () => handlers.delete(key) }
@@ -31,7 +36,10 @@ export async function mockEndpoint(endpoint, input) {
   const key = `${endpoint.method} ${endpoint.path}`
   const data = input.data || {}, path = input.path || {}
   if (handlers.has(key)) return copy(await handlers.get(key)({ data, path, user }))
-  const signature = JSON.stringify({ key, path, data })
+  const intentData = { ...data }
+  delete intentData.idempotencyKey
+  if (endpoint.path === '/payments/attempts' || endpoint.path.endsWith('/payment') || endpoint.path.endsWith('/entitlement-orders') || endpoint.path === '/partner/quota-orders') delete intentData.channel
+  const signature = JSON.stringify(fingerprint({ key, path, data: intentData }))
   const saved = data.idempotencyKey && state.once.get(data.idempotencyKey)
   if (saved) {
     if (saved.signature !== signature) fail('同一幂等键不能用于不同参数', 'IDEMPOTENCY_CONFLICT', 409)
@@ -55,6 +63,20 @@ async function fixture(e, p, d, user, state) {
   const id = p.id || p.memberId || nextId('fixture')
   const identity = { id: d.contextId, memberId: d.memberId || p.memberId, mode: d.memberId || p.memberId ? 'child' : 'parent', accountId: user.id }
   switch (key) {
+    case 'GET /me/invite-codes': return page([...state.records.values()].filter(row => row.mockKind === 'invite' && (!d.type || row.type === d.type)))
+    case 'POST /me/invite-codes': {
+      if (!['register', 'agent'].includes(d.type) || !d.contextId) fail('请选择邀请码类型并提供 contextId')
+      const code = `${d.type === 'register' ? 'R' : 'A'}${(++sequence).toString(36).padStart(8, '0').toUpperCase()}`
+      const inviteCode = { code, type: d.type, ownerId: user.id, createdAt: Date.now(), expiresAt: Date.now() + (d.ttlDays ?? 30) * 86400000, maxUse: d.maxUse ?? 0, usedCount: 0, status: 'active', mockKind: 'invite' }
+      state.records.set(code, inviteCode)
+      return { inviteCode, shareUrl: '', mock: true, note: '仅演示生成记录，不生成可用于真实注册的分享链接' }
+    }
+    case 'GET /partner/experience/summary': return { promotionExperience: 0, productExperience: 0, total: 0, count: 0, rule: '标价多少加多少（1 元 = 1 经验值）', mock: true }
+    case 'GET /partner/promotion-claims': return { taskId: '', status: 'NONE', achieved: false, claimable: false, claimed: false, mock: true }
+    case 'POST /partner/promotion-claims': fail('演示模式没有可领取的晋升任务', 'NOT_ACHIEVED', 400); break
+    case 'GET /partner/allocation-scheme': return { mode: 'self_assign', modeLabel: '可自行分配（演示）', kinds: [{ key: 'inspection', ownerAssignable: true }, { key: 'sales', ownerAssignable: true }], mock: true }
+    case 'POST /orders/{id}/payment': return commerce.mockPay(user, p.id, d.channel, d.idempotencyKey)
+    case 'GET /columns': return page(commerce.mockCatalog().items.filter(item => item.categoryId === 'column').map(item => ({ id: item.id, title: item.title, summary: item.summary, coverUrl: item.coverUrl, price: item.skus[0]?.amount == null ? null : item.skus[0].amount / 100, unlocked: false, chapterCount: commerce.mockColumn(user, item.id).chapters.length })))
     case 'POST /auth/sessions':
     case 'POST /auth/registrations': return { token: 'contract-demo-token', user: { ...user, displayId: 'LC0001', role: '家长' }, accountType: d.channel || 'parent', entitlement }
     case 'POST /auth/sms-challenges': return { retryAfter: 60, devCode: '123456' }

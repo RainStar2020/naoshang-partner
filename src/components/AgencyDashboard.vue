@@ -174,7 +174,7 @@ defineExpose({refresh:load})
 .agency-relation-copy{min-width:0;flex:1}
 .agency-relation-name{display:flex;align-items:center;gap:.35em;min-width:0}
 .agency-relation-name>text:first-child{min-width:0;font-size:.95em;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.agency-relation-role{flex:none;max-width:50%;box-sizing:border-box;padding:.08em .65em;border-radius:1em;background:linear-gradient(145deg,#F4F9FF 0%,#C2DAFF 100%);color:#16366a;font-size:.74em;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agency-relation-role{flex:none;max-width:50%;box-sizing:border-box;padding:.08em .65em;border-radius:1em;background:linear-gradient(145deg,#F4F9FF 0%,#C2DAFF 100%);color:#001975;font-size:.74em;font-weight:500;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agency-relation-region{display:block;margin-top:.3em;color:#8f9fbe;font-size:.8em;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agency-benefits{min-height:18em;padding:1.25em 1.2em 1.2em;border-radius:1.3em 1.3em 0 0;background:linear-gradient(#293b68,#22294d)}
 .agency-benefit-title{text-align:center;font-size:1em;font-weight:700}
@@ -210,7 +210,7 @@ defineExpose({refresh:load})
 .relation-detail-card{position:relative;min-height:9em;padding:1.3em 7em 1.2em 1.25em;box-sizing:border-box;border-radius:1em;background:#343c60}
 .relation-detail-copy>view{display:flex;flex-wrap:wrap;align-items:center;gap:.4em;min-width:0;margin-bottom:.8em}
 .relation-detail-copy>view>text:first-child{font-size:1.15em;font-weight:700;overflow-wrap:anywhere}
-.relation-partner-badge{max-width:100%;padding:.1em .65em;border-radius:1em;background:linear-gradient(145deg,#F4F9FF 0%,#C2DAFF 100%);color:#16366a;font-size:.68em;line-height:1.7;overflow-wrap:anywhere}
+.relation-partner-badge{max-width:100%;padding:.1em .65em;border-radius:1em;background:linear-gradient(145deg,#F4F9FF 0%,#C2DAFF 100%);color:#001975;font-size:.68em;font-weight:500;line-height:1.7;overflow-wrap:anywhere}
 .relation-detail-copy>text{display:block;margin-top:.5em;color:#b6c0d7;font-size:.78em;line-height:1.5;overflow-wrap:anywhere}
 .relation-photo{position:absolute;right:.9em;top:-.7em;display:flex;flex-direction:column;align-items:center;gap:.4em}
 .relation-arch{display:flex;align-items:flex-end;justify-content:center;width:4.8em;height:5.8em;padding:.45em;box-sizing:border-box;border-radius:.55em .55em 2.4em 2.4em;overflow:hidden;background:linear-gradient(145deg,#00b7f4,#245dff)}

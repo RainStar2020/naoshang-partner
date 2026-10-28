@@ -16,12 +16,20 @@ export function request(path, options = {}) {
   return new Promise((resolve, reject) => uni.request({
     url: config.baseURL + path, method: options.method || 'GET', data: options.data,
     timeout: config.timeout, header: { ...(getSession()?.token ? { Authorization: `Bearer ${getSession().token}` } : {}), ...options.header },
-    success: res => { if (res.statusCode === 401) { logout(); reject(new Error('登录已过期')); return } res.statusCode >= 200 && res.statusCode < 300 ? resolve(res.data) : reject(Object.assign(new Error(res.data?.message || '请求失败'),{statusCode:res.statusCode,code:res.data?.code,requestId:res.data?.requestId})) }, fail: reject
+    success: res => {
+      if (res.statusCode === 401) { logout(); reject(Object.assign(new Error('登录已过期'), { statusCode: 401 })); return }
+      if (res.statusCode >= 200 && res.statusCode < 300) { resolve(res.data); return }
+      const body = res.data || {}
+      reject(Object.assign(new Error(body.error || body.message || '请求失败'), {
+        statusCode: res.statusCode, code: body.code, requestId: body.requestId,
+        fieldErrors: body.fieldErrors, verifyFailCount: body.verifyFailCount, verifyLocked: body.verifyLocked
+      }))
+    }, fail: reject
   }))
 }
 export async function login(data) {
   if (config.useMock && data.channel === 'coach') throw new Error('请联系门店开通健脑官账号')
-  const result = config.useMock ? { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长' } } : await request('/auth/login', { method: 'POST', data })
+  const result = config.useMock ? { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长' } } : await request('/auth/sessions', { method: 'POST', data })
   if (!result?.token || !result?.user?.id) throw new Error('登录信息异常，请重新登录')
   if (result.accountType && !['parent', 'coach'].includes(result.accountType)) throw new Error('暂不支持该账号类型')
   const session = { ...result, accountType: result.accountType || 'parent' }

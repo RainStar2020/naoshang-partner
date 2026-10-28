@@ -2216,5 +2216,233 @@ export const endpoints = [
     "notes": "",
     "pathParams": [],
     "name": "postApiRegionMonth"
+  },
+  {
+    "method": "GET",
+    "path": "/partner/dividend-rights",
+    "description": "分红权益与动态门槛",
+    "parameters": "contextId, months?, kind?",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getPartnerDividendRights"
+  },
+  {
+    "method": "GET",
+    "path": "/income/store-income-rules",
+    "description": "门店收益规则与独立收入渠道",
+    "parameters": "contextId",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getIncomeStoreIncomeRules"
+  },
+  {
+    "method": "GET",
+    "path": "/partner/allocation-scheme",
+    "description": "分配模式：self_assign/fixed",
+    "parameters": "contextId",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getPartnerAllocationScheme"
+  },
+  {
+    "method": "POST",
+    "path": "/income/entries/{id}/allocations/{allocationId}/revoke",
+    "description": "撤销未生效分配",
+    "parameters": "contextId",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [
+      "id",
+      "allocationId"
+    ],
+    "name": "postIncomeEntriesByIdAllocationsByAllocationIdRevoke"
+  },
+  {
+    "method": "GET",
+    "path": "/partner/experience/summary",
+    "description": "经验汇总（不是金额）",
+    "parameters": "contextId",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getPartnerExperienceSummary"
+  },
+  {
+    "method": "GET",
+    "path": "/partner/ladder",
+    "description": "L1–L10 成长阶梯",
+    "parameters": "contextId",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getPartnerLadder"
+  },
+  {
+    "method": "GET",
+    "path": "/me/invite-codes",
+    "description": "按 register/agent 查询邀请码",
+    "parameters": "contextId, type?",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getMeInviteCodes"
+  },
+  {
+    "method": "POST",
+    "path": "/me/invite-codes",
+    "description": "生成类型化邀请码",
+    "parameters": "contextId, type, maxUse?, ttlDays?",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "postMeInviteCodes"
+  },
+  {
+    "method": "GET",
+    "path": "/columns",
+    "description": "专栏列表",
+    "parameters": "cursor?, pageSize?",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getColumns"
+  },
+  {
+    "method": "PUT",
+    "path": "/columns/{id}/learning-progress",
+    "description": "账号级专栏学习进度",
+    "parameters": "chapterId, positionSeconds, durationSeconds, completed",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [
+      "id"
+    ],
+    "name": "putColumnsByIdLearningProgress"
+  },
+  {
+    "method": "POST",
+    "path": "/orders/{id}/payment",
+    "description": "正式支付发起入口（sandbox/live）",
+    "parameters": "channel, idempotencyKey",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [
+      "id"
+    ],
+    "name": "postOrdersByIdPayment"
+  },
+  {
+    "method": "POST",
+    "path": "/stores/{storeId}/orders/{orderNo}/verify",
+    "description": "本店已支付订单核销",
+    "parameters": "contextId, verifyCode",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [
+      "storeId",
+      "orderNo"
+    ],
+    "name": "postStoresByStoreIdOrdersByOrderNoVerify"
+  },
+  {
+    "method": "GET",
+    "path": "/agency/application-options",
+    "description": "代理申请费用、上传与协议要求",
+    "parameters": "agencyType, tierIndex?, promotionCode?",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getAgencyApplicationOptions"
+  },
+  {
+    "method": "POST",
+    "path": "/agency/application-quotes",
+    "description": "代理申请报价",
+    "parameters": "contextId, agencyType, regionCode, tierIndex（完整必填项仍待确认）",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "postAgencyApplicationQuotes"
+  },
+  {
+    "method": "GET",
+    "path": "/assets/{id}",
+    "description": "上传资源就绪状态",
+    "parameters": "无",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [
+      "id"
+    ],
+    "name": "getAssetsById"
+  },
+  {
+    "method": "GET",
+    "path": "/income/biz-types",
+    "description": "14 类业务详情与分配角色字典",
+    "parameters": "无额外参数（鉴权照常）",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getIncomeBizTypes"
+  },
+  {
+    "method": "GET",
+    "path": "/partner/promotion-claims",
+    "description": "晋升领取状态",
+    "parameters": "contextId",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "getPartnerPromotionClaims"
+  },
+  {
+    "method": "POST",
+    "path": "/partner/promotion-claims",
+    "description": "幂等领取晋升资格",
+    "parameters": "contextId（taskId/version/idempotencyKey 的要求未明确）",
+    "response": "详见 docs/api/前端对接API文档-2026-10-27.md",
+    "source": "前端对接API文档-2026-10-27.md",
+    "notes": "2026-10-27 已审阅的增量契约；未定义字段不推断。",
+    "serverOnly": false,
+    "pathParams": [],
+    "name": "postPartnerPromotionClaims"
   }
 ]

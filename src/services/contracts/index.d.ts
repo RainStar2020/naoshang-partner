@@ -1,3 +1,4 @@
+import type * as V3 from "./v3-types"
 import type { EndpointInput, DocumentedResponse, LoginRequest, Session, Bootstrap, Product, CheckoutRequest, CheckoutQuote, Order, Page, Address, Member, PaymentChannel, PaymentAttempt, UploadIntent, RenderJob, Result } from "./types"
 
 /** 开通/续费 200 权益收益费（幂等） */
@@ -193,9 +194,9 @@ export function postPartnerStoreBindings(input: EndpointInput): Promise<Result<D
 /** 单笔收益详情（来源/受益人/状态） */
 export function getIncomeEntriesById(input: EndpointInput): Promise<Result<DocumentedResponse>>
 /** 分配前可选项 */
-export function getIncomeEntriesByIdAllocationOptions(input: EndpointInput): Promise<Result<DocumentedResponse>>
+export function getIncomeEntriesByIdAllocationOptions(input: {path:{id:string};data:{contextId:string}}): Promise<Result<V3.AllocationOptions>>
 /** 销售/巡查提点分配报价 */
-export function postIncomeEntriesByIdAllocationQuotes(input: EndpointInput): Promise<Result<DocumentedResponse>>
+export function postIncomeEntriesByIdAllocationQuotes(input: {path:{id:string};data:V3.AllocationQuoteRequest}): Promise<Result<V3.AllocationQuote>>
 /** 提交分配 */
 export function postIncomeEntriesByIdAllocations(input: EndpointInput): Promise<Result<DocumentedResponse>>
 /** 提现记录 */
@@ -356,3 +357,39 @@ export function getApiStores(input?: EndpointInput): Promise<Result<DocumentedRe
 export function getApiRegionTeam(input?: EndpointInput): Promise<Result<DocumentedResponse>>
 /** 区域代理月度结算（触发） */
 export function postApiRegionMonth(input: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 分红权益与动态门槛 */
+export function getPartnerDividendRights(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 门店收益规则与独立收入渠道 */
+export function getIncomeStoreIncomeRules(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 分配模式：self_assign/fixed */
+export function getPartnerAllocationScheme(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 撤销未生效分配 */
+export function postIncomeEntriesByIdAllocationsByAllocationIdRevoke(input: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 经验汇总（不是金额） */
+export function getPartnerExperienceSummary(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** L1–L10 成长阶梯 */
+export function getPartnerLadder(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 按 register/agent 查询邀请码 */
+export function getMeInviteCodes(input?: EndpointInput): Promise<Result<Page<V3.InviteCode>>>
+/** 生成类型化邀请码 */
+export function postMeInviteCodes(input: {data:{contextId:string;type:"register"|"agent";maxUse?:number;ttlDays?:number}}): Promise<Result<{inviteCode:V3.InviteCode;shareUrl:string}>>
+/** 专栏列表 */
+export function getColumns(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 账号级专栏学习进度 */
+export function putColumnsByIdLearningProgress(input: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 正式支付发起入口（sandbox/live） */
+export function postOrdersByIdPayment(input: {path:{id:string};data:{channel:V3.Channel;idempotencyKey:string}}): Promise<Result<V3.Payment>>
+/** 本店已支付订单核销 */
+export function postStoresByStoreIdOrdersByOrderNoVerify(input: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 代理申请费用、上传与协议要求 */
+export function getAgencyApplicationOptions(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 代理申请报价 */
+export function postAgencyApplicationQuotes(input: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 上传资源就绪状态 */
+export function getAssetsById(input: {path:{id:string}}): Promise<Result<V3.Asset>>
+/** 14 类业务详情与分配角色字典 */
+export function getIncomeBizTypes(input?: EndpointInput): Promise<Result<DocumentedResponse>>
+/** 晋升领取状态 */
+export function getPartnerPromotionClaims(input?: EndpointInput): Promise<Result<V3.PromotionClaim>>
+/** 幂等领取晋升资格 */
+export function postPartnerPromotionClaims(input: EndpointInput): Promise<Result<DocumentedResponse>>
