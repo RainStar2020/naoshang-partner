@@ -44,11 +44,12 @@ export function partnerPromotion(id) {
   return { beforeName: before.levelName, afterName: after.levelName, beforeQuota: before.benefits, afterQuota: after.benefits }
 }
 
-// paidAmount is the provisional API field for the user's actual payment, in fen.
-// Until that name is fixed, a missing value falls back to the current rank price.
+// Prefer wire fields (already normalized to fen by the business adapter). Fall back to the local ladder.
 export function partnerUpgradeQuote(promotion = {}) {
-  const standard = partnerLevelPrice(promotion.afterName)
   const paid = Number.isInteger(promotion.paidAmount) ? promotion.paidAmount : partnerLevelPrice(promotion.beforeName)
-  const difference = Number.isInteger(standard) && Number.isInteger(paid) ? standard - paid : null
+  const standard = Number.isInteger(promotion.standardAmount) ? promotion.standardAmount : partnerLevelPrice(promotion.afterName)
+  const difference = Number.isInteger(promotion.differenceAmount)
+    ? promotion.differenceAmount
+    : (Number.isInteger(standard) && Number.isInteger(paid) ? standard - paid : null)
   return { paid, standard, difference }
 }

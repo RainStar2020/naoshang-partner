@@ -1,0 +1,310 @@
+[
+  {
+    "account": "13900001001",
+    "checks": [
+      {
+        "name": "login",
+        "ok": false,
+        "error": "fetch failed"
+      }
+    ]
+  },
+  {
+    "account": "13900001002",
+    "checks": [
+      {
+        "name": "login",
+        "ok": true
+      },
+      {
+        "name": "profile",
+        "ok": true
+      },
+      {
+        "name": "learning identities",
+        "ok": true
+      },
+      {
+        "name": "levels: parent",
+        "ok": true
+      },
+      {
+        "name": "levels: child",
+        "ok": true
+      },
+      {
+        "name": "announcements",
+        "ok": true
+      },
+      {
+        "name": "products",
+        "ok": false,
+        "error": "Not Found: /products"
+      },
+      {
+        "name": "orders",
+        "ok": true
+      },
+      {
+        "name": "bootstrap",
+        "ok": true
+      },
+      {
+        "name": "frontend business contexts",
+        "ok": true
+      }
+    ],
+    "name": "省代-乙",
+    "businessContexts": [
+      {
+        "id": "wholesale:seed_province",
+        "accountId": "seed_province",
+        "module": "wholesale",
+        "label": "批发商",
+        "levelName": "联创合伙人",
+        "detail": "联创合伙人",
+        "capabilities": [
+          "wholesale:income",
+          "wholesale:superior",
+          "wholesale:share",
+          "wholesale:materials",
+          "wholesale:global-awards",
+          "wholesale:promotion",
+          "wholesale:experience",
+          "wholesale:team",
+          "wholesale:quota-ledger",
+          "wholesale:quota-transfers",
+          "wholesale:quota-batches",
+          "wholesale:quota-transfer",
+          "wholesale:quota-purchase",
+          "wholesale:upgrade",
+          "wholesale:entitlement",
+          "wholesale:bind-store"
+        ],
+        "validUntil": null,
+        "storeId": null
+      },
+      {
+        "id": "agency:seed_province:ra_16",
+        "accountId": "seed_province",
+        "module": "agency",
+        "label": "省代",
+        "detail": "省代 · 3310",
+        "regionLabel": "3310",
+        "scopeLabel": "省代",
+        "agencyType": "PROVINCE",
+        "assignmentId": "ra_16",
+        "storeId": null,
+        "store": null,
+        "capabilities": [
+          "agency:team",
+          "agency:income"
+        ],
+        "validUntil": null
+      }
+    ]
+  },
+  {
+    "account": "13900001003",
+    "checks": [
+      {
+        "name": "login",
+        "ok": true
+      },
+      {
+        "name": "profile",
+        "ok": true
+      },
+      {
+        "name": "learning identities",
+        "ok": true
+      },
+      {
+        "name": "levels: parent",
+        "ok": true
+      },
+      {
+        "name": "levels: child",
+        "ok": true
+      },
+      {
+        "name": "announcements",
+        "ok": true
+      },
+      {
+        "name": "products",
+        "ok": false,
+        "error": "Not Found: /products"
+      },
+      {
+        "name": "orders",
+        "ok": true
+      },
+      {
+        "name": "bootstrap",
+        "ok": true
+      },
+      {
+        "name": "frontend business contexts",
+        "ok": true
+      }
+    ],
+    "name": "单店代理-丙",
+    "businessContexts": [
+      {
+        "id": "wholesale:seed_store",
+        "accountId": "seed_store",
+        "module": "wholesale",
+        "label": "批发商",
+        "levelName": "天使合伙人",
+        "detail": "天使合伙人",
+        "capabilities": [
+          "wholesale:income",
+          "wholesale:superior",
+          "wholesale:share",
+          "wholesale:materials",
+          "wholesale:global-awards",
+          "wholesale:promotion",
+          "wholesale:experience",
+          "wholesale:team",
+          "wholesale:quota-ledger",
+          "wholesale:quota-transfers",
+          "wholesale:quota-batches",
+          "wholesale:quota-transfer",
+          "wholesale:quota-purchase",
+          "wholesale:upgrade",
+          "wholesale:entitlement",
+          "wholesale:bind-store"
+        ],
+        "validUntil": null,
+        "storeId": null
+      },
+      {
+        "id": "agency:seed_store:ra_17",
+        "accountId": "seed_store",
+        "module": "agency",
+        "label": "单店代理",
+        "detail": "单店代理 · 331002-S1",
+        "regionLabel": "331002-S1",
+        "scopeLabel": "单店代理",
+        "agencyType": "STORE",
+        "assignmentId": "ra_17",
+        "storeId": "331002-S1",
+        "store": {
+          "id": "331002-S1",
+          "name": "脑商线下店 331002-S1",
+          "address": "",
+          "contact": ""
+        },
+        "capabilities": [
+          "agency:team",
+          "agency:income",
+          "agency:store-management"
+        ],
+        "validUntil": null
+      }
+    ]
+  },
+  {
+    "account": "13900001004",
+    "checks": [
+      {
+        "name": "login",
+        "ok": true
+      },
+      {
+        "name": "profile",
+        "ok": true
+      },
+      {
+        "name": "learning identities",
+        "ok": true
+      },
+      {
+        "name": "levels: parent",
+        "ok": true
+      },
+      {
+        "name": "levels: child",
+        "ok": false,
+        "error": "fetch failed"
+      },
+      {
+        "name": "announcements",
+        "ok": false,
+        "error": "登录已过期"
+      },
+      {
+        "name": "products",
+        "ok": false,
+        "error": "登录已过期"
+      },
+      {
+        "name": "orders",
+        "ok": false,
+        "error": "请先登录"
+      },
+      {
+        "name": "bootstrap",
+        "ok": false,
+        "error": "fetch failed"
+      },
+      {
+        "name": "frontend business contexts",
+        "ok": false,
+        "error": "请先登录"
+      }
+    ],
+    "name": "私董合伙人-丁"
+  },
+  {
+    "account": "13900001005",
+    "checks": [
+      {
+        "name": "login",
+        "ok": false,
+        "error": "fetch failed"
+      }
+    ]
+  },
+  {
+    "account": "13900001006",
+    "checks": [
+      {
+        "name": "login",
+        "ok": false,
+        "error": "fetch failed"
+      }
+    ]
+  },
+  {
+    "account": "13900001007",
+    "checks": [
+      {
+        "name": "login",
+        "ok": false,
+        "error": "fetch failed"
+      }
+    ]
+  },
+  {
+    "account": "13900001008",
+    "checks": [
+      {
+        "name": "login",
+        "ok": false,
+        "error": "fetch failed"
+      }
+    ]
+  },
+  {
+    "account": "13900001009",
+    "checks": [
+      {
+        "name": "login",
+        "ok": false,
+        "error": "fetch failed"
+      }
+    ]
+  }
+]

@@ -94,7 +94,7 @@ import { ref, computed, watch } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
-import { getCommerceOrder, changeOrder, commerceRequestKey } from '../../services/commerce'
+import { getCommerceOrder, changeOrder, commerceRequestKey, parseCommerceTime } from '../../services/commerce'
 import { money } from '../../features/exclusive/format'
 import { businessDateLabel } from '../../features/business/format'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
@@ -116,7 +116,7 @@ const member = computed(() => {
 const couponText = computed(() => {
   const order = data.value?.order
   if (!order?.discountAmount) return '未使用'
-  return `${order.couponTitle ? order.couponTitle + ' ' : ''}−¥${money(order.discountAmount)}`
+  return `${order.couponTitle ? order.couponTitle + ' ' : ''}-¥${money(order.discountAmount)}`
 })
 const statusIcon = computed(() => {
   const order = data.value?.order
@@ -141,7 +141,7 @@ const subtitle = computed(() => {
   return ''
 })
 const countdown = computed(() => {
-  const expires = Date.parse(data.value?.order?.expiresAt)
+  const expires = parseCommerceTime(data.value?.order?.expiresAt)
   if (!Number.isFinite(expires)) return '请在有效期内完成支付'
   const sec = Math.max(0, Math.ceil((expires - now.value) / 1000))
   const pad = value => String(value).padStart(2, '0')
@@ -151,7 +151,7 @@ const timeFields = computed(() => [{ key: 'createdAt', label: '下单时间' }, 
 watch(now, () => {
   const order = data.value?.order
   if (!order || order.status !== 'PENDING_PAYMENT') { expiryReload = false; return }
-  const expires = Date.parse(order.expiresAt)
+  const expires = parseCommerceTime(order.expiresAt)
   if (!expiryReload && Number.isFinite(expires) && expires <= now.value) { expiryReload = true; load() }
 })
 function pay() { uni.navigateTo({ url: `/pages/payment/cashier?orderId=${encodeURIComponent(id)}` }) }

@@ -787,18 +787,20 @@
   );
   const promotionTaskNote = computed(() => {
     const promotion = report.value?.promotion;
+    const task = report.value?.task;
     if (!promotion) return "";
+    if (task?.text || promotion.taskDescription)
+      return task?.text || promotion.taskDescription;
+    if (task?.deadlineText) return task.deadlineText;
     const opened = date(promotion.startedAt || promotion.openedAt).slice(0, 10);
     const vip =
       promotion.vipEquivalent ??
       ({ VIP合伙人: 3, 天使合伙人: 9, 私董合伙人: 18 })[promotion.beforeName] ??
       3;
-    const days = Number.isFinite(Date.parse(promotion.validUntil))
-      ? Math.max(
-          0,
-          Math.ceil((Date.parse(promotion.validUntil) - Date.now()) / 86400000),
-        )
-      : "—";
+    const until = Number(promotion.validUntil);
+    const days = Number.isFinite(until)
+      ? Math.max(0, Math.ceil((until - Date.now()) / 86400000))
+      : promotion.daysLeft ?? "—";
     const short = rankShort(promotion.beforeName);
     // VIP→天使: only same-level count. 天使/私董: also allow VIP equivalent.
     const requirement =
@@ -808,7 +810,7 @@
     return `任务有效期1年，自您${opened || "—"}开通合伙人起，1年内${requirement}即可免费晋升${promotion.afterName}，任务将于${days}天后截止`;
   });
   const promotionExpired = computed(() => {
-    const until = Date.parse(report.value?.promotion?.validUntil);
+    const until = Number(report.value?.promotion?.validUntil);
     return Number.isFinite(until) && until < Date.now();
   });
   const promotionStatusLabel = computed(() =>

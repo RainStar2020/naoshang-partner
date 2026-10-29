@@ -26,10 +26,7 @@
         </view>
       </view>
       <view v-else class="page-state">暂无可用身份，请联系服务人员</view>
-      <view v-if="levelStatus === 'loading'" class="page-state">正在加载成长等级…</view>
-      <view v-else-if="levelStatus === 'error'" class="page-state"><text>{{ levelError }}</text><button class="retry-button" @click="loadLevels">重试</button></view>
-      <view v-else-if="!levels.length" class="page-state">暂无等级</view>
-      <view v-else class="journey" aria-label="会员成长等级">
+      <view class="journey" aria-label="会员成长等级">
         <button class="announcement-link" aria-label="公告榜" @click="openAnnouncements"><image src="/static/member/icon-announcement.png" mode="aspectFit"/><text>公告榜</text></button>
         <view v-for="tier in [3, 2, 1]" :key="tier" class="tier-band" :class="`tier-${tier}`">
           <button class="tier-marker" :aria-label="`查看${['一阶','二阶','三阶'][tier - 1]}会员课程`" @click="openTier(tier)"><image :src="`/static/member/bg-tier-${tier}.png`" mode="scaleToFill"/><text>{{ ['一阶','二阶','三阶'][tier - 1] }}</text><text>{{ ['菁英会员','行能会员','羿烁会员'][tier - 1] }}</text></button>
@@ -55,37 +52,47 @@ import { computed, ref } from 'vue'
 import { onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { getSession } from '../../services/api'
+import { config } from '../../config'
+import { isJourneyLevelUnlocked } from '../../features/learning/journey'
 import { getLearningIdentities, getSelectedIdentity, selectLearningIdentity, getLearningLevels } from '../../services/learning'
 import IdentityPicker from '../../components/IdentityPicker.vue'
 import AppTabBar from '../../components/AppTabBar.vue'
 import { useAppTabBar } from '../../composables/useAppTabBar'
 useAuth()
 useAppTabBar()
-const identities = ref([]), selected = ref(null), levels = ref([]), pickerOpen = ref(false)
-const status = ref('loading'), error = ref(''), levelStatus = ref('loading'), levelError = ref('')
+// 首页成长路径按原设计固定；接口仅补充解锁状态，不决定按钮数量、名称和分组。
+const levelNames = ['超级记忆', '实用记忆', '语文系统', '外语系统', '百科系统', '导图大师', '速读大师', '记忆大师', '潜能开发', '未来领袖']
+const levelEntitlements = ref([])
+const levels = computed(() => levelNames.map((name, index) => {
+  const number = index + 1
+  const id = config.useMock ? `level-${number}` : `L${number}`
+  const tier = number === 1 ? 1 : number <= 5 ? 2 : 3
+  return { id, number, name, tier, unlocked: isJourneyLevelUnlocked({ number, tier }, levelEntitlements.value) }
+}))
+const identities = ref([]), selected = ref(null), pickerOpen = ref(false)
+const status = ref('loading'), error = ref('')
 const reversedLevels = computed(() => [...levels.value].sort((a, b) => b.number - a.number))
 const membershipActive = computed(() => levels.value.some(level => level.unlocked))
 let loadEpoch = 0, levelEpoch = 0
 async function load() {
   if (!getSession()) return
   const epoch = ++loadEpoch
-  ++levelEpoch; pickerOpen.value = false; status.value = 'loading'; error.value = ''; levels.value = []; selected.value = null
+  ++levelEpoch; pickerOpen.value = false; status.value = 'loading'; error.value = ''; levelEntitlements.value = []; selected.value = null
   try {
     const rows = await getLearningIdentities()
     if (epoch !== loadEpoch) return
     identities.value = rows; selected.value = getSelectedIdentity(rows); status.value = 'ready'
     if (selected.value) await loadLevels()
-    else levelStatus.value = 'ready'
   } catch (reason) { if (epoch === loadEpoch) { status.value = 'error'; error.value = reason.message || '会员信息加载失败' } }
 }
 async function loadLevels() {
   if (!selected.value) return
   const epoch = ++levelEpoch, contextId = selected.value.id
-  levelStatus.value = 'loading'; levelError.value = ''; levels.value = []
+  levelEntitlements.value = []
   try {
     const result = await getLearningLevels(selected.value)
-    if (epoch === levelEpoch && contextId === selected.value?.id) { levels.value = result; levelStatus.value = 'ready' }
-  } catch (reason) { if (epoch === levelEpoch) { levelStatus.value = 'error'; levelError.value = reason.message || '等级加载失败' } }
+    if (epoch === levelEpoch && contextId === selected.value?.id) { levelEntitlements.value = result }
+  } catch { /* 权益读取失败时保留完整成长路径，详情页继续校验访问权限。 */ }
 }
 function switchIdentity(id) {
   try { selected.value = selectLearningIdentity(id, identities.value); pickerOpen.value = false; loadLevels() }

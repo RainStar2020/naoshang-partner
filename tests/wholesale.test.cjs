@@ -25,11 +25,17 @@ test('designed wholesale reports preserve empty benefits and separate purchase, 
 })
 
 test('promotion denominators use three same-rank referrals while progress remains supplied by API',async()=>{
- for(const [beforeName,target] of [['VIP合伙人',3],['天使合伙人',9],['私董合伙人',18]]){
+ for(const [beforeName,vipEquivalent] of [['VIP合伙人',3],['天使合伙人',9],['私董合伙人',18]]){
   const ctx={id:'wholesale:A',module:'wholesale',accountId:'A',capabilities:['wholesale:promotion']}
-  const {business}=await setup(new Map(),async url=>url==='/me/bootstrap'?{businessContexts:[ctx]}:{items:[],hasMore:false,nextCursor:null,promotion:{beforeName,progress:7,canClaim:false,target:999}})
+  const {business}=await setup(new Map(),async url=>url==='/me/bootstrap'?{businessContexts:[ctx]}:{items:[],hasMore:false,nextCursor:null,promotion:{beforeName,progress:7,canClaim:false,target:999,paidAmount:59800,standardAmount:239800,differenceAmount:180000}})
   const report=await business.getBusinessReport('wholesale','promotion',ctx.id)
-  assert.equal(report.promotion.target,target);assert.equal(report.promotion.progress,7);assert.equal(report.promotion.canClaim,false)
+  assert.equal(report.promotion.target,3)
+  assert.equal(report.promotion.vipEquivalent,vipEquivalent)
+  assert.equal(report.promotion.progress,7)
+  assert.equal(report.promotion.canClaim,false)
+  assert.equal(report.promotion.paidAmount,5980000)
+  assert.equal(report.promotion.standardAmount,23980000)
+  assert.equal(report.promotion.differenceAmount,18000000)
  }
 })
 test('users cannot bind or change their superior from business pages',async()=>{

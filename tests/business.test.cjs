@@ -97,6 +97,8 @@ test('real errors, malformed lists and late responses cannot become full-permiss
   await assert.rejects(failed.service.getBusinessContexts(),/offline/)
   const malformed=await setup({useMock:false,remote:async url=>url==='/me/bootstrap'?{businessContexts:[context]}:{items:[],hasMore:true,nextCursor:null}})
   await assert.rejects(malformed.service.getBusinessReport('wholesale','income',context.id),/格式异常/)
+  const empty=await setup({useMock:false,remote:async url=>url==='/me/bootstrap'?{businessContexts:[context]}:{}})
+  assert.equal((await empty.service.getBusinessReport('wholesale','income',context.id)).items.length,0)
   let finish;const pending=new Promise(resolve=>{finish=resolve})
   const late=await setup({useMock:false,remote:async url=>url==='/me/bootstrap'?{businessContexts:[context]}:pending})
   const result=late.service.getBusinessReport('wholesale','income',context.id);await new Promise(resolve=>setImmediate(resolve));late.session.token='new-session';finish({items:[],hasMore:false,nextCursor:null})

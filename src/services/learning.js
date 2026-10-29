@@ -79,8 +79,10 @@ export async function getAnnouncements(cursor = null) {
   const current = user()
   const reads = uni.getStorageSync(`naoshang-announcement-reads:${current.id}`) || {}
   const result = config.useMock ? { items: mockAnnouncements.map(({ id, title, summary, publishedAtLabel, pinned }) => ({ id, title, summary, publishedAtLabel, pinned: !!pinned, read: !!reads[id] })).sort((a,b)=>Number(b.pinned)-Number(a.pinned)), nextCursor: null, hasMore: false } : await request('/announcements', { data: { cursor, pageSize: 20 } })
-  if (!Array.isArray(result?.items)) throw new Error('公告数据格式异常')
-  return result
+  if (result == null || result.items == null) return { ...(result || {}), items: [], hasMore: false, nextCursor: null }
+  if (!Array.isArray(result.items)) throw new Error('公告数据格式异常')
+  if (result.hasMore != null && typeof result.hasMore !== 'boolean') throw new Error('公告数据格式异常')
+  return { ...result, hasMore: result.hasMore === true, nextCursor: result.nextCursor || null }
 }
 // Proposed idempotent read receipt. Targeting and scheduled publication are enforced by API.
 export async function markAnnouncementRead(id){

@@ -5,7 +5,7 @@ import { mockEndpoint } from './mock'
 
 const registry = new Map(endpoints.map(endpoint => [`${endpoint.method} ${endpoint.path}`, endpoint]))
 /** Separate switch permits gradual migration without changing existing page services. */
-export const contractConfig = { useMock: true, delay: 80 }
+export const contractConfig = { useMock: config.useMock, delay: 80 }
 
 /** @param {string} key @param {import('./types').EndpointInput} input */
 export async function callEndpoint(key, input = {}) {

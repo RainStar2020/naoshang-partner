@@ -41,16 +41,16 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
-import { getCommerceOrder, getPaymentChannels, startPayment, queryPayment, commerceRequestKey, getPendingPayment } from '../../services/commerce'
+import { getCommerceOrder, getPaymentChannels, startPayment, queryPayment, commerceRequestKey, getPendingPayment, parseCommerceTime } from '../../services/commerce'
 import { money } from '../../features/exclusive/format'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 useAuth()
 let id = '', active = true, timer, offset = 0, loaded = false, paymentKey = '', paymentChannel = ''
 const order = ref(null), channels = ref([]), channel = ref(''), platformLabel = ref(''), status = ref('loading'), error = ref(''), busy = ref(false), message = ref(''), attemptId = ref(''), now = ref(Date.now())
-const expired = computed(() => order.value && Date.parse(order.value.expiresAt) <= now.value + offset)
+const expired = computed(() => order.value && parseCommerceTime(order.value.expiresAt) <= now.value + offset)
 const remaining = computed(() => {
-  const sec = Math.max(0, Math.ceil((Date.parse(order.value?.expiresAt) - now.value - offset) / 1000))
+  const sec = Math.max(0, Math.ceil((parseCommerceTime(order.value?.expiresAt) - now.value - offset) / 1000))
   const seconds = sec % 60
   return `${Math.floor(sec / 60)}分${seconds < 10 ? '0' : ''}${seconds}秒`
 })
@@ -69,7 +69,7 @@ async function load() {
       paymentKey = pending.key
       paymentChannel = pending.channel
     }
-    offset = Date.parse(result.serverTime || new Date().toISOString()) - Date.now()
+    offset = parseCommerceTime(result.serverTime ?? Date.now()) - Date.now()
     channels.value = ways.items
     platformLabel.value = ways.platformLabel || ''
     if (!channel.value) channel.value = ways.items[0]?.id || ''

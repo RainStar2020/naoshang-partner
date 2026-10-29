@@ -12,7 +12,13 @@ export function accountSnapshot() {
 }
 export function checkAccount(user) { if (getSession()?.user?.id !== user.id) throw new Error('登录账号已变化，请重新加载') }
 export function listResult(result) {
-  if (!Array.isArray(result?.items) || typeof result.hasMore !== 'boolean' || (result.hasMore && (typeof result.nextCursor !== 'string' || !result.nextCursor))) throw new Error('列表数据格式异常')
+  if (result == null) return { items: [], hasMore: false, nextCursor: null }
+  if (!Array.isArray(result.items)) {
+    if (result.items == null) return { ...result, items: [], hasMore: false, nextCursor: null }
+    throw new Error('列表数据格式异常')
+  }
+  if (result.hasMore == null) return { ...result, hasMore: false, nextCursor: null }
+  if (typeof result.hasMore !== 'boolean' || (result.hasMore && (typeof result.nextCursor !== 'string' || !result.nextCursor))) throw new Error('列表数据格式异常')
   return result
 }
 export async function getExclusiveAccess(profileResult) {

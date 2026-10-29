@@ -107,14 +107,14 @@ watch(agentId,()=>{quote.value=null;attemptKey=''})
 async function openAllocation(){
   busy.value=true;operationError.value='';quote.value=null;attemptKey=''
   try{options.value=await getBusinessOperationOptions('allocation',context.value.id,data.value.id);if(options.value.scheme?.mode==='fixed'){data.value={...data.value,allowedActions:data.value.allowedActions.filter(action=>action!=='allocate')};throw new Error('当前使用固定分配方案，不支持自行分配')}targetId.value='';agentId.value='';allocationOpen.value=true}
-  catch(reason){operationError.value=reason.message||'无法获取分配对象'}
+  catch(reason){operationError.value=reason.message||'暂无法获取可分配对象，请稍后重试'}
   finally{busy.value=false}
 }
 async function preview(){
   if(!canConfirm.value||busy.value)return
   busy.value=true;operationError.value=''
   try{quote.value=await previewBusinessOperation('allocation',context.value.id,{targetId:targetId.value,agentId:agentId.value.trim(),allocationKind:data.value.allocationKind,percent:100},data.value.id)}
-  catch(reason){operationError.value=reason.message||'预览失败'}
+  catch(reason){operationError.value=reason.message||'分配试算未完成，请重试'}
   finally{busy.value=false}
 }
 async function commit(){
@@ -122,7 +122,7 @@ async function commit(){
   busy.value=true;operationError.value=''
   if(!attemptKey)attemptKey=`allocation-${Date.now()}-${Math.random().toString(36).slice(2)}`
   try{await commitBusinessOperation('allocation',context.value.id,quote.value.id,attemptKey,data.value.id);closeAllocation();await load()}
-  catch(reason){operationError.value=reason.message||'分配失败'}
+  catch(reason){operationError.value=reason.message||'分配结果确认中，请勿重复提交，可稍后查看明细'}
   finally{busy.value=false}
 }
 defineExpose({refresh:load})

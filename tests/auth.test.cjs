@@ -22,7 +22,7 @@ async function setup() {
     if (cache.has(file)) return cache.get(file)
     let source
     if (file.endsWith('/config')) source = 'export const config = { useMock: true }'
-    else if (file.endsWith('/api')) source = 'export function request() { throw new Error("Unexpected network request") }'
+    else if (file.endsWith('/api')) source = 'export function request() { throw new Error("Unexpected network request") } export function clearBootstrapCache() {} export async function getBootstrap() {}'
     else source = fs.readFileSync(file + '.js', 'utf8')
     const module = new vm.SourceTextModule(source, { context, identifier: file })
     cache.set(file, module)
@@ -109,3 +109,4 @@ test('WeChat registration requires a valid authorization and consumes the bindin
   await auth.registerAccount(data)
   assert.equal(auth.getWechatBinding(), null)
 })
+

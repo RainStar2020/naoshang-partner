@@ -1,12 +1,19 @@
 import { normalizeUploadIntent, isUploadReady } from './upload-contract'
 import {mockCommerceState,mockOrders} from './mock/commerce'
+import { normalizeRemoteOrderMoney } from './commerce'
 import { config } from '../config'
 import { request, getSession } from './api'
 import { mockProfileState, mockBoundStore, copy } from './mock/profile'
 import { normalizeContent } from '../features/content/rich-content'
 const fail = message => { throw new Error(message) }
 function pageResult(result, label) {
-  if (!Array.isArray(result?.items) || typeof result.hasMore !== 'boolean' || (result.hasMore && (typeof result.nextCursor !== 'string' || !result.nextCursor))) fail(`${label}数据格式异常`)
+  if (result == null) return { items: [], hasMore: false, nextCursor: null }
+  if (!Array.isArray(result.items)) {
+    if (result.items == null) return { ...result, items: [], hasMore: false, nextCursor: null }
+    fail(`${label}数据格式异常`)
+  }
+  if (result.hasMore == null) return { ...result, hasMore: false, nextCursor: null }
+  if (typeof result.hasMore !== 'boolean' || (result.hasMore && (typeof result.nextCursor !== 'string' || !result.nextCursor))) fail(`${label}数据格式异常`)
   return result
 }
 async function scoped(operation) {
@@ -112,8 +119,9 @@ export function getMyOrders(filter = 'all', cursor = null, keyword = '') {
   const filters = { all: {}, 'pending-payment': { status: 'PENDING_PAYMENT' }, 'waiting-shipment': { status: 'PAID', fulfillmentStatus: 'WAIT_SHIP' }, 'waiting-receipt': { status: 'PAID', fulfillmentStatus: 'SHIPPED' }, completed: { status: 'COMPLETED' } }
   if (!filters[filter]) fail('订单筛选条件无效')
   return scoped(async user => {
-    const result = config.useMock ? mockOrders(user,{filter,keyword}) : await request('/orders', { data: { ...filters[filter], cursor, keyword, pageSize: 20 } })
-    return pageResult(result, '订单')
+    const result = pageResult(config.useMock ? mockOrders(user,{filter,keyword}) : await request('/orders', { data: { ...filters[filter], cursor, keyword, pageSize: 20 } }), '订单')
+    if (config.useMock) return result
+    return { ...result, items: result.items.map(normalizeRemoteOrderMoney) }
   })
 }
 export function getSupportConfig() {

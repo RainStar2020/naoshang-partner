@@ -47,7 +47,8 @@ import { useAuth } from '../../composables/useAuth'
 import { useAppTabBar } from '../../composables/useAppTabBar'
 import { getSession } from '../../services/api'
 import { getMyProfile, getSupportConfig } from '../../services/profile'
-import { getExclusiveAccess, getVisibleExclusiveEntries } from '../../services/exclusive'
+import { getExclusiveAccess } from '../../services/exclusive'
+import { exclusiveFeatures } from '../../features/exclusive/catalog'
 import AppTabBar from '../../components/AppTabBar.vue'
 import ProfileIcon from '../../components/ProfileIcon.vue'
 useAuth(); useAppTabBar()
@@ -55,12 +56,12 @@ const isMock = config.useMock, status = ref('loading'), error = ref(''), data = 
 let epoch = 0
 const orderEntries = [{ label: '待支付', status: 'pending-payment', icon: 'payment' }, { label: '待发货', status: 'waiting-shipment', icon: 'shipping' }, { label: '待收货', status: 'waiting-receipt', icon: 'receiving' }, { label: '已完成', status: 'completed', icon: 'completed' }]
 const profileExclusiveIds = ['founder-awards', 'costore-application', 'agency-code', 'members']
-const exclusiveEntries = ref([]), showAllFeatures = config.useMock && config.previewAllExclusiveFeatures
+const exclusiveEntries = ref([])
 const menu = [{ label: '优惠券', icon: 'coupon', path: '/pages/coupon/list' }, { label: '收货地址', icon: 'address', path: '/pages/address/list' }, { label: '联系客服', icon: 'support' }, { label: '意见反馈', icon: 'feedback', path: '/pages/support/feedback' }, { label: '系统设置', icon: 'settings', path: '/pages/settings/index' }]
 async function load() {
   if (!getSession()) return
   const current = ++epoch; status.value = 'loading'; data.value = null
-  try { const result = await getMyProfile(); const access = await getExclusiveAccess(result); if(current === epoch) { data.value = result; const entries = getVisibleExclusiveEntries(access); exclusiveEntries.value = showAllFeatures ? entries.filter(item => profileExclusiveIds.includes(item.id)) : entries; status.value = 'ready' } }
+  try { const result = await getMyProfile(); const access = await getExclusiveAccess(result); if(current === epoch) { data.value = result; exclusiveEntries.value = exclusiveFeatures.filter(item => profileExclusiveIds.includes(item.id) && (item.id !== 'founder-awards' || access.capabilities.includes(item.capability))); status.value = 'ready' } }
   catch(reason) { if(current === epoch) { error.value = reason.message || '加载失败'; status.value = 'error' } }
 }
 function open(path) { uni.navigateTo({ url: path }) }

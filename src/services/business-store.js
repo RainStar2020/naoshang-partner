@@ -5,9 +5,9 @@ import {mockBusinessState,saveMockBusinessState,mockClone,mockStoreWorkspace} fr
 import {mockProfileState} from './mock/profile'
 import {mockExclusiveState,saveMockExclusiveState} from './mock/exclusive'
 export function getBusinessStore(contextId){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
-  if(context.module!=='agency')throw new Error('当前身份不是区域代理')
+  if(context.module!=='agency')throw new Error('当前身份暂不支持此功能')
   const result=config.useMock?mockStoreWorkspace(account,context):await request('/agency/store-workspace',{data:{assignmentId:context.assignmentId,contextId:context.id,storeId:context.storeId}})
-  if(!result?.store?.id||!Array.isArray(result.staff)||!Array.isArray(result.approvals)||!Array.isArray(result.members)||!Array.isArray(result.owners)||!Array.isArray(result.allowedActions))throw new Error('门店经营资料异常')
+  if(!result?.store?.id||!Array.isArray(result.staff)||!Array.isArray(result.approvals)||!Array.isArray(result.members)||!Array.isArray(result.owners)||!Array.isArray(result.allowedActions))throw new Error('门店信息暂时无法加载，请稍后重试')
   return result
 })}
 export function saveBusinessCoach(contextId,storeId,id,draft,idempotencyKey){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
@@ -16,11 +16,11 @@ export function saveBusinessCoach(contextId,storeId,id,draft,idempotencyKey){ret
   if((!id&&!password)||(password&&(password.length<6||password.length>32||/\s/.test(password))))throw new Error('请设置6—32位无空格密码')
   if(!name||Array.from(name).length>24)throw new Error('请输入1—24字健脑官姓名')
   if(!/^[a-zA-Z0-9_-]{4,32}$/.test(loginAccount))throw new Error('登录账号为4—32位字母、数字、下划线或短横线')
-  if(!id&&!idempotencyKey)throw new Error('缺少提交编号')
+  if(!id&&!idempotencyKey)throw new Error('请完整填写信息后再提交')
   if(!config.useMock)return request(`/stores/${encodeURIComponent(storeId)}/coaches${id?`/${encodeURIComponent(id)}`:''}`,{method:id?'PATCH':'POST',data:{name,loginAccount,...(password?{password}:{}),version:draft.version,idempotencyKey,contextId:context.id}})
-  const state=mockBusinessState(account,context);if(storeId!==state.store.id)throw new Error('无权管理此门店')
+  const state=mockBusinessState(account,context);if(storeId!==state.store.id)throw new Error('您无权管理此门店')
   const fingerprint=JSON.stringify({id,name,loginAccount,version:draft.version}),previous=state.operations.get(idempotencyKey)
-  if(previous){if(previous.fingerprint!==fingerprint)throw new Error('重复提交参数不一致');return mockClone(previous.result)}
+  if(previous){if(previous.fingerprint!==fingerprint)throw new Error('信息已变化，请刷新后重新提交');return mockClone(previous.result)}
   const old=id?state.staff.find(item=>item.id===id):null
   if(id&&(!old||old.version!==draft.version))throw new Error('健脑官资料已更新，请刷新后重试')
   if(state.staff.some(item=>item.id!==id&&item.loginAccount===loginAccount&&!item.layoutSample))throw new Error('登录账号已存在')
@@ -54,20 +54,20 @@ export function saveBusinessStore(contextId,storeId,draft){return withBusinessCo
   state.version++;saveMockBusinessState(account,context);return {store:mockClone(state.store),mockOnly:true}
 })}
 export function removeBusinessCoach(contextId,storeId,id,version){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
-  if(!id)throw new Error('缺少健脑官编号')
-  if(!config.useMock)throw new Error('删除健脑官接口尚未接入')
-  const state=mockBusinessState(account,context);if(storeId!==state.store.id)throw new Error('无权管理此门店')
+  if(!id)throw new Error('未找到该健脑官，请刷新后重试')
+  if(!config.useMock)throw new Error('当前暂不支持删除健脑官，请联系平台客服协助处理')
+  const state=mockBusinessState(account,context);if(storeId!==state.store.id)throw new Error('您无权管理此门店')
   const index=state.staff.findIndex(item=>item.id===id)
   if(index<0||state.staff[index].version!==version)throw new Error('健脑官资料已更新，请刷新后重试')
   state.staff.splice(index,1);state.version++;saveMockBusinessState(account,context);return {removed:true,mockOnly:true}
 })}
 export function decideBusinessApplication(contextId,storeId,id,{decision,reason,version,idempotencyKey}){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
-  const text=String(reason||'').trim();if(!['APPROVE','REJECT'].includes(decision)||!idempotencyKey)throw new Error('审批参数无效')
+  const text=String(reason||'').trim();if(!['APPROVE','REJECT'].includes(decision)||!idempotencyKey)throw new Error('审批信息有误，请重新选择审核结果')
   if((decision==='REJECT'&&!text)||Array.from(text).length>200)throw new Error('拒绝申请须填写1—200字原因')
   if(!config.useMock)return request(`/applications/${encodeURIComponent(id)}/decisions`,{method:'POST',data:{decision,reason:text,version,idempotencyKey,contextId:context.id,storeId}})
-  const state=mockBusinessState(account,context);if(state.store.id!==storeId)throw new Error('无权审批此门店申请')
+  const state=mockBusinessState(account,context);if(state.store.id!==storeId)throw new Error('您暂无该门店的审批权限')
   const fingerprint=JSON.stringify({id,decision,text,version}),previous=state.operations.get(idempotencyKey)
-  if(previous){if(previous.fingerprint!==fingerprint)throw new Error('重复审批参数不一致');return mockClone(previous.result)}
+  if(previous){if(previous.fingerprint!==fingerprint)throw new Error('申请信息已变化，请刷新后重新审核');return mockClone(previous.result)}
   const application=state.approvals.find(item=>item.id===id);if(!application||application.version!==version||application.status!=='PENDING')throw new Error('申请状态已变化，请刷新后重试')
   const approved=decision==='APPROVE'
   if(application.type==='COSTORE'){

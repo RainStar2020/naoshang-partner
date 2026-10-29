@@ -16,9 +16,9 @@ function save(){
  const link=document.createElement('a');link.href=result.tempFilePath;link.download='share-code.png';link.click();
  // #endif
  // #ifndef H5
- uni.saveImageToPhotosAlbum({filePath:result.tempFilePath,fail:()=>uni.showToast({title:'保存失败，请检查相册权限',icon:'none'})});
+ uni.saveImageToPhotosAlbum({filePath:result.tempFilePath,fail:()=>uni.showToast({title:'无法保存到相册，请开启相册权限后重试',icon:'none'})});
  // #endif
- },fail:()=>uni.showToast({title:'图片导出失败',icon:'none'})},instance.proxy))
+ },fail:()=>uni.showToast({title:'图片导出未完成，请检查网络后重试',icon:'none'})},instance.proxy))
 }
 defineExpose({save})
 </script>

@@ -7,4 +7,4 @@ export function useAuth() { onShow(() => {
   const route = getCurrentPages().slice(-1)[0]?.route
   if (route && !canOpenAccountPage(session, route)) uni.reLaunch({ url: accountHome(session) })
 }) }
-export const demoNotice = (title = '功能筹备中') => uni.showModal({ title, content: '当前为 UI 演示版本，具体功能及 API 将在后续接入。', showCancel: false, confirmText: '知道了' })
+export const demoNotice = (title = '功能筹备中') => uni.showModal({ title, content: '该功能正在完善中，敬请期待。', showCancel: false, confirmText: '知道了' })

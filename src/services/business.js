@@ -5,6 +5,37 @@ import { normalizeContent,isMediaUrl } from '../features/content/rich-content'
 import { mockBusinessContexts,mockBusinessOverview,mockBusinessReport,mockBusinessState,mockAgencyTree,mockClone,saveMockBusinessState } from './mock/business'
 import { incomePresentation } from './mock/income-detail'
 const selectionKey=id=>`naoshang-business-context:${id}`
+const promotionCache=new Map()
+function yuanToCents(value){if(typeof value!=='number'||!Number.isFinite(value))return NaN;return Math.round(value*100)}
+function parseBizTime(value){if(typeof value==='number'&&Number.isFinite(value))return value;if(typeof value==='string'&&value.trim()){const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:NaN}return NaN}
+function withYuanMoney(payload,keys){if(!payload||typeof payload!=='object')return payload;const next={...payload};for(const key of keys){if(next[key]==null)continue;const cents=yuanToCents(next[key]);if(!Number.isSafeInteger(cents)||cents<0)throw new Error('金额数据异常');next[key]=cents}return next}
+export function clearPartnerPromotionCache(contextId){if(contextId)promotionCache.delete(contextId);else promotionCache.clear()}
+function normalizePromotionReport(result){
+  const normalized=normalizeList(result)
+  let promotion=normalized.promotion?{...normalized.promotion}:null
+  const task=normalized.task&&typeof normalized.task==='object'?{...normalized.task}:null
+  if(promotion&&!config.useMock)promotion=withYuanMoney(promotion,['paidAmount','standardAmount','differenceAmount'])
+  if(promotion){
+    // Claim threshold is always 3 same-rank referrals; VIP equivalent is display copy only.
+    const vipEquivalent=({'VIP合伙人':3,'天使合伙人':9,'私董合伙人':18})[promotion.beforeName] ?? promotion.vipEquivalent
+    const target=3
+    const until=parseBizTime(promotion.validUntil ?? task?.validUntil)
+    const expired=Number.isFinite(until)&&until<Date.now()
+    const derivedClaim=task?task.achieved===true||task.status==='ACHIEVED':Number(promotion.progress)>=target
+    const canClaim=!expired&&task?.status!=='CLAIMED'&&(typeof promotion.canClaim==='boolean'?promotion.canClaim:derivedClaim)
+    promotion={...promotion,id:promotion.id||task?.taskId||'',version:promotion.version ?? 1,target,vipEquivalent:vipEquivalent ?? target,canClaim,statusLabel:expired?'已过期':(task?.statusLabel||promotion.statusLabel||'进行中'),daysLeft:promotion.daysLeft ?? task?.daysLeft,taskDescription:promotion.taskDescription||task?.text||''}
+    if(Number.isFinite(until))promotion.validUntil=until
+  }
+  return {...normalized,task,promotion,qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
+}
+async function fetchPartnerPromotionTasks(account,context){
+  const resource=findBusinessTool('wholesale','promotion')
+  const result=config.useMock?mockBusinessReport(account,context,resource,{}):await request('/partner/promotion-tasks',{data:{contextId:context.id,pageSize:20}})
+  checkBusinessAccount(account)
+  const report=normalizePromotionReport(result)
+  promotionCache.set(context.id,report)
+  return report
+}
 export function businessAccount(){const session=getSession();if(!session?.user?.id)throw new Error('请先登录');return {...session.user,sessionToken:session.token}}
 export function checkBusinessAccount(account){const session=getSession();if(session?.user?.id!==account.id||session.token!==account.sessionToken)throw new Error('登录账号已变化，请重新加载')}
 export async function getBusinessContexts(){
@@ -34,24 +65,35 @@ export async function getBusinessOverview(module,id){
   const result=config.useMock?mockBusinessOverview(account,context):await request(module==='wholesale'?'/partner/overview':module==='agency'?'/agency/overview':'/costore/overview',{data:{contextId:context.id,assignmentId:context.assignmentId,contractId:context.contractId}})
   checkBusinessAccount(account)
   if(result?.accountId!==account.id||result.contextId!==context.id||!Array.isArray(result.benefits))throw new Error('工作台身份或数据格式异常')
+  if(module==='wholesale'){
+    clearPartnerPromotionCache(context.id)
+    try{await fetchPartnerPromotionTasks(account,context)}catch{/* overlay can retry if prefetch fails */}
+  }else clearPartnerPromotionCache()
   return {...result,annualValidUntil:result.annualValidUntil ?? result.entitlement?.expiresAt ?? null,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
 }
-function normalizeList(result){if(!Array.isArray(result?.items)||typeof result.hasMore!=='boolean'||(result.hasMore&&(typeof result.nextCursor!=='string'||!result.nextCursor)))throw new Error('经营列表格式异常');return result}
+function normalizeList(result){
+  if(result==null)return {items:[],hasMore:false,nextCursor:null}
+  if(!Array.isArray(result.items)){
+    if(result.items==null)return {...result,items:[],hasMore:false,nextCursor:null}
+    throw new Error('经营列表格式异常')
+  }
+  if(result.hasMore==null)return {...result,hasMore:false,nextCursor:null}
+  if(typeof result.hasMore!=='boolean'||(result.hasMore&&(typeof result.nextCursor!=='string'||!result.nextCursor)))throw new Error('经营列表格式异常')
+  return result
+}
 export function getBusinessReport(module,id,contextId,params={}){
   const resource=findBusinessTool(module,id);if(!resource)throw new Error('未知经营功能')
   if(params.month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(params.month))throw new Error('月份无效')
   return withBusinessContext(contextId,resource.capability,async(account,context)=>{
     if(context.module!==module)throw new Error('经营模块与身份不匹配')
+    if(resource.id==='promotion'){
+      if(promotionCache.has(context.id))return promotionCache.get(context.id)
+      return fetchPartnerPromotionTasks(account,context)
+    }
     const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:{...params,contextId:context.id,contractId:context.contractId,assignmentId:context.assignmentId,pageSize:20}})
     const normalized=normalizeList(result)
     if(resource.type==='share'&&!config.useMock&&(result.accountId!==account.id||result.contextId!==context.id))throw new Error('分享码身份不匹配')
-    const promotion=normalized.promotion
-    // Progress counts same-level direct referrals (need 3). VIP equivalent is only for copy: VIP/天使/私董 → 3/9/18.
-    const vipEquivalent=promotion?({'VIP合伙人':3,'天使合伙人':9,'私董合伙人':18})[promotion.beforeName] ?? promotion.vipEquivalent:null
-    const target=3
-    const expired=promotion&&Number.isFinite(Date.parse(promotion.validUntil))&&Date.parse(promotion.validUntil)<Date.now()
-    const canClaim=!!promotion&&!expired&&Number(promotion.progress)>=target
-    return {...normalized,...(promotion?{promotion:{...promotion,target,vipEquivalent:vipEquivalent ?? promotion.target,canClaim,statusLabel:expired?'已过期':(promotion.statusLabel||'进行中')}}:{}),qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
+    return {...normalized,qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
   })
 }
 export function getBusinessIncomeDetail(contextId,id){
@@ -85,5 +127,7 @@ export async function bindBusinessSuperior(contextId,inviteCode){return withBusi
 export function claimBusinessPromotion(contextId,task,idempotencyKey){return withBusinessContext(contextId,'wholesale:promotion',async(account,context)=>{
   if(context.module!=='wholesale'||!task?.id||!idempotencyKey)throw new Error('晋升任务信息不完整，请刷新')
   if(config.useMock)throw new Error('演示模式不计算晋升资格，请接入晋升API')
-  return request('/partner/promotion-claims',{method:'POST',data:{contextId,taskId:task.id,version:task.version,idempotencyKey}})
+  const result=await request('/partner/promotion-claims',{method:'POST',data:{contextId,taskId:task.id,version:task.version,idempotencyKey}})
+  clearPartnerPromotionCache(context.id)
+  return result
 })}

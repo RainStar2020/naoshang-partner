@@ -12,7 +12,7 @@
           <view class="agency-card">
             <view class="agency-row"><text>门店地区</text><RegionPicker plain :label="draft.regionNames.join('')" :codes="draft.regionCodes" @change="regionChanged" /></view>
             <view class="agency-row address-row"><text>门店地址</text><textarea v-model="draft.address" maxlength="200" placeholder="请输入详细地址" auto-height /></view>
-            <view v-if="data.agencyType === 'STORE'" class="agency-row upload-row">
+            <view v-if="data.agencyType === 'STORE' || !config.useMock" class="agency-row upload-row">
               <text>门头照</text>
               <button class="upload-box" :disabled="uploading || busy" @click="upload">
                 <image v-if="cover" :src="cover" mode="aspectFill" />
@@ -27,7 +27,8 @@
             <text v-if="data.feeNote" class="fee-note">{{ data.feeNote }}</text>
             <text v-if="actionError" class="agency-error">{{ actionError }}</text>
             <text v-if="submitted" class="agency-done">申请已提交，等待审核</text>
-            <button v-else class="submit" :disabled="busy || uploading" @click="submit">{{ busy ? '提交中…' : '提交开通申请' }}</button>
+            <view v-if="!submitted" @click="draft.agreementAccepted = !draft.agreementAccepted"><checkbox :checked="draft.agreementAccepted" />我已阅读并同意<text>《代理协议》</text></view>
+            <button v-if="!submitted" class="submit" :disabled="busy || uploading" @click="submit">{{ busy ? '提交中…' : '提交开通申请' }}</button>
             <text v-if="data.agreement?.content?.nodes?.length" class="agreement-note">已阅读并同意《代理协议》</text>
             <text v-else class="agreement-note">代理协议暂未发布</text>
           </view>
@@ -38,6 +39,7 @@
 </template>
 <script setup>
 import { ref } from 'vue'
+import { config } from '../../config'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { rememberAgencyReturn } from '../../services/login-return'
 import { getSession } from '../../services/api'
@@ -52,7 +54,7 @@ import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 useAuth()
 let type = '', promotionId = '', active = true, key = '', fingerprint = ''
-const draft = ref({ name: '', phone: '', address: '', regionNames: [], regionCodes: [], storefrontAssetId: '' }), cover = ref(''), busy = ref(false), uploading = ref(false), submitted = ref(false), actionError = ref('')
+const draft = ref({ name: '', phone: '', address: '', regionNames: [], regionCodes: [], storefrontAssetId: '', agreementAccepted: false }), cover = ref(''), busy = ref(false), uploading = ref(false), submitted = ref(false), actionError = ref('')
 const { data, status, error, load } = useAsyncPage(() => getAgencyApplicationOptions(type, promotionId), false)
 function regionChanged(value) { draft.value.regionNames = value.names; draft.value.regionCodes = value.codes }
 async function upload() {
@@ -60,7 +62,7 @@ async function upload() {
   try {
     const result = await new Promise((resolve, reject) => uni.chooseImage({ count: 1, success: resolve, fail: reject })), file = result.tempFiles[0], asset = await uploadProfileImage({ path: file.path, size: file.size }, 'storefront')
     if (active) { cover.value = asset.previewUrl; draft.value.storefrontAssetId = asset.assetId }
-  } catch (reason) { if (active) actionError.value = reason.message || '上传失败' }
+  } catch (reason) { if (active) actionError.value = reason.message || '门头照片上传未完成，请检查网络后重试' }
   finally { if (active) uploading.value = false }
 }
 async function submit() {
@@ -72,7 +74,7 @@ async function submit() {
     if (value !== fingerprint) { fingerprint = value; key = commerceRequestKey() }
     await submitAgencyApplication(data.value, { ...draft.value }, key)
     if (active && getSession()?.token === session.token) submitted.value = true
-  } catch (reason) { if (active) actionError.value = reason.message }
+  } catch (reason) { if (active) actionError.value = reason.message || '代理申请提交未完成，请勿重复提交，可稍后查看申请记录' }
   finally { if (active) busy.value = false }
 }
 onLoad(query => { if (!getSession()) rememberAgencyReturn(query); type = query.agencyType || 'STORE'; promotionId = query.promotionId || ''; load() })

@@ -6,7 +6,7 @@ export function useAsyncPage(loader, auto = true) {
   async function load() {
     const current = ++epoch; status.value = 'loading'; error.value = ''
     try { const result = await loader(); if (current === epoch) { data.value = result; status.value = 'ready' } }
-    catch (reason) { if (current === epoch) { error.value = reason.message || '加载失败，请重试'; status.value = reason.code === 'FORBIDDEN' ? 'forbidden' : 'error' } }
+    catch (reason) { if (current === epoch) { error.value = reason.message || '页面暂时无法加载，请点击重试'; status.value = reason.code === 'FORBIDDEN' ? 'forbidden' : 'error' } }
   }
   onUnload(() => { ++epoch }); onUnmounted(() => { ++epoch }); if (auto) onShow(load)
   return { data, status, error, load }

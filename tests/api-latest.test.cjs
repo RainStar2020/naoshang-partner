@@ -28,6 +28,13 @@ test('latest API errors retain server text and verification lock fields; 200 inv
   assert.equal((await success.request('/income/entries/a/allocation-quotes')).valid,false)
 })
 
+test('HTTP 200 entitlement gates surface the server message instead of malformed business data', async () => {
+  const api = await loadService('api', { response: { statusCode: 200, data: {
+    locked: true, entitlementState: 'never_paid', message: '请开通权益后查看', entitlement: { state: 'never_paid' }
+  } } })
+  await assert.rejects(api.request('/me'), error => error.message === '请开通权益后查看' && error.code === 'ENTITLEMENT_REQUIRED' && error.entitlementState === 'never_paid')
+})
+
 test('timestamp, gate, allocation and payment adapters cover newly documented branches', async () => {
   const api = await loadService('contracts/v3')
   assert.equal(api.apiTimestamp(1793000000000),1793000000000)
@@ -67,4 +74,37 @@ test('real training upload sends bytes before completions and accepts fileId-onl
   const result=await api.uploadTrainingAsset({path:'file.pdf',name:'file.pdf',size:20},'file')
   assert.deepEqual(events,['/assets/upload-intents','file-bytes','/assets/ast-1/completions'])
   assert.equal(result.assetId,'ast-1')
+})
+
+test('agency application sends documented options, quote, consent and ready asset fields', async () => {
+  const calls=[]
+  const api=await loadService('agency-application',{overrides:{'/api':{
+    getSession:()=>({token:'t',user:{id:'A'}}),
+    request:async(path,options={})=>{calls.push({path,...options});if(path.startsWith('/promotion/'))return {agencyType:'STORE',promotionCode:'promo-A'};if(path.endsWith('options'))return {agencyTypeLabel:'单店代理',feeBreakdown:{total:80000}};if(path.endsWith('quotes'))return {id:'q1'};return {id:'a1'}}
+  }}})
+  const options=await api.getAgencyApplicationOptions('STORE','invite')
+  assert.equal(options.payableAmount,8000000)
+  await assert.rejects(api.submitAgencyApplication(options,{},'key'),/协议/)
+  await api.submitAgencyApplication(options,{agreementAccepted:true,storefrontAssetId:'asset1',regionCodes:['1','2','3']},'key')
+  const submit=calls.at(-1)
+  assert.equal(submit.path,'/agency/applications')
+  assert.equal(submit.data.quoteId,'q1')
+  assert.equal(submit.data.regionCode,'3')
+  assert.deepEqual(JSON.parse(JSON.stringify(submit.data.uploads)),[{key:'storefrontPhoto',fileId:'asset1'}])
+  assert.equal(submit.data.agreements[0].accepted,true)
+})
+
+test('v2 envelopes preserve null, string error codes, field errors and trace IDs', async () => {
+  for (const response of [null, { list: [], total: 0 }]) {
+    const api = await loadService('api', { response: { statusCode: 200, data: { status: 1, response } } })
+    assert.equal(JSON.stringify(await api.request('/me')), JSON.stringify(response))
+  }
+  for (const statusCode of [200, 403, 422]) {
+    const api = await loadService('api', { response: { statusCode, header: { 'X-Trace-Id': 'trace-test' }, data: {
+      status: 0, response: null, code: 'VALIDATION_ERROR', message: 'invalid', errors: [{ field: 'pageSize', message: 'large' }]
+    } } })
+    await assert.rejects(api.request('/me'), error => error.code === 'VALIDATION_ERROR' && error.traceId === 'trace-test' && error.fieldErrors[0].field === 'pageSize')
+  }
+  const legacy = await loadService('api', { response: { statusCode: 200, data: { code: 0, data: { id: '001' } } } })
+  assert.equal((await legacy.request('/me')).id, '001')
 })

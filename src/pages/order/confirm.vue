@@ -77,7 +77,7 @@
             <view class="confirm-line" @click="openCoupons">
               <text>优惠券</text>
               <view class="confirm-line-value">
-                <text v-if="selectedCoupon && quote">−¥{{ money(quote.discountAmount) }}</text>
+                <text v-if="selectedCoupon && quote">-¥{{ money(quote.discountAmount) }}</text>
                 <text v-else class="confirm-placeholder">请选择</text>
                 <image class="pick-chevron" src="/static/common/icon-chevron-right.png" mode="aspectFit" />
               </view>
@@ -161,7 +161,7 @@ import { ref, computed } from 'vue'
 import { config } from '../../config'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
-import { getProduct, getCheckoutOptions, quoteCheckout, createCheckoutOrder, commerceRequestKey, getPendingCheckout, rememberPendingCheckout, clearPendingCheckout, isCheckoutRejection } from '../../services/commerce'
+import { getProduct, getCheckoutOptions, quoteCheckout, createCheckoutOrder, commerceRequestKey, getPendingCheckout, rememberPendingCheckout, clearPendingCheckout, isCheckoutRejection, parseCommerceTime } from '../../services/commerce'
 import { money } from '../../features/exclusive/format'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
@@ -201,7 +201,7 @@ function couponThreshold(item) {
 }
 function couponExpire(item) {
   if (item.expiresLabel) return item.expiresLabel
-  const time = Date.parse(item.expiresAt)
+  const time = parseCommerceTime(item.expiresAt)
   if (!Number.isFinite(time)) return ''
   const date = new Date(time)
   const pad = value => String(value).padStart(2, '0')

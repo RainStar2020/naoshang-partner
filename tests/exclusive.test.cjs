@@ -11,12 +11,16 @@ async function setup({useMock=true,preview=true,remote=()=>{throw new Error('Une
   async function get(relative){const module=await load(root+'/'+relative);if(module.status==='unlinked')await module.link((specifier,parent)=>load(path.resolve(path.dirname(parent.identifier),specifier).replaceAll('\\','/')));if(module.status!=='evaluated')await module.evaluate();return module.namespace}
   return {storage,exclusive:await get('services/exclusive'),members:await get('services/members'),learning:await get('services/learning'),catalog:await get('features/exclusive/catalog'),format:await get('features/exclusive/format'),session}
 }
-test('all exclusive entries appear only in explicit mock preview; real contexts use capabilities, never role labels',async()=>{
-  const {exclusive,catalog}=await setup();assert.equal(exclusive.getVisibleExclusiveEntries(await exclusive.getExclusiveAccess()).length,5)
+test('exclusive entries use capabilities, while child-member management is available to every signed-in user',async()=>{
+  const {exclusive,catalog,members}=await setup();assert.equal(exclusive.getVisibleExclusiveEntries(await exclusive.getExclusiveAccess()).length,5)
   assert.equal(catalog.visibleExclusiveFeatures({capabilities:[],role:'省代'},{useMock:false,previewAllExclusiveFeatures:true}).length,0)
   const rows=catalog.visibleExclusiveFeatures({capabilities:['family-members:manage']},{useMock:false,previewAllExclusiveFeatures:true})
   assert.equal(rows.length,1);assert.equal(rows[0].id,'members')
-  const restricted=await setup({preview:false});await assert.rejects(restricted.members.getFamilyMembers(),/不能使用/)
+  const restricted=await setup({preview:false});assert.ok((await restricted.members.getFamilyMembers()).items.length)
+  const calls=[];const remote=async(url,options={})=>{calls.push({url,options});if(url==='/members/options')return {grades:[],genders:[]};return {member:{id:'child-1'}}}
+  const real=await setup({useMock:false,preview:false,remote})
+  await real.members.saveFamilyMember('',{idempotencyKey:'child-member',name:'孩子',gradeCode:'PRIMARY_1',genderCode:'FEMALE'})
+  assert.equal(calls[0].url,'/members');assert.equal(calls[0].options.method,'POST');assert.equal(calls[0].options.data.contextId,undefined)
 })
 test('costore quote validates options, keeps CMS blank, and submission is idempotent without granting payment or entitlement',async()=>{
   const {exclusive}=await setup();const options=await exclusive.getCostoreOptions()

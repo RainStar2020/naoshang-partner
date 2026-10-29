@@ -1,6 +1,6 @@
 import { ref, onUnmounted } from 'vue'
 import { sendSms, smsRemaining } from '../services/auth'
-export const authToast = error => uni.showToast({ title: error.message || '操作失败，请重试', icon: 'none' })
+export const authToast = error => uni.showToast({ title: error.message || '操作未完成，请稍后重试', icon: 'none' })
 export function useSms(phone, purpose) {
   const remaining = ref(0), sending = ref(false)
   const timer = setInterval(() => { remaining.value = smsRemaining(phone.value, purpose) }, 500)

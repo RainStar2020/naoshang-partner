@@ -56,7 +56,7 @@ onLoad(async options => {
   captureInvitation(options)
   try { if (await finishWechatCallback()) uni.navigateTo({ url: '/pages/register/index?source=wechat' }) } catch(e) { toast(e.message || '微信授权失败，请重试') }
 })
-function showPolicy(title) { uni.showModal({ title: title, content: '协议内容暂未提供。', showCancel: false }) }
+function showPolicy(title) { uni.showModal({ title, content: '协议内容暂未发布，请稍后查看。', showCancel: false }) }
 async function submit() {
   if (coachLogin.value ? !/^[a-zA-Z0-9_-]{4,32}$/.test(phone.value) : !/^1\d{10}$/.test(phone.value)) return toast(coachLogin.value ? '请输入4—32位登录账号' : '请输入正确的手机号')
   if (password.value.length < 6) return toast('请输入至少 6 位密码')

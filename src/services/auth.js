@@ -1,32 +1,34 @@
 import { config } from '../config'
-import { request } from './api'
+import { request, clearBootstrapCache, getBootstrap } from './api'
 import { clearInvitation, getInvitation, parseParams } from './invitation'
 const codes = new Map()
 let resetProof = null
 let wechatBinding = null
 export const validPhone = value => /^1\d{10}$/.test(value)
 export function validatePassword(password, confirmation) {
-  if (password.length < 6 || password.length > 32 || /\s/.test(password)) throw new Error('密码需为 6–32 位且不包含空格')
-  if (password !== confirmation) throw new Error('两次输入的密码不一致')
+  if (password.length < 6 || password.length > 32 || /\s/.test(password)) throw new Error('密码需为 6–32 位且不含空格，请重新设置')
+  if (password !== confirmation) throw new Error('两次输入的密码不一致，请重新输入')
 }
 const keyFor = (phone, purpose) => `${purpose}:${phone}`
 export const smsRemaining = (phone, purpose) => Math.max(0, Math.ceil(((codes.get(keyFor(phone, purpose))?.retryAt || 0) - Date.now()) / 1000))
 export async function sendSms(phone, purpose) {
   if (!validPhone(phone)) throw new Error('请输入正确的手机号')
-  if (smsRemaining(phone, purpose)) throw new Error('请稍后再获取验证码')
+  if (smsRemaining(phone, purpose)) throw new Error('验证码发送过于频繁，请稍后再试')
   const result = config.useMock ? {} : await request('/auth/sms-challenges', { method: 'POST', data: { phone, purpose } })
   codes.set(keyFor(phone, purpose), { expiresAt: Date.now() + 5 * 60 * 1000, retryAt: Date.now() + (result.retryAfter || 60) * 1000 })
-  if (config.useMock) uni.showModal({ title: '模拟短信验证码', content: '当前未发送真实短信。演示验证码为 123456，5 分钟内有效。', showCancel: false })
+  if (config.useMock) uni.showModal({ title: '演示环境', content: '短信验证码未实际发送。', showCancel: false })
 }
 function checkMockCode(phone, purpose, code) {
   const entry = codes.get(keyFor(phone, purpose))
-  if (!entry || entry.expiresAt < Date.now()) throw new Error('请先获取验证码，或重新获取已过期的验证码')
+  if (!entry || entry.expiresAt < Date.now()) throw new Error('请先获取验证码，验证码已过期请重新获取')
   if (code !== '123456') throw new Error('验证码不正确')
 }
-function saveSession(result) {
+async function saveSession(result) {
   const session = { ...result, accountType: result.accountType || 'parent' }
   if (session.user?.id) uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
+  clearBootstrapCache()
   uni.setStorageSync('naoshang-session', session)
+  if (!config.useMock && session.accountType === 'parent') await getBootstrap()
   return session
 }
 export function getWechatBinding() {
@@ -35,31 +37,31 @@ export function getWechatBinding() {
   return null
 }
 function bindWechat(result) {
-  if (!result.registrationTicket) throw new Error('微信授权结果缺少注册凭证')
+  if (!result.registrationTicket) throw new Error('微信授权未完成，请重新授权')
   wechatBinding = { ticket: result.registrationTicket, expiresAt: Date.now() + 10 * 60 * 1000 }
 }
 export async function beginWechat() {
   if (config.useMock) {
-    const accepted = await new Promise(resolve => uni.showModal({ title: '微信授权演示', content: '后端尚未接入，本次模拟微信授权，继续后前往注册页完善手机号、密码和地区。', success: res => resolve(res.confirm) }))
+    const accepted = await new Promise(resolve => uni.showModal({ title: '微信授权', content: '当前为演示环境，继续后可完善注册信息。', success: res => resolve(res.confirm) }))
     if (!accepted) return false
     bindWechat({ registrationTicket: 'mock-wechat-registration' })
     return true
   }
   // #ifdef MP-WEIXIN
-  const auth = await new Promise((resolve, reject) => uni.login({ provider: 'weixin', success: resolve, fail: () => reject(new Error('微信登录取消或失败，请重试')) }))
-  if (!auth.code) throw new Error('未获取到微信登录凭证')
+  const auth = await new Promise((resolve, reject) => uni.login({ provider: 'weixin', success: resolve, fail: () => reject(new Error('已取消微信授权')) }))
+  if (!auth.code) throw new Error('微信授权未完成，请重试')
   bindWechat(await request('/auth/wechat/exchanges', { method: 'POST', data: { code: auth.code, platform: 'mp-weixin', inviteCode: getInvitation() } }))
   return true
   // #endif
   // #ifdef H5
   const redirectUri = window.location.origin + window.location.pathname + '#/pages/login/index'
   const result = await request('/auth/wechat/authorizations', { method: 'POST', data: { redirectUri, inviteCode: getInvitation() } })
-  if (!result.url || !result.state || !/^https:\/\/(open\.weixin\.qq\.com|open\.weixin\.qq\.com\.cn)\//.test(result.url)) throw new Error('请先配置微信网页授权地址')
+  if (!result.url || !result.state || !/^https:\/\/(open\.weixin\.qq\.com|open\.weixin\.qq\.com\.cn)\//.test(result.url)) throw new Error('暂时无法完成微信登录，请使用手机号登录')
   uni.setStorageSync('naoshang-wechat-state', { state: result.state, expiresAt: Date.now() + 10 * 60 * 1000 })
   window.location.assign(result.url)
   return false
   // #endif
-  throw new Error('当前平台暂不支持微信登录')
+  throw new Error('当前平台暂不支持微信登录，请使用手机号登录')
 }
 export async function finishWechatCallback() {
   // #ifdef H5
@@ -75,7 +77,7 @@ export async function finishWechatCallback() {
   window.history.replaceState(null, '', url.toString())
   const pending = uni.getStorageSync('naoshang-wechat-state')
   uni.removeStorageSync('naoshang-wechat-state')
-  if (!pending || pending.expiresAt < Date.now() || pending.state !== query.state) throw new Error('微信授权已过期，请重新登录')
+  if (!pending || pending.expiresAt < Date.now() || pending.state !== query.state) throw new Error('微信授权已失效，请返回登录页重新授权')
   bindWechat(await request('/auth/wechat/exchanges', { method: 'POST', data: { code: query.code, state: query.state, platform: 'h5', inviteCode: getInvitation() } }))
   return true
   // #endif
@@ -96,7 +98,7 @@ export async function registerAccount(data) {
     checkMockCode(data.phone, 'register', data.code)
     result = { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长', region: data.region, inviteCode: data.inviteCode } }
   } else result = await request('/auth/registrations', { method: 'POST', data: payload })
-  saveSession(result); codes.delete(keyFor(data.phone, 'register')); wechatBinding = null; clearInvitation()
+  await saveSession(result); codes.delete(keyFor(data.phone, 'register')); wechatBinding = null; clearInvitation()
   return result
 }
 export async function verifyReset(phone, code) {
@@ -105,7 +107,7 @@ export async function verifyReset(phone, code) {
   let result
   if (config.useMock) { checkMockCode(phone, 'reset-password', code); result = { resetTicket: 'mock-reset-ticket' } }
   else result = await request('/auth/password-reset-verifications', { method: 'POST', data: { phone, code } })
-  if (!result.resetTicket) throw new Error('未获取到重置密码凭证')
+  if (!result.resetTicket) throw new Error('验证未完成，请重新获取验证码后再试')
   resetProof = { ticket: result.resetTicket, phone, expiresAt: Date.now() + 5 * 60 * 1000 }
   codes.delete(keyFor(phone, 'reset-password'))
 }
@@ -122,8 +124,8 @@ export async function changePassword(oldPassword, password, confirmation) {
   if (oldPassword === password) throw new Error('新密码不能与原密码相同')
   if (config.useMock) return { mockOnly: true, changed: false }
   const token = uni.getStorageSync('naoshang-session')?.token
-  if (!token) throw new Error('请先登录')
+  if (!token) throw new Error('登录状态已失效，请重新登录后修改密码')
   await request('/me/password-changes', { method: 'POST', data: { oldPassword, newPassword: password } })
-  if (uni.getStorageSync('naoshang-session')?.token !== token) throw new Error('登录账号已变化，请重新登录确认')
+  if (uni.getStorageSync('naoshang-session')?.token !== token) throw new Error('登录状态已变更，请重新登录后修改密码')
   return { changed: true }
 }

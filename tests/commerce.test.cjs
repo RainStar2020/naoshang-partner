@@ -58,4 +58,68 @@ test('real failures never fall back to fixtures and responses after token change
 test('unknown checkout intents survive reload and retain their original quote, draft and idempotency key',async()=>{const first=await setup(),d=draft(),q=await first.api.quoteCheckout(d);first.api.rememberPendingCheckout(d,q,'original-key');const second=await setup({storage:first.storage}),pending=second.api.getPendingCheckout(d);assert.equal(pending.key,'original-key');assert.equal(pending.quote.id,q.id);assert.equal(pending.draft.storeId,d.storeId);second.api.clearPendingCheckout(d);assert.equal(second.api.getPendingCheckout(d),null)})
 test('remote processing attempts are retained across reload; terminal result releases the payment lock',async()=>{let requests=0;const first=await setup({useMock:false,remote:async()=>{requests++;return {id:'attempt-remote',status:'PROCESSING'}}});const a=await first.api.startPayment('order-remote','wechat','pay-original');assert.equal(a.id,'attempt-remote');assert.equal(first.api.getPendingPayment('order-remote').attemptId,a.id);await first.api.startPayment('order-remote','alipay','pay-new');assert.equal(requests,1);const second=await setup({useMock:false,storage:first.storage,remote:async()=>({id:'attempt-remote',status:'FAILED'})});await second.api.queryPayment(a.id);assert.equal(second.api.getPendingPayment('order-remote'),null)})
 test('remote feedback drops executable or non-HTTPS attachment URLs before rendering',async()=>{const {training}=await setup({useMock:false});const result=training.normalizeTrainingFeedback({id:'feedback',memberId:'member',title:'训练反馈',content:{version:1,format:'nodes',nodes:[]},images:['data:text/html,unsafe','https://cdn.example/image.png'],attachments:[{assetId:'bad',kind:'file',previewUrl:'javascript:alert(1)'},{assetId:'good',kind:'file',previewUrl:'https://cdn.example/report.pdf'}]},'member','feedback');assert.equal(result.images.length,1);assert.equal(result.attachments.length,1);assert.equal(result.attachments[0].assetId,'good');assert.throws(()=>training.normalizeTrainingFeedback({...result,memberId:'someone-else'},'member','feedback'),/不匹配/)})
+test('remote checkout quotes accept numeric expiresAt/serverTime timestamps',async()=>{
+ const now=Date.now(),quote={id:'quote-remote',payableAmount:4537,goodsAmount:4537,discountAmount:2443,tierDiscountLabel:'联创合伙人6.5折',expiresAt:now+300000,serverTime:now,remark:'',product:{key:'pad',name:'脑商Pad',unitPrice:2094,qty:1,listUnitPrice:6980,memberUnitPrice:5584,channelUnitPrice:5584,appliedPriceKind:'partner'}}
+ const {api}=await setup({useMock:false,remote:async(url,{method,data}={})=>{
+  if(url==='/checkout/quotes'&&method==='POST'){
+   assert.equal(data.productId,'product-software');assert.equal(data.skuId,'sku-software-1');assert.equal(data.quantity,1)
+   return quote
+  }
+  throw new Error('Unexpected '+method+' '+url)
+ }})
+ const result=await api.quoteCheckout(draft())
+ assert.equal(result.id,'quote-remote')
+ assert.equal(result.payableAmount,453700)
+ assert.equal(result.goodsAmount,453700)
+ assert.equal(result.discountAmount,244300)
+ assert.equal(result.product.unitPrice,209400)
+ assert.equal(result.product.listUnitPrice,698000)
+ assert.equal(result.tierDiscountLabel,'联创合伙人6.5折')
+ assert.equal(api.yuanToCents(2094),209400)
+ assert.equal(api.parseCommerceTime(result.expiresAt),quote.expiresAt)
+ assert.equal(api.parseCommerceTime('2026-10-29T12:00:00+08:00'),Date.parse('2026-10-29T12:00:00+08:00'))
+ assert.ok(Number.isNaN(api.parseCommerceTime('not-a-time')))
+})
+test('remote create order adapts flat paid/sku payload into orderResult shape',async()=>{
+ const remoteOrder={
+  id:'o_37', type:'product', productKey:'pad', productName:'脑商Pad', kind:'physical',
+  qty:1, unitPrice:4537, paid:4537, skuId:'sku-pad-1', skuLabel:'智能变速，一档', skuQty:1,
+  status:'PENDING_PAYMENT', tip_text:'实物商品，支付后由门店/总部发货',
+  delivery:{ tipText:'实物商品，支付后由门店/总部发货', pay:{ status:'PENDING_PAYMENT', payExpireAt:Date.now()+1800000 } }
+ }
+ const {api}=await setup({useMock:false,remote:async(url,{method,data}={})=>{
+  if(url==='/orders'&&method==='POST'){
+   assert.equal(data.quoteId,'quote-remote')
+   assert.equal(data.idempotencyKey,'create-remote')
+   assert.equal(data.payLater,true)
+   return {ok:true,id:'o_37',orderId:'o_37',quoteId:data.quoteId,quoteConsumed:true,order:remoteOrder}
+  }
+  if(url==='/orders/o_37')return remoteOrder
+  throw new Error('Unexpected '+method+' '+url)
+ }})
+ const created=await api.createCheckoutOrder('quote-remote','create-remote')
+ assert.equal(created.order.id,'o_37')
+ assert.equal(created.order.payableAmount,453700)
+ assert.equal(created.order.goodsAmount,453700)
+ assert.equal(created.order.discountAmount,0)
+ assert.ok(Array.isArray(created.order.items))
+ assert.equal(created.order.items.length,1)
+ assert.equal(created.order.items[0].skuId,'sku-pad-1')
+ assert.equal(created.order.items[0].title,'脑商Pad')
+ assert.equal(created.order.items[0].quantity,1)
+ assert.equal(created.order.items[0].unitAmount,453700)
+ assert.equal(created.order.allowedActions.join(','),'pay,cancel')
+ assert.equal(created.order.fulfillmentNotice,'实物商品，支付后由门店/总部发货')
+ const money=api.normalizeRemoteOrderMoney({id:'o_38',paid:648.7,skuId:'sku-memoryCard-1',productKey:'memoryCard',productName:'记忆卡',skuQty:1,status:'paid'})
+ assert.equal(money.id,'o_38')
+ assert.equal(money.payableAmount,64870)
+ assert.equal(money.status,'PAID')
+ assert.equal(money.allowedActions.join(','),'')
+ assert.equal(money.items[0].title,'记忆卡')
+ const detail=await api.getCommerceOrder('o_37')
+ assert.equal(detail.order.id,'o_37')
+ assert.equal(detail.order.payableAmount,453700)
+ assert.equal(detail.order.allowedActions.includes('pay'),true)
+})
+
 test('only definitive checkout rejection unlocks a draft; network and unspecified conflicts stay uncertain',async()=>{const {api}=await setup();assert.equal(api.isCheckoutRejection({statusCode:422}),true);assert.equal(api.isCheckoutRejection({statusCode:409,code:'QUOTE_EXPIRED'}),true);assert.equal(api.isCheckoutRejection({statusCode:409}),false);assert.equal(api.isCheckoutRejection(new Error('network')),false);assert.equal(api.isCheckoutRejection({statusCode:500}),false)})

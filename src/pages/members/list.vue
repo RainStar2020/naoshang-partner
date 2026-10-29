@@ -5,7 +5,9 @@
       <view class="member-body">
         <FeaturePageState :status="status" :error="error" @retry="load" />
         <template v-if="status === 'ready'">
-          <EmptyState v-if="!items.length" text="暂无会员，点击下方添加" />
+          <view v-if="!items.length" class="member-empty" aria-label="暂无会员">
+            <image src="/static/common/empty-content.png" mode="aspectFit" />
+          </view>
           <view v-for="(member, index) in items" :key="member.id" class="member-card">
             <text class="member-index">会员{{ index + 1 }}</text>
             <view class="member-heading">
@@ -111,7 +113,6 @@ import { getFamilyMembers, getMemberDictionaries, saveFamilyMember, previewMembe
 import { uploadProfileImage } from '../../services/profile'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
-import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const items = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref(''), dictionaries = ref({ grades: [], genders: [] }), editorOpen = ref(false), editingId = ref(''), draft = ref({}), avatarPreview = ref(''), editorError = ref(''), saving = ref(false), uploading = ref(false), activationMember = ref(null), activationCode = ref(''), activationPreview = ref(null), activationError = ref(''), activating = ref(false), successText = ref('')
 let cursor = null, epoch = 0, editorEpoch = 0, activationEpoch = 0, active = true, activationKey = '', memberSaveKey = '', memberSavePayload = ''
@@ -206,6 +207,8 @@ onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch })
 .member-page { min-height: 100vh; background: #272c47; color: #fff; font-size: clamp(14px, 3.73vw, 16px); }
 .member-frame { max-width: 750px; margin: 0 auto; }
 .member-body { padding: .85em 1em calc(6.2em + env(safe-area-inset-bottom)); }
+.member-empty { display: flex; min-height: calc(100vh - 14em - env(safe-area-inset-bottom)); align-items: center; justify-content: center; }
+.member-empty image { width: 7.2em; height: 7.2em; opacity: .72; }
 .member-card { position: relative; margin-bottom: .85em; padding: 1em .9em .85em; border-radius: .85em; background: #353a59; }
 .member-index { position: absolute; top: 0; right: 0; padding: .12em .55em; border-radius: 0 .85em 0 .55em; background: #596381; font-size: .78em; }
 .member-heading { display: flex; align-items: center; gap: .7em; margin-bottom: .8em; min-width: 0; }
