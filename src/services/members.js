@@ -1,5 +1,5 @@
 import {mockOrders} from './mock/commerce'
-import {mockFeedbackList,mockFeedback} from './mock/training'
+import {mockFeedbackList,mockFeedback,mockUpdateTraining,mockTrainingMember} from './mock/training'
 import { config } from '../config'
 import { request, getSession } from './api'
 import { listResult } from './exclusive'
@@ -21,13 +21,67 @@ function ownedMember(user, id) {
   return member
 }
 const identity = (user, member) => ({ id: member.contextId, accountId: user.id, memberId: member.id, mode: 'child', name: member.name })
+function finiteNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+function hourBlock(total, used, remaining) {
+  if (total == null && used == null && remaining == null) return null
+  const resolvedTotal = total
+  const resolvedUsed = used
+  const resolvedRemaining = remaining != null ? remaining : (resolvedTotal != null && resolvedUsed != null ? Math.max(0, resolvedTotal - resolvedUsed) : null)
+  return { total: resolvedTotal, used: resolvedUsed, remaining: resolvedRemaining }
+}
+export function normalizeFamilyMember(member) {
+  if (!member || typeof member !== 'object') return member
+  const info = member.trainInfo && typeof member.trainInfo === 'object' ? member.trainInfo : null
+  const training = hourBlock(
+    finiteNumber(info?.trainingTotal ?? member.training?.total ?? member.trainingTotal),
+    finiteNumber(info?.trainingUsed ?? member.training?.used ?? member.trainingUsed),
+    finiteNumber(member.training?.remaining),
+  ) || member.training || null
+  const customHours = hourBlock(
+    finiteNumber(info?.specialTotal ?? member.customHours?.total ?? member.specialTotal),
+    finiteNumber(info?.specialUsed ?? member.customHours?.used ?? member.specialUsed),
+    finiteNumber(member.customHours?.remaining),
+  ) || member.customHours || null
+  return {
+    ...member,
+    badge: member.badge || member.memberLevelName || '',
+    training,
+    customHours,
+    selfStudyNote: member.selfStudyNote ?? info?.selfStudyNote ?? '',
+    campNote: member.campNote ?? info?.campNote ?? '',
+    remark: member.remark ?? info?.remark ?? '',
+    trainingVersion: info?.version ?? member.trainingVersion ?? member.version,
+  }
+}
 export function getMemberDictionaries() {
   return scoped(() => config.useMock ? copy(memberDictionaries) : request('/members/options'))
 }
 export function getFamilyMembers(cursor = null) {
   return scoped(async user => {
     const result = config.useMock ? { items: copy(mockFamily(user).members).map(member => ({ ...member, badge: mockMemberBadge(user,member), levels: mockLevels(identity(user,member)) })), nextCursor: null, hasMore: false } : await request('/members', { data: { cursor, pageSize: 20, scope: 'family' } })
-    return listResult(result)
+    const page = listResult(result)
+    return { ...page, items: (page.items || []).map(normalizeFamilyMember) }
+  })
+}
+export function updateMemberTraining(id, draft) {
+  return scoped(async user => {
+    const current = config.useMock ? mockTrainingMember(user, id) : null
+    const pick = (value, fallback) => Number.isInteger(value) ? value : fallback
+    const payload = {
+      version: draft.version,
+      trainingTotal: pick(draft.trainingTotal, current?.trainingTotal ?? 0),
+      trainingUsed: pick(draft.trainingUsed, current?.trainingUsed ?? 0),
+      specialTotal: pick(draft.specialTotal, current?.specialTotal ?? 0),
+      specialUsed: pick(draft.specialUsed, current?.specialUsed ?? 0),
+      selfStudyNote: draft.selfStudyNote || '',
+      campNote: draft.campNote || '',
+      remark: draft.remark || '',
+    }
+    if (config.useMock) return mockUpdateTraining(user, id, payload)
+    return request(`/members/${encodeURIComponent(id)}/training`, { method: 'PATCH', data: { ...payload, contextId: draft.contextId } })
   })
 }
 export function saveFamilyMember(id, draft) {

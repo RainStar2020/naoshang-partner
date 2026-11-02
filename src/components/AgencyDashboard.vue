@@ -15,24 +15,25 @@
     <button v-for="item in storeShortcuts" :key="item.id" @click="openStoreShortcut(item)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button>
    </view>
    <view v-else class="agency-summary">
-    <button @click="open('team')"><image src="/static/partner/icon-team.png" mode="aspectFit"/><view><text>我的团队</text><strong>{{overview.teamCount ?? '—'}}人</strong></view></button>
+    <button @click="open('team')"><image src="/static/partner/icon-team.png" mode="aspectFit"/><view><text>我的团队</text><strong>{{teamCountLabel}}<text class="agency-summary-unit">人</text></strong></view></button>
     <view class="agency-summary-divider"/>
-    <button @click="open('income')"><image src="/static/partner/icon-agency-income.png" mode="aspectFit"/><view><text>代理收益</text><strong>¥{{money(overview.agencyIncome ?? overview.available)}}</strong></view></button>
+    <button @click="open('income')"><image src="/static/partner/icon-agency-income.png" mode="aspectFit"/><view><text>代理积分收益</text><strong>{{incomeLabel}}</strong></view></button>
    </view>
    <view class="agency-relation-grid">
-    <button v-for="kind in relations" :key="kind.key" class="agency-relation" @click="relationOpen=kind.key">
+    <button v-for="kind in relations" :key="kind.key" class="agency-relation" :class="['agency-relation-'+kind.key,{'agency-relation-empty':!hasRelation(kind.key)}]" @click="hasRelation(kind.key)&& (relationOpen=kind.key)">
      <view class="agency-relation-label">{{kind.label}}</view>
-     <view class="agency-relation-body">
-      <image v-if="overview[kind.key]?.avatarUrl" class="agency-relation-avatar" :src="overview[kind.key].avatarUrl" mode="aspectFill"/>
-      <view v-else class="agency-avatar">{{(overview[kind.key]?.name || '—').slice(0,1)}}</view>
+     <view v-if="hasRelation(kind.key)" class="agency-relation-body">
+      <image v-if="relationOf(kind.key)?.avatarUrl" class="agency-relation-avatar" :src="relationOf(kind.key).avatarUrl" mode="aspectFill"/>
+      <view v-else class="agency-avatar">{{relationOf(kind.key).name.slice(0,1)}}</view>
       <view class="agency-relation-copy">
        <view class="agency-relation-name">
-        <text>{{overview[kind.key]?.name || '暂未提供'}}</text>
-        <text v-if="agencyIdentity(overview[kind.key],kind.key)" class="agency-relation-role">{{agencyIdentity(overview[kind.key],kind.key)}}</text>
+        <text>{{relationOf(kind.key).name}}</text>
+        <text v-if="agencyIdentity(relationOf(kind.key),kind.key)" class="agency-relation-role">{{agencyIdentity(relationOf(kind.key),kind.key)}}</text>
        </view>
-       <text class="agency-relation-region">{{overview[kind.key]?.regionLabel || overview[kind.key]?.scopeLabel || '信息待后台提供'}}</text>
+       <text v-if="relationOf(kind.key)?.regionLabel || relationOf(kind.key)?.scopeLabel" class="agency-relation-region">{{relationOf(kind.key).regionLabel || relationOf(kind.key).scopeLabel}}</text>
       </view>
      </view>
+     <view v-else class="agency-relation-empty-text">{{kind.emptyLabel}}</view>
     </button>
    </view>
    <view class="agency-benefits">
@@ -110,12 +111,17 @@ const storeShortcuts=[
   {id:'income',label:'代理收益',icon:'/static/partner/icon-agency-income.png'},
 ]
 const benefit=computed(()=>overview.value?.benefits?.find(item=>item.id===tierId.value))
-const relations=[{key:'superior',label:'区域上级'},{key:'referrer',label:'推荐人'}]
+const relations=[{key:'superior',label:'区域上级',emptyLabel:'暂无上级'},{key:'referrer',label:'推荐人',emptyLabel:'暂无推荐人'}]
 const relationPerson=computed(()=>overview.value?.[relationOpen.value])
 const typeMeta={PROVINCE:'省代',CITY:'市代',COUNTY:'区代',STORE:'单店'}
 const tierLabel={STORE:'区县',COUNTY:'区县',CITY:'市代',PROVINCE:'省代'}
 const contextGroups=computed(()=>['PROVINCE','CITY','COUNTY','STORE'].map(key=>({key,label:typeMeta[key],items:contexts.value.filter(item=>item.agencyType===key)})).filter(group=>group.items.length))
 const modules=computed(()=>businessModules.filter(item=>allContexts.value.some(row=>row.module===item.id)))
+function countLabel(...values){for(const value of values){if(value==null||value==='')continue;const n=typeof value==='number'?value:Number(value);if(Number.isFinite(n))return String(n);if(typeof value==='string'&&value.trim())return value.trim()}return '—'}
+const teamCountLabel=computed(()=>countLabel(overview.value?.teamCount,overview.value?.team?.summary?.memberCount))
+const incomeLabel=computed(()=>{const amount=overview.value?.agencyIncome??overview.value?.available;return Number.isFinite(Number(amount))?money(amount):'—'})
+function relationOf(key){return overview.value?.[key]||null}
+function hasRelation(key){return !!String(relationOf(key)?.name||'').trim()}
 function contextTitle(item){return item.agencyType==='STORE'?(item.store?.name||item.regionLabel||item.label):(item.regionLabel||item.label)}
 function contextSubtitle(item){return item.agencyType==='STORE'?(item.store?.address||item.scopeLabel||''):({PROVINCE:'省代',CITY:'市代',COUNTY:'区县代理'}[item.agencyType]||item.scopeLabel||'')}
 function agencyIdentity(person,key){
@@ -162,12 +168,16 @@ defineExpose({refresh:load})
 .agency-summary button>view{display:flex;flex-direction:column;min-width:0}
 .agency-summary button text{color:#bdc6db;font-size:.78em;line-height:1.35}
 .agency-summary strong{font-size:1.15em;font-weight:700;line-height:1.35;white-space:nowrap}
+.agency-summary-unit{margin-left:.2em;font-size:1em;font-weight:700}
 .agency-summary-divider{width:1px;height:2.4em;margin:0 .55em;background:#6b779d;flex:none}
 .agency-relation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75em;padding:.2em 1.4em 1.35em;padding-left:max(1.4em,env(safe-area-inset-left));padding-right:max(1.4em,env(safe-area-inset-right))}
 .agency-page button.agency-relation{position:relative;display:flex;flex-direction:column;min-width:0;height:100%;padding:2.9em .75em 1em;box-sizing:border-box;border:0;border-radius:20rpx;background:linear-gradient(180deg,rgba(45,99,193,.52),rgba(31,65,133,.25) 55%,rgba(16,27,64,0) 100%);text-align:left;overflow:hidden}
 .agency-page button.agency-relation::before{content:'';position:absolute;inset:0;pointer-events:none;border:2rpx solid rgba(123,174,255,.5);border-bottom:0;border-radius:inherit;mask-image:linear-gradient(#000,transparent 85%);-webkit-mask-image:linear-gradient(#000,transparent 85%)}
 .agency-relation-label{position:absolute;top:0;left:50%;transform:translateX(-50%);padding:.28em 1.05em .35em;border-radius:0 0 24rpx 24rpx;background:linear-gradient(90deg,#01b8f4,#315bff);color:#102c66;font-size:.86em;line-height:1.5;white-space:nowrap}
+.agency-relation-referrer .agency-relation-label{background:linear-gradient(90deg,#3ecbff,#5aa8ff)}
 .agency-relation-body{display:flex;align-items:center;gap:.6em;min-width:0;width:100%}
+.agency-relation-empty{justify-content:center;min-height:7.2em}
+.agency-relation-empty-text{display:flex;align-items:center;justify-content:center;flex:1;width:100%;min-height:3.2em;color:#c9d4ec;font-size:.95em;font-weight:500}
 .agency-relation-avatar,.agency-avatar{flex:none;width:2.8em;height:2.8em;border:0;border-radius:50%;background:#2f5da5;box-sizing:border-box}
 .agency-relation-avatar{display:block}
 .agency-avatar{display:flex;align-items:center;justify-content:center;color:#fff;font-size:1em;font-weight:700}

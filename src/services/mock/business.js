@@ -1,5 +1,6 @@
 import {mockFamily} from './family'
 import {mockWholesaleOverview,mockWholesaleReport,mockWholesaleLevelName} from './wholesale'
+import { accountRank } from '../../features/business/account-rank'
 // TODO(API): replace these mock-only fixtures when business APIs are connected.
 import { emptyContent } from '../../features/content/rich-content'
 const states = new Map()
@@ -7,10 +8,50 @@ const clone = value => value == null ? value : JSON.parse(JSON.stringify(value))
 const stamp = () => new Date().toISOString()
 export function mockBusinessContexts(user) {
   return [
-    { id:`wholesale:${user.id}`,module:'wholesale',accountId:user.id,label:'批发商',levelName:'联创合伙人',capabilities:[],storeId:null },
+    { id:`wholesale:${user.id}`,module:'wholesale',accountId:user.id,label:'批发商',levelName:'联创合伙人',capabilities:[],storeId:null,vipUnionPayEnabled:true },
     ...costoreContextFixtures(user),
     ...agencyContextFixtures(user),
   ]
+}
+export function mockMeBootstrap(user){
+  const contexts=mockBusinessContexts(user)
+  const wholesale=contexts.find(item=>item.module==='wholesale')
+  const state=wholesale?mockBusinessState(user,wholesale):null
+  const rank=accountRank(user.displayId||user.id)
+  const levelName=rank?.levelName||wholesale?.levelName||'联创合伙人'
+  const cofounder=levelName==='联创合伙人'
+  const members=(state?.people||[]).map((person,index)=>({
+    id:person.id,
+    displayId:person.displayId||`TM${index+1}`,
+    name:person.name,
+    phone:person.phone||'',
+    tier:person.levelLabel?.includes('天使')?'angel':person.levelLabel?.includes('VIP')?'vip':'member',
+    tierLabel:person.levelLabel,
+    depth:1,
+    isDirect:true,
+    teamVipCount:person.showPerformance?3:0,
+  }))
+  return {
+    displayId:user.displayId||'LC0001',
+    entitlement:{state:'active',amount:200,expiresAt:null,frozen:false,canExportBills:false},
+    contexts:[{id:`parent:${user.id}`,accountId:user.id,mode:'parent',name:user.name||'家长',displayId:user.displayId||user.id,grade:'',badge:'家长'}],
+    businessContexts:contexts,
+    globalAwardEligibility:{
+      eligible:cofounder,
+      tierEligible:cofounder,
+      entitlementEligible:true,
+      currentPeriod:stamp().slice(0,7),
+      withinGracePeriod:false,
+      daysSinceCofounder:cofounder?30:null,
+      directPushedVipCount:1,
+      ownVipCount:state?.quota??20,
+      teamVipCount:members.reduce((sum,item)=>sum+(item.teamVipCount||0),0),
+      reason:cofounder?'':'当前非联创合伙人',
+    },
+    superior:{id:'demo-superior',displayId:'LC0001',name:'李志远',phone:'19919988991',tier:'cofounder',tierLabel:'联创合伙人'},
+    team:{summary:{memberCount:members.length,directMemberCount:members.length,teamVipCount:members.filter(item=>item.tier==='vip'||item.teamVipCount>0).length},members},
+    vipDetails:{remainingCount:state?.quota??20,standardRemaining:state?.quota??20,activityRemaining:state?.activityQuota??4,transferredCount:state?.transferred??0,activityBatches:[],teamVipMembers:members.filter(item=>item.tier==='vip'||item.tier==='angel')},
+  }
 }
 function wholesaleTeamLayout(){const joined='2022-08-21T13:34:12.000Z',avatar='/static/partner/avatar-member.png'
   return [
@@ -68,7 +109,9 @@ export function mockBusinessReport(user,context,resource,{month='',filter='',key
     items=state.entries.filter(item=>(filter!=='pending'||item.allocationStatus==='PENDING')&&(!keyword||item.title.includes(keyword)))
     metrics=context.module==='agency'
       ?[{label:'可提现金额',value:225800,kind:'money'},{label:'B端',value:32746,kind:'money'},{label:'C端',value:98124,kind:'money'},{label:'供应链',value:59962,kind:'money'},{label:'待结算收益',value:state.pending,kind:'money'}]
-      :[{label:'可提现金额',value:state.available,kind:'money'},{label:'待结算收益',value:state.pending,kind:'money'}]
+      :context.module==='wholesale'
+        ?[{label:'可提现金额',value:state.available,kind:'money'},{label:'直推奖',value:32746,kind:'money'},{label:'复购奖',value:98124,kind:'money'},{label:'平级奖',value:59962,kind:'money'},{label:'待结算收益',value:state.pending,kind:'money'}]
+        :[{label:'可提现金额',value:state.available,kind:'money'},{label:'待结算收益',value:state.pending,kind:'money'}]
   } else if(resource.type==='dividends') {
     metrics=[{label:'总分红',value:60000,kind:'money'},{label:'加权分红',value:37500,kind:'money'},{label:'业绩分红',value:22500,kind:'money'},{label:'本月业绩',value:100000,kind:'money'},{label:'业绩占比',value:3000,kind:'percent'},{label:'合店老板总数',value:5,kind:'number'}]
     columns=[{key:'month',label:'月份'},{key:'eligibility',label:'分红资格'},{key:'amount',label:'总分红',kind:'money'},{key:'weightedAmount',label:'加权分红',kind:'money'},{key:'performanceAmount',label:'业绩分红',kind:'money'},{key:'salesAmount',label:'本月业绩',kind:'money'},{key:'shareBps',label:'业绩占比',kind:'percent'},{key:'ownerCount',label:'合店老板总数'},{key:'poolAmount',label:'奖池累计',kind:'money'}]
@@ -86,7 +129,10 @@ export function mockBusinessReport(user,context,resource,{month='',filter='',key
     else {const tree=mockAgencyTree(context);if(parentNodeId&&!tree.some(node=>node.id===parentNodeId))throw new Error('无权访问该团队节点');items=tree.filter(node=>node.parentId===(parentNodeId||null))}
   }
   if(keyword)items=items.filter(item=>String(item.title||item.name||'').includes(keyword))
-  return clone({items,metrics,columns,hasMore:false,nextCursor:null,mockOnly:true})
+  const available=resource.type==='income'
+    ?(metrics.find(item=>item.label==='可提现金额'||item.label==='可提现积分')?.value ?? state.available)
+    :undefined
+  return clone({items,metrics,columns,...(available!=null?{available}:{}),hasMore:false,nextCursor:null,mockOnly:true})
 }
 function costoreContextFixtures(user){
   const address='河南省郑州市管城回族区航海东路与中州大道交叉口西美景龙堂3c-1'
@@ -109,7 +155,14 @@ function agencyContextFixtures(user){
 function incomeEntry(context,category,n){
   const agency=context.module==='agency'
   const pending=n===5
-  return {id:`demo-income-${n+1}`,sourceOrder:`单号：NS2026102200${n+1}`,partyLabel:agency?'李志远/19919988991':'',title:(agency?['代理费：开通西二区单店代理','合店费：开通合店老板6个月','服务费：所在区域合伙人服务费','供应链：购买平板','软件卡：购买xx软件卡','特色品：购买特色产品','行政费：购买行政费','专栏课：购买记忆基础']:['代理费：开通区域代理','服务费：会员服务','合店费：开通合店老板','供应链：购买平板','软件卡：购买软件卡','特色品：购买特色产品','行政费：购买行政费','专栏课：购买记忆基础'])[n],category,channel:n<3?'B端':n===3?'供应链':'C端',paymentTypeLabel:n<3?'B端业务':'门店交付',identityLabel:context.label,amount:agency?6750000:(pending?5400:1200+n*100),baseAmount:10000,rateBps:pending?500:1200,createdAt:agency?'2022-08-21T21:34:12+08:00':stamp(),allocationStatus:pending?'PENDING':'ALLOCATED',allocationKind:context.module==='agency'&&context.agencyType!=='STORE'?'inspection':'sales',settlementStatus:pending?'PENDING_ALLOCATION':'SETTLED',version:1,beneficiaryName:context.label,pendingNote:agency&&pending?'本单存在待分配提成，收益暂不计入可提现金额':'',recommended:{name:'王好梦',roleLabel:'区域合伙人',phone:'19919988991'},buyer:{name:'李志远',roleLabel:'天使合伙人',phone:'19919988991',address:'河南省郑州市管城回族区中州大道'},store:{name:'脑商训练营梧桐街店',number:'NO.001',address:'河南省郑州市管城回族区梧桐街',manager:'李志远/19919988991'},allowedActions:pending?['allocate']:[]}
+  const wholesale=context.module==='wholesale'
+  const channels=agency?['B端','B端','B端','供应链','C端','C端','C端','C端']:wholesale?['直推奖','复购奖','复购奖','直推奖','直推奖','平级奖','平级奖','复购奖']:['B端','B端','B端','供应链','C端','C端','C端','C端']
+  const titles=agency
+    ?['代理费：开通西二区单店代理','合店费：开通合店老板6个月','服务费：所在区域合伙人服务费','供应链：购买平板','软件卡：购买xx软件卡','特色品：购买特色产品','行政费：购买行政费','专栏课：购买记忆基础']
+    :wholesale
+      ?['供应链：下级购买平板','合店费：下级开通合店老板6个月','软件卡：下级购买xx软件卡','代理费：下级开通二七区代理','权益费：下级解锁合伙权益','合伙人：购买10个VIP名额','划拨2个VIP名额（同级合伙人）','专栏课：购买记忆基础']
+      :['代理费：开通区域代理','服务费：会员服务','合店费：开通合店老板','供应链：购买平板','软件卡：购买软件卡','特色品：购买特色产品','行政费：购买行政费','专栏课：购买记忆基础']
+  return {id:`demo-income-${n+1}`,sourceOrder:`单号：NS2026102200${n+1}`,partyLabel:(agency||wholesale)?'李志远/19919988991':'',title:titles[n],category,channel:channels[n],paymentTypeLabel:n<3?'B端业务':'门店交付',identityLabel:context.label,amount:agency?6750000:wholesale?(n===6?-20000:[5000,50000,5000,500000,1000,175000,0,1200][n]):(pending?5400:1200+n*100),baseAmount:10000,rateBps:pending?500:1200,createdAt:(agency||wholesale)?'2022-08-21T21:34:12+08:00':stamp(),allocationStatus:pending?'PENDING':'ALLOCATED',allocationKind:context.module==='agency'&&context.agencyType!=='STORE'?'inspection':'sales',settlementStatus:pending?'PENDING_ALLOCATION':'SETTLED',version:1,beneficiaryName:context.label,pendingNote:agency&&pending?'本单存在待分配提成，收益暂不计入可提现金额':'',recommended:{name:'王好梦',roleLabel:'区域合伙人',phone:'19919988991'},buyer:{name:'李志远',roleLabel:'天使合伙人',phone:'19919988991',address:'河南省郑州市管城回族区中州大道'},store:{name:'脑商训练营梧桐街店',number:'NO.001',address:'河南省郑州市管城回族区梧桐街',manager:'李志远/19919988991'},allowedActions:pending?['allocate']:[]}
 }
 function agencySummary(context){
   const teamCount={STORE:14,COUNTY:12,CITY:28,PROVINCE:86}[context.agencyType]||0

@@ -1,7 +1,7 @@
 <template>
   <view class="award-page">
     <view class="award-frame">
-      <BusinessPageHeader title="创始奖明细" fallback="/pages/profile/index" />
+      <BusinessPageHeader title="总裁补贴明细" fallback="/pages/profile/index" />
       <view class="award-body">
         <picker mode="date" fields="month" :value="month" @change="changeMonth">
           <view class="award-month">{{ monthTitle }}<image src="/static/common/icon-chevron-right.png" mode="aspectFit" /></view>
@@ -9,8 +9,8 @@
         <FeaturePageState :status="status" :error="error" @retry="load" />
         <template v-if="status === 'ready'">
           <view class="award-summary">
-            <text>本月创始奖</text>
-            <view class="award-total">¥{{ money(data.summary?.amount) }}</view>
+            <text>本月总裁补贴</text>
+            <view class="award-total">{{ money(data.summary?.amount) }}积分</view>
             <view class="award-metrics">
               <view><text>本人身份</text><text>{{ data.summary?.identityLabel || '—' }}</text></view>
               <view><text>本月VIP数量</text><text>{{ data.summary?.vipCount ?? '—' }}</text></view>
@@ -18,10 +18,10 @@
             </view>
           </view>
           <view class="report-table">
-            <view class="table-row table-heading"><text>月份</text><text>VIP数量</text><text>分红比例</text><text>本月创始奖</text></view>
-            <view v-for="row in rows" :key="row.id" class="table-row"><text>{{ row.month }}</text><text>{{ row.vipCount ?? '—' }}</text><text>{{ percent(row.rateBps) }}</text><text>¥{{ money(row.amount) }}</text></view>
+            <view class="table-row table-heading"><text>月份</text><text>VIP数量</text><text>分红比例</text><text>本月总裁补贴</text></view>
+            <view v-for="row in rows" :key="row.id" class="table-row"><text>{{ row.month }}</text><text>{{ row.vipCount ?? '—' }}</text><text>{{ percent(row.rateBps) }}</text><text>{{ money(row.amount) }}积分</text></view>
           </view>
-          <EmptyState v-if="!rows.length" text="暂无创始奖记录" />
+          <EmptyState v-if="!rows.length" text="暂无总裁补贴记录" />
           <button v-if="hasMore" class="secondary" :disabled="loadingMore" @click="more">{{ loadingMore ? '加载中…' : '加载更多' }}</button>
           <text v-if="moreError" class="account-error">{{ moreError }}</text>
         </template>
@@ -41,7 +41,7 @@ import FeaturePageState from '../../components/FeaturePageState.vue'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const now = new Date(), month = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`), rows = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref('')
-const monthTitle = computed(() => `${Number(month.value.slice(5))}月创始奖`)
+const monthTitle = computed(() => `${Number(month.value.slice(5))}月总裁补贴`)
 let cursor = null, epoch = 0
 const { data, status, error, load } = useAsyncPage(() => getFounderAwards(month.value))
 watch(data, result => { if (result) { rows.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })

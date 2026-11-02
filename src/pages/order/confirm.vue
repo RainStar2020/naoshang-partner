@@ -140,7 +140,7 @@
         <view v-if="!coupons.length" class="shop-empty">暂无可用优惠券</view>
         <view v-for="item in coupons" :key="item.id" class="coupon-card" @click="pendingCouponId = pendingCouponId === item.id ? null : item.id">
           <view class="coupon-value">
-            <view class="coupon-amount"><text class="coupon-yen">¥</text>{{ plainYuan(item.amount) }}</view>
+            <view class="coupon-amount"><text class="coupon-yen">¥</text>{{ plainYuan(couponAmount(item)) }}</view>
             <text class="coupon-threshold">{{ couponThreshold(item) }}</text>
           </view>
           <view class="coupon-copy">
@@ -194,7 +194,12 @@ const selectedCoupon = computed(() => coupons.value.find(item => item.id === dra
 const sheetTitle = computed(() => ({ addresses: '选择收货地址', stores: '选择所属门店' }[selectionType.value] || ''))
 const submitLabel = computed(() => busy.value ? '处理中…' : pendingCreation.value ? '重试原订单提交' : '确认订单')
 function addressLine(item) { return `${(item.regionNames || []).join('')}${item.detail || ''}` }
+function couponAmount(item) {
+  const amount = Number(item?.discountAmount ?? item?.amount)
+  return Number.isFinite(amount) ? amount : null
+}
 function couponThreshold(item) {
+  if (item.thresholdText) return item.thresholdText
   if (item.thresholdLabel) return item.thresholdLabel
   if (!item.minAmount) return '无门槛'
   return `满${plainYuan(item.minAmount)}可用`

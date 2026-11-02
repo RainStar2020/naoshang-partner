@@ -156,7 +156,7 @@
       "path": "pages/profile/founder-awards",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "创始奖明细"
+        "navigationBarTitleText": "总裁补贴明细"
       }
     },
     {
@@ -205,7 +205,7 @@
     {
       "path": "pages/partner/income",
       "style": {
-        "navigationBarTitleText": "合伙人管理收益",
+        "navigationBarTitleText": "合伙人管理积分",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -213,7 +213,7 @@
     {
       "path": "pages/partner/superior",
       "style": {
-        "navigationBarTitleText": "上级信息",
+        "navigationBarTitleText": "运营商信息",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -229,7 +229,7 @@
     {
       "path": "pages/partner/global-awards",
       "style": {
-        "navigationBarTitleText": "全球奖明细",
+        "navigationBarTitleText": "总批补贴明细",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -253,7 +253,7 @@
     {
       "path": "pages/partner/team",
       "style": {
-        "navigationBarTitleText": "团队明细",
+        "navigationBarTitleText": "服务商明细",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -317,7 +317,7 @@
     {
       "path": "pages/agency/income",
       "style": {
-        "navigationBarTitleText": "代理收益",
+        "navigationBarTitleText": "代理积分",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -365,7 +365,7 @@
     {
       "path": "pages/wallet/withdraw-apply",
       "style": {
-        "navigationBarTitleText": "申请提现",
+        "navigationBarTitleText": "积分兑换",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -381,7 +381,7 @@
     {
       "path": "pages/income/detail",
       "style": {
-        "navigationBarTitleText": "收益详情",
+        "navigationBarTitleText": "积分详情",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -397,7 +397,7 @@
     {
       "path": "pages/wallet/withdrawals",
       "style": {
-        "navigationBarTitleText": "提现记录",
+        "navigationBarTitleText": "兑换记录",
         "navigationBarBackgroundColor": "#343a5b",
         "navigationStyle": "custom"
       }
@@ -537,16 +537,16 @@
         "selectedIconPath": "static/tabs/member-active.png"
       },
       {
-        "pagePath": "pages/partners/index",
-        "text": "联营",
-        "iconPath": "static/tabs/partners.png",
-        "selectedIconPath": "static/tabs/partners-active.png"
-      },
-      {
         "pagePath": "pages/selection/index",
         "text": "甄选",
         "iconPath": "static/tabs/selection.png",
         "selectedIconPath": "static/tabs/selection-active.png"
+      },
+      {
+        "pagePath": "pages/partners/index",
+        "text": "管理",
+        "iconPath": "static/tabs/partners.png",
+        "selectedIconPath": "static/tabs/partners-active.png"
       },
       {
         "pagePath": "pages/profile/index",

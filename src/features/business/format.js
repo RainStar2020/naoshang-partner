@@ -6,4 +6,9 @@ export function businessDateLabel(value){
   return `${local.getUTCFullYear()}-${pad(local.getUTCMonth()+1)}-${pad(local.getUTCDate())} ${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`
 }
 
-export function parseBusinessAmount(value){if(!/^\d+(\.\d{1,2})?$/.test(String(value)))throw new Error('金额最多输入两位小数');const [whole,decimal='']=String(value).split('.'),amount=Number(whole)*100+Number(decimal.padEnd(2,'0'));if(!Number.isSafeInteger(amount)||amount<=0)throw new Error('金额无效');return amount}
+export function parseBusinessAmount(value){
+  if(!/^\d+(\.\d{1,2})?$/.test(String(value)))throw new Error('金额最多输入两位小数')
+  const amount=Number(Number(value).toFixed(2))
+  if(!Number.isFinite(amount)||amount<=0)throw new Error('金额无效')
+  return amount
+}

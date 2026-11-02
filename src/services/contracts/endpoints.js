@@ -213,10 +213,10 @@ export const endpoints = [
     "path": "/me/bootstrap",
     "description": "拉取当前账号经营身份 + **对外编号 + 权益门禁状态**",
     "parameters": "无",
-    "response": "displayId, entitlement{state,amount,expiresAt,frozen,canExportBills}, contexts[], businessContexts[]",
+    "response": "displayId, entitlement{state,amount,expiresAt,frozen,canExportBills}, contexts[], businessContexts[], globalAwardEligibility?, superior?, team?, vipDetails?",
     "source": "前端API接口清单（功能标注）(1).md",
     "serverOnly": false,
-    "notes": "- **GET `/me/bootstrap`**：无业务参数，返回下面的身份集合。",
+    "notes": "- **GET `/me/bootstrap`**：无业务参数，返回身份集合；批发商工作台使用 globalAwardEligibility / team / vipDetails / superior。",
     "pathParams": [],
     "name": "getMeBootstrap"
   },

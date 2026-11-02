@@ -90,11 +90,26 @@ test('remote failure never falls back to mock content or authorization', async (
 test('a late bootstrap response is rejected after the logged-in account changes', async () => {
   let finish
   const pending = new Promise(resolve => { finish = resolve })
-  const { learning: api, session } = await setup(false, () => pending)
+  const { learning: api, session } = await setup(false, url => url === '/members' ? Promise.resolve({ items: [], hasMore: false, nextCursor: null }) : pending)
   const result = api.getLearningIdentities()
   session.user.id = 'account-B'
   finish({ contexts: [{ id: 'parent:account-A', accountId: 'account-A', mode: 'parent' }] })
   await assert.rejects(result, /账号已变化/)
+})
+
+test('family members from /members appear as child identities even when bootstrap omits them', async () => {
+  const remote = async url => {
+    if (url === '/me/bootstrap') return { contexts: [{ id: 'parent:account-A', accountId: 'account-A', mode: 'parent', name: '体验家长' }] }
+    if (url === '/members') return { items: [{ id: 'member-new', contextId: 'child:account-A:new', name: '新会员', displayId: 'M001', gradeLabel: '初一', badge: '未激活会员' }], hasMore: false, nextCursor: null }
+    throw new Error(`Unexpected ${url}`)
+  }
+  const { learning: api } = await setup(false, remote)
+  const rows = await api.getLearningIdentities()
+  assert.equal(rows[0].mode, 'parent')
+  assert.equal(rows.length, 2)
+  assert.equal(rows[1].memberId, 'member-new')
+  assert.equal(rows[1].name, '新会员')
+  assert.equal(rows[1].mode, 'child')
 })
 
 test('child video progress resumes, never regresses completion, survives reload and is isolated from siblings', async () => {
@@ -127,7 +142,7 @@ test('article completion is explicit; progress rejects parents, locked children,
 
 test('same-account token replacement invalidates a late progress write', async () => {
   let finish
-  const {learning:api,session}=await setup(false,()=>new Promise(resolve=>{finish=resolve}))
+  const {learning:api,session}=await setup(false,url=>url==='/members'?Promise.resolve({items:[],hasMore:false,nextCursor:null}):new Promise(resolve=>{finish=resolve}))
   const attempt=api.saveLearningProgress({contextId:'child:account-A:1',levelId:'level-1',chapterId:'video'},{positionSeconds:1,durationSeconds:60})
   session.token='new-login'
   finish({contexts:[{id:'child:account-A:1',accountId:'account-A',memberId:'m1',mode:'child'}]})
@@ -156,7 +171,11 @@ test('announcement read receipts are idempotent and scoped to the login account'
 })
 
 test('remote tier authorization works without the obsolete per-level unlocked field',async()=>{
- const remote=async url=>url==='/me/bootstrap'?{contexts:[{id:'child:account-A:1',accountId:'account-A',memberId:'member-1',mode:'child'}]}:{id:'level-2',membershipUnlocked:true,membershipTierId:'tier-2',chapters:[{id:'chapter',accessible:true}],content:null}
+ const remote=async url=>{
+  if(url==='/me/bootstrap')return{contexts:[{id:'child:account-A:1',accountId:'account-A',memberId:'member-1',mode:'child'}]}
+  if(url==='/members')return{items:[],hasMore:false,nextCursor:null}
+  return{id:'level-2',membershipUnlocked:true,membershipTierId:'tier-2',chapters:[{id:'chapter',accessible:true}],content:null}
+ }
  const {learning:api}=await setup(false,remote)
  const detail=await api.getLearningLevelDetail('child:account-A:1','level-2')
  assert.equal(detail.unlocked,true);assert.equal(detail.chapters[0].accessible,true)

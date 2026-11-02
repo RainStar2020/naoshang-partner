@@ -21,19 +21,6 @@
               <ShopPrices :product="product" :expanded="activePriceId === product.id" @toggle="activePriceId = $event ? product.id : ''" />
             </view>
           </view>
-          <view v-if="subcategoryProduct" class="selection-section">
-            <text class="shop-subtitle">这里是二级分类</text>
-            <view class="shop-list-item">
-              <view class="shop-product-line">
-                <image :src="subcategoryProduct.coverUrl" mode="aspectFill" />
-                <view>
-                  <view class="shop-title">{{ subcategoryProduct.title }}</view>
-                  <text class="shop-muted">{{ subcategoryProduct.summary }}</text>
-                </view>
-              </view>
-              <ShopPrices :product="subcategoryProduct" :expanded="activePriceId === subcategoryProduct.id" @toggle="activePriceId = $event ? subcategoryProduct.id : ''" />
-            </view>
-          </view>
         </scroll-view>
       </view>
     </view>
@@ -55,14 +42,8 @@ useAppTabBar()
 const activePriceId = ref('')
 const categoryId = ref('all')
 const { data, status, error, load } = useAsyncPage(getCatalog, false)
-const visibleCategories = computed(() => data.value?.categories.filter(item => item.id !== 'special') || [])
-const products = computed(() => data.value?.items.filter(item => item.categoryId !== 'special' && (categoryId.value === 'all' || item.categoryId === categoryId.value)) || [])
-const subcategoryProduct = computed(() => {
-  if (categoryId.value !== 'all') return null
-  const source = products.value.find(item => item.categoryId === 'column')
-  if (!source) return null
-  return { ...source, id: 'selection-subcategory-sample', title: 'xxxxxx这里是商品名称', summary: '这里是简介这里是简介，这里是简介' }
-})
+const visibleCategories = computed(() => data.value?.categories || [])
+const products = computed(() => data.value?.items.filter(item => categoryId.value === 'all' || item.categoryId === categoryId.value) || [])
 const sections = computed(() => {
   const groups = []
   for (const product of products.value) {

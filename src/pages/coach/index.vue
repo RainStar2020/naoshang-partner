@@ -23,7 +23,7 @@
       <view class="coach-member-info">
        <view class="shop-title">{{member.name}}</view>
        <view class="shop-muted">用户ID：{{member.displayId || member.id}}<text v-if="member.phone">　手机号：{{member.phone}}</text></view>
-       <view v-if="Number.isInteger(member.storeConsumptionAmount)" class="shop-muted">门店消费：¥{{money(member.storeConsumptionAmount)}}</view>
+       <view v-if="Number.isInteger(member.storeConsumptionAmount)" class="shop-muted">门店消费积分：{{money(member.storeConsumptionAmount)}}积分</view>
       </view>
      </view>
      <view class="coach-member-actions">

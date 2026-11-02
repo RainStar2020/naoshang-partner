@@ -29,7 +29,7 @@ import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const filters = [{ id: 'available', label: '待使用' }, { id: 'used', label: '已使用' }, { id: 'void', label: '已作废' }], filter = ref('available'), items = ref([]), status = ref('loading'), error = ref(''), hasMore = ref(false), loadingMore = ref(false), moreError = ref('')
 let epoch = 0, cursor = null
-const amount = value => Number.isFinite(value) ? (value / 100).toFixed(2).replace(/\.00$/, '') : '—'
+const amount = value => { const number = Number(value); return Number.isFinite(number) ? number.toFixed(2).replace(/\.00$/, '') : '—' }
 function change(next) { if (next !== filter.value) { filter.value = next; load() } }
 async function load() { const current = ++epoch; status.value = 'loading'; items.value = []; loadingMore.value = false; moreError.value = ''; try { const result = await getCoupons(filter.value); if (current === epoch) { items.value = result.items; cursor = result.nextCursor; hasMore.value = result.hasMore === true; status.value = 'ready' } } catch (reason) { if (current === epoch) { error.value = reason.message; status.value = 'error' } } }
 async function more() { if (loadingMore.value || !hasMore.value) return; const current = epoch; loadingMore.value = true; try { const result = await getCoupons(filter.value, cursor); if (current === epoch) { items.value = [...new Map([...items.value, ...result.items].map(item => [item.id, item])).values()]; cursor = result.nextCursor; hasMore.value = result.hasMore === true } } catch (reason) { if (current === epoch) moreError.value = reason.message } finally { if (current === epoch) loadingMore.value = false } }

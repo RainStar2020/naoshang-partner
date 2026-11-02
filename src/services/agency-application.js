@@ -9,7 +9,7 @@ export function getAgencyApplicationOptions(type,promotionId){return scoped(asyn
   const options=await request('/agency/application-options',{data:{agencyType,promotionCode:invitation.promotionCode||promotionId}})
   const total=options.feeBreakdown?.total
   if(!Number.isFinite(total)||total<0)throw new Error('代理费用数据异常')
-  return {...options,agencyType:agencyType.toUpperCase(),promotionId,payableAmount:Math.round(total*100),label:options.agencyTypeLabel,feeNote:options.feeBreakdown?.note}
+  return {...options,agencyType:agencyType.toUpperCase(),promotionId,payableAmount:total,label:options.agencyTypeLabel,feeNote:options.feeBreakdown?.note}
 })}
 export function submitAgencyApplication(options,draft,key){return scoped(async user=>{
   if(!key)throw new Error('缺少申请编号')

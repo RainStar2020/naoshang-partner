@@ -27,21 +27,29 @@
                 <view>训练：共<text class="hour">{{ member.training?.total ?? '—' }}</text>时，已消耗<text class="hour">{{ member.training?.used ?? '—' }}</text>时，剩余<text class="hour">{{ member.training?.remaining ?? '—' }}</text>时</view>
                 <view v-if="member.customHours">特制：共<text class="hour">{{ member.customHours.total ?? '—' }}</text>时，已消耗<text class="hour">{{ member.customHours.used ?? '—' }}</text>时，剩余<text class="hour">{{ member.customHours.remaining ?? '—' }}</text>时</view>
               </view>
-              <button @click="records(member, 'training')">陪练反馈</button>
+              <button class="benefit-feedback" @click="records(member, 'training')">陪练反馈</button>
+              <button class="benefit-edit" @click="openHours(member)">编辑</button>
+            </view>
+            <view class="member-benefit">
+              <text class="benefit-title">升学卡</text>
+              <view class="benefit-body">共<text class="hour">{{ admissionHours(member).total }}</text>时，已消耗<text class="hour">{{ admissionHours(member).used }}</text>时，剩余<text class="hour">{{ admissionHours(member).remaining }}</text>时</view>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">智习室</text>
               <view class="benefit-body">{{ member.selfStudyNote || '暂无记录' }}</view>
-              <button @click="records(member, 'self-study')">智习反馈</button>
+              <button class="benefit-feedback" @click="records(member, 'self-study')">智习反馈</button>
+              <button class="benefit-edit" @click="openNote(member, 'selfStudyNote', '编辑智习室')">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">集训营</text>
               <view class="benefit-body">{{ member.campNote || '暂无记录' }}</view>
-              <button @click="records(member, 'camp')">集训反馈</button>
+              <button class="benefit-feedback" @click="records(member, 'camp')">集训反馈</button>
+              <button class="benefit-edit" @click="openNote(member, 'campNote', '编辑集训营')">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">备注</text>
               <view class="benefit-body">{{ member.remark || '暂无备注' }}</view>
+              <button class="benefit-edit" @click="openNote(member, 'remark', '编辑备注')">编辑</button>
             </view>
             <view class="member-actions">
               <button @click="openEditor(member)"><image src="/static/common/icon-edit.png" mode="aspectFit" />编辑</button>
@@ -102,6 +110,44 @@
         <button class="submit" @click="successText = ''">确定</button>
       </view>
     </view>
+    <view v-if="trainingEditor" class="member-mask" :class="{ 'center-mask': trainingEditor === 'note' }" @click="closeTrainingEditor">
+      <view class="member-sheet" :class="{ 'note-dialog': trainingEditor === 'note' }" role="dialog" :aria-label="trainingEditor === 'note' ? noteTitle : '编辑陪练卡课时'" @click.stop>
+        <template v-if="trainingEditor === 'note'">
+          <view class="dialog-title">{{ noteTitle }}</view>
+          <textarea v-model="trainingDraft.text" :disabled="trainingBusy" maxlength="500" placeholder="请输入" />
+          <text v-if="trainingError" class="member-error">{{ trainingError }}</text>
+          <view class="note-actions">
+            <button :disabled="trainingBusy" @click="closeTrainingEditor">取消</button>
+            <button class="solid" :disabled="trainingBusy" @click="saveNote">{{ trainingBusy ? '保存中…' : '保存' }}</button>
+          </view>
+        </template>
+        <template v-else>
+          <view class="sheet-heading">
+            <text>编辑陪练卡课时</text>
+            <button class="sheet-close" :disabled="trainingBusy" aria-label="关闭" @click="closeTrainingEditor"><image src="/static/common/icon-close.png" mode="aspectFit" /></button>
+          </view>
+          <view v-for="group in hourGroups" :key="group.id" class="hour-group">
+            <view class="hour-heading"><text class="hour-mark" /><text>{{ group.label }}</text></view>
+            <view class="hour-grid">
+              <view>
+                <text>课时总数</text>
+                <view class="hour-input"><input v-model="trainingDraft[group.total]" type="number" :disabled="trainingBusy" maxlength="5" placeholder="请输入" /><text>时</text></view>
+              </view>
+              <view>
+                <text>已消耗课时</text>
+                <view class="hour-input"><input v-model="trainingDraft[group.used]" type="number" :disabled="trainingBusy" maxlength="5" placeholder="请输入" /><text>时</text></view>
+              </view>
+              <view>
+                <text>剩余课时</text>
+                <view class="hour-input locked"><input :value="remainHours(trainingDraft[group.total], trainingDraft[group.used])" disabled placeholder="请输入" /><text>时</text></view>
+              </view>
+            </view>
+          </view>
+          <text v-if="trainingError" class="member-error">{{ trainingError }}</text>
+          <button class="submit" :disabled="trainingBusy" @click="saveHours">{{ trainingBusy ? '提交中…' : '确定' }}</button>
+        </template>
+      </view>
+    </view>
   </view>
 </template>
 <script setup>
@@ -109,13 +155,21 @@ import { ref, computed, watch } from 'vue'
 import { onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
-import { getFamilyMembers, getMemberDictionaries, saveFamilyMember, previewMemberActivation, activateFamilyMember } from '../../services/members'
+import { getFamilyMembers, getMemberDictionaries, saveFamilyMember, previewMemberActivation, activateFamilyMember, updateMemberTraining } from '../../services/members'
 import { uploadProfileImage } from '../../services/profile'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 useAuth()
 const items = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref(''), dictionaries = ref({ grades: [], genders: [] }), editorOpen = ref(false), editingId = ref(''), draft = ref({}), avatarPreview = ref(''), editorError = ref(''), saving = ref(false), uploading = ref(false), activationMember = ref(null), activationCode = ref(''), activationPreview = ref(null), activationError = ref(''), activating = ref(false), successText = ref('')
-let cursor = null, epoch = 0, editorEpoch = 0, activationEpoch = 0, active = true, activationKey = '', memberSaveKey = '', memberSavePayload = ''
+const trainingEditor = ref(''), trainingBusy = ref(false), trainingDraft = ref({}), trainingError = ref(''), noteTitle = ref(''), noteKey = ref(''), trainingMember = ref(null)
+const admissionHours = member => {
+  const value = member.admissionHours || member.schoolHours || member.promotionHours || {}
+  const total = value.total ?? member.admissionTotal ?? '—', used = value.used ?? member.admissionUsed ?? '—'
+  const numericTotal = Number(total), numericUsed = Number(used)
+  return { total, used, remaining: Number.isFinite(numericTotal) && Number.isFinite(numericUsed) ? Math.max(0, numericTotal - numericUsed) : (value.remaining ?? member.admissionRemaining ?? '—') }
+}
+const hourGroups = [{ id: 'training', label: '训练', total: 'trainingTotal', used: 'trainingUsed' }, { id: 'special', label: '特制', total: 'specialTotal', used: 'specialUsed' }]
+let cursor = null, epoch = 0, editorEpoch = 0, activationEpoch = 0, trainingEpoch = 0, active = true, activationKey = '', memberSaveKey = '', memberSavePayload = ''
 const { data, status, error, load } = useAsyncPage(async () => {
   const [result, options] = await Promise.all([getFamilyMembers(), getMemberDictionaries()])
   if (!Array.isArray(options?.grades) || !Array.isArray(options.genders)) throw new Error('会员字典配置异常')
@@ -187,6 +241,90 @@ async function activate() {
   finally { if (active) activating.value = false }
 }
 function records(member, kind) { uni.navigateTo({ url: `/pages/members/records?memberId=${encodeURIComponent(member.id)}&kind=${kind}` }) }
+function remainHours(total, used) {
+  const a = Number(total), b = Number(used)
+  if (Number.isInteger(a) && Number.isInteger(b)) return Math.max(0, a - b)
+  if (Number.isFinite(a) && Number.isFinite(b) && String(total) !== '' && String(used) !== '') return Math.max(0, Math.trunc(a) - Math.trunc(b))
+  return ''
+}
+function hourField(...values) {
+  for (const value of values) {
+    const number = Number(value)
+    if (Number.isFinite(number)) return Math.trunc(number)
+  }
+  return undefined
+}
+function trainingPayload(member, patch) {
+  return {
+    version: member.trainingVersion ?? member.version,
+    contextId: member.contextId,
+    trainingTotal: hourField(member.training?.total, member.trainingTotal, member.trainInfo?.trainingTotal),
+    trainingUsed: hourField(member.training?.used, member.trainingUsed, member.trainInfo?.trainingUsed),
+    specialTotal: hourField(member.customHours?.total, member.specialTotal, member.trainInfo?.specialTotal),
+    specialUsed: hourField(member.customHours?.used, member.specialUsed, member.trainInfo?.specialUsed),
+    selfStudyNote: member.selfStudyNote || '',
+    campNote: member.campNote || '',
+    remark: member.remark || '',
+    ...patch,
+  }
+}
+function openHours(member) {
+  ++trainingEpoch
+  trainingMember.value = member
+  trainingError.value = ''
+  trainingDraft.value = {
+    trainingTotal: member.training?.total ?? member.trainingTotal ?? '',
+    trainingUsed: member.training?.used ?? member.trainingUsed ?? '',
+    specialTotal: member.customHours?.total ?? member.specialTotal ?? '',
+    specialUsed: member.customHours?.used ?? member.specialUsed ?? '',
+  }
+  trainingEditor.value = 'hours'
+}
+function openNote(member, key, title) {
+  ++trainingEpoch
+  trainingMember.value = member
+  noteKey.value = key
+  noteTitle.value = title
+  trainingError.value = ''
+  trainingDraft.value = { text: member[key] || '' }
+  trainingEditor.value = 'note'
+}
+function closeTrainingEditor() { if (!trainingBusy.value) { ++trainingEpoch; trainingEditor.value = '' } }
+function readHours(source) {
+  const value = {}
+  for (const group of hourGroups) {
+    for (const key of [group.total, group.used]) {
+      const number = Number(source[key])
+      if (!Number.isFinite(number) || !Number.isInteger(number) || number < 0 || number > 10000) throw new Error('课时须为0—10000的整数')
+      value[key] = number
+    }
+  }
+  if (value.trainingUsed > value.trainingTotal || value.specialUsed > value.specialTotal) throw new Error('消耗课时不能超过总课时')
+  return value
+}
+async function saveHours() {
+  if (trainingBusy.value || !trainingMember.value) return
+  const current = trainingEpoch
+  trainingBusy.value = true
+  trainingError.value = ''
+  try {
+    const hours = readHours(trainingDraft.value)
+    await updateMemberTraining(trainingMember.value.id, trainingPayload(trainingMember.value, hours))
+    if (active && current === trainingEpoch) { trainingEditor.value = ''; uni.showToast({ title: '已保存', icon: 'success' }); await load() }
+  } catch (reason) { if (active && current === trainingEpoch) trainingError.value = reason.message || '保存失败' }
+  finally { if (active && current === trainingEpoch) trainingBusy.value = false }
+}
+async function saveNote() {
+  if (trainingBusy.value || !trainingMember.value) return
+  const current = trainingEpoch
+  trainingBusy.value = true
+  trainingError.value = ''
+  try {
+    await updateMemberTraining(trainingMember.value.id, trainingPayload(trainingMember.value, { [noteKey.value]: trainingDraft.value.text || '' }))
+    if (active && current === trainingEpoch) { trainingEditor.value = ''; uni.showToast({ title: '已保存', icon: 'success' }); await load() }
+  } catch (reason) { if (active && current === trainingEpoch) trainingError.value = reason.message || '保存失败' }
+  finally { if (active && current === trainingEpoch) trainingBusy.value = false }
+}
 async function more() {
   if (loadingMore.value || !hasMore.value) return
   const current = epoch
@@ -201,7 +339,7 @@ async function more() {
   } catch (reason) { if (current === epoch) moreError.value = reason.message }
   finally { if (current === epoch) loadingMore.value = false }
 }
-onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch })
+onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch; ++trainingEpoch })
 </script>
 <style scoped>
 .member-page { min-height: 100vh; background: #272c47; color: #fff; font-size: clamp(14px, 3.73vw, 16px); }
@@ -217,10 +355,12 @@ onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch })
 .member-name { display: flex; align-items: center; flex-wrap: wrap; gap: .35em; font-weight: 700; line-height: 1.4; }
 .member-badge { padding: .05em .5em; border-radius: 1em; background: linear-gradient(90deg, #00baff, #3056ff); font-size: .75em; font-weight: 500; }
 .member-meta { display: flex; flex-wrap: wrap; gap: .15em .65em; margin-top: .3em; color: #a8b8d1; font-size: .82em; line-height: 1.45; }
-.member-benefit { display: flex; align-items: stretch; min-height: 3.6em; margin-bottom: .5em; border-radius: .55em; background: #454d6e; }
-.benefit-title, .member-benefit > button { flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin: 0; writing-mode: vertical-rl; letter-spacing: .08em; line-height: 1; font-size: .82em; }
+.member-benefit { display: flex; align-items: stretch; min-height: 3.6em; margin-bottom: .5em; border-radius: .55em; background: #454d6e; overflow: hidden; }
+.benefit-title, .member-benefit > button { flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin: 0; writing-mode: vertical-rl; letter-spacing: .08em; line-height: 1.2; font-size: .78em; color: #fff; }
 .benefit-title { width: 1.7em; padding: .45em 0; background: #555e7b; color: #d5dced; border-radius: .55em 0 0 .55em; }
-.member-benefit > button { align-self: center; min-height: 4.6em; margin: .4em .4em .4em 0; padding: .55em .28em; background: #00b861; color: #fff; border-radius: .4em; }
+.member-benefit > button { align-self: stretch; min-width: 2.4em; padding: .45em .2em; border-radius: 0; }
+.benefit-feedback { background: #00b861; }
+.benefit-edit { background: linear-gradient(180deg, #1aa7ff, #245bff); }
 .benefit-body { flex: 1; min-width: 0; padding: .55em .65em; color: #d7deee; font-size: .86em; line-height: 1.55; overflow-wrap: anywhere; }
 .hour { color: #4eb6ff; }
 .member-actions { display: flex; align-items: center; gap: .8em; margin-top: .7em; }
@@ -256,4 +396,21 @@ onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch })
 .dialog-ok { color: #3aa0ff !important; }
 .success-dialog { padding-top: 1.6em; padding-bottom: 1.2em; }
 .success-copy { margin-bottom: 1.1em; line-height: 1.5; }
+.note-dialog { width: min(22em, calc(100% - 2.6em)); margin: 0 auto; padding: 1.2em 1.1em 1em; border-radius: 1.1em; background: #3a4164; }
+.dialog-title { display: block; margin-bottom: .8em; text-align: center; font-weight: 700; }
+.note-dialog textarea { box-sizing: border-box; width: 100%; min-height: 6.5em; padding: .7em; border: 1px solid #6f8cff88; border-radius: .4em; background: #4a5170; color: #fff; font-size: .95em; }
+.note-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .7em; margin-top: .9em; }
+.note-actions button { margin: 0; border-radius: 2em; background: #5a617c; color: #fff; line-height: 2.3; }
+.note-actions .solid { background: linear-gradient(95deg, #0340ff, #009bff); }
+.hour-group { margin-bottom: .2em; }
+.hour-heading { display: flex; align-items: center; gap: .35em; margin: .2em 0 .55em; font-weight: 700; }
+.hour-mark { width: .28em; height: .9em; border-radius: .2em; background: #57adff; }
+.hour-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4em; margin-bottom: .8em; }
+.hour-grid > view { min-width: 0; }
+.hour-grid > view > text { display: block; margin-bottom: .3em; color: #d5dced; font-size: .75em; }
+.hour-input { display: flex; align-items: center; height: 2.3em; padding: 0 .4em; border-radius: .4em; background: #4a5170; }
+.hour-input input { min-width: 0; flex: 1; height: 100%; color: #fff; font-size: .85em; }
+.hour-input > text { flex: none; color: #c5cbe0; font-size: .75em; }
+.hour-input.locked { opacity: .8; }
+@media (max-width: 340px) { .hour-grid { grid-template-columns: 1fr; } }
 </style>

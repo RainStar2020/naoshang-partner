@@ -1,7 +1,7 @@
 import { getSession } from '../api'
 import * as commerce from '../mock/commerce'
 import { mockIdentities, mockLevels, mockLevelDetail, mockAnnouncements } from '../mock/learning'
-import { mockBusinessContexts } from '../mock/business'
+import { mockBusinessContexts, mockMeBootstrap } from '../mock/business'
 import { mockFamily, memberDictionaries } from '../mock/family'
 import { mockProfileState } from '../mock/profile'
 import { legacyMock, NO_LEGACY_MOCK } from './legacy-mock'
@@ -76,7 +76,7 @@ async function fixture(e, p, d, user, state) {
     case 'POST /partner/promotion-claims': fail('演示模式没有可领取的晋升任务', 'NOT_ACHIEVED', 400); break
     case 'GET /partner/allocation-scheme': return { mode: 'self_assign', modeLabel: '可自行分配（演示）', kinds: [{ key: 'inspection', ownerAssignable: true }, { key: 'sales', ownerAssignable: true }], mock: true }
     case 'POST /orders/{id}/payment': return commerce.mockPay(user, p.id, d.channel, d.idempotencyKey)
-    case 'GET /columns': return page(commerce.mockCatalog().items.filter(item => item.categoryId === 'column').map(item => ({ id: item.id, title: item.title, summary: item.summary, coverUrl: item.coverUrl, price: item.skus[0]?.amount == null ? null : item.skus[0].amount / 100, unlocked: false, chapterCount: commerce.mockColumn(user, item.id).chapters.length })))
+    case 'GET /columns': return page(commerce.mockCatalog().items.filter(item => item.categoryId === 'column').map(item => ({ id: item.id, title: item.title, summary: item.summary, coverUrl: item.coverUrl, price: item.skus[0]?.amount == null ? null : item.skus[0].amount, unlocked: false, chapterCount: commerce.mockColumn(user, item.id).chapters.length })))
     case 'POST /auth/sessions':
     case 'POST /auth/registrations': return { token: 'contract-demo-token', user: { ...user, displayId: 'LC0001', role: '家长' }, accountType: d.channel || 'parent', entitlement }
     case 'POST /auth/sms-challenges': return { retryAfter: 60, devCode: '123456' }
@@ -86,7 +86,7 @@ async function fixture(e, p, d, user, state) {
     case 'POST /me/password-changes': return { changed: true }
     case 'POST /auth/wechat/authorizations': return { url: '', state: 'contract-demo-state', mock: true, message: '本地 Mock 不跳转微信；使用手机号演示登录' }
     case 'POST /auth/wechat/exchanges': return { registrationTicket: 'contract-wechat-ticket' }
-    case 'GET /me/bootstrap': return { displayId: 'LC0001', entitlement, contexts: mockIdentities(user), businessContexts: mockBusinessContexts(user) }
+    case 'GET /me/bootstrap': return { ...mockMeBootstrap(user), contexts: mockIdentities(user), businessContexts: mockBusinessContexts(user), entitlement }
     case 'GET /members/options': return memberDictionaries
     case 'GET /members': return page(mockFamily(user).members)
     case 'GET /catalog': return commerce.mockCatalog()

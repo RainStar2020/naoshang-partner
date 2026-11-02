@@ -102,7 +102,8 @@ onShow(load); onUnload(() => { ++epoch })
 .me-shortcuts { display: flex; justify-content: space-between; gap: .4em; }
 .me-shortcuts > button { min-width: 0; flex: 1; margin: 0; padding: 0; background: none; color: #d5dced; font-family: inherit; font-size: .86em; font-weight: 400; line-height: 1.45; display: flex; align-items: center; flex-direction: column; gap: .4em; }
 .me-shortcuts > button::after, .me-menu > button::after, .me-invite::after { border: none; }
-.exclusive-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85em .3em; }
+.exclusive-grid { display: flex; flex-wrap: wrap; justify-content: space-between; align-content: flex-start; gap: .85em .3em; }
+.exclusive-grid > button { flex: 1 1 0; min-width: 0; max-width: 100%; box-sizing: border-box; padding: 0 .15em; }
 .me-menu { padding: .15em .9em; }
 .me-menu > button { display: flex; align-items: center; gap: .75em; width: 100%; margin: 0; padding: .72em 0; background: none; color: #d5dced; font-family: inherit; font-size: 1em; font-weight: 400; text-align: left; line-height: 1.4; }
 .me-menu > button + button { border-top: 1px solid #454b6c; }

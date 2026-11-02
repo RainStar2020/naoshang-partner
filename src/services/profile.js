@@ -111,7 +111,7 @@ export function deleteAddress(id, version) {
 export function getCoupons(status, cursor = null) {
   if (!['available','used','void'].includes(status)) fail('优惠券状态无效')
   return scoped(async user => {
-    const result = config.useMock ? { items: copy(mockCommerceState(user).coupons.filter(item=>item.status===status).map(item=>({...item,discountAmount:item.amount,thresholdText:item.thresholdLabel||(item.minAmount?`满${item.minAmount/100}可用`:'无门槛'),validUntilLabel:`有效期至${String(item.expiresAt||'').slice(0,10).replaceAll('-','/')}`,scopeLabel:item.scopeLabel||'全部商品可用'}))), nextCursor: null, hasMore: false } : await request('/coupons', { data: { status, cursor, pageSize: 20 } })
+    const result = config.useMock ? { items: copy(mockCommerceState(user).coupons.filter(item=>item.status===status).map(item=>({...item,discountAmount:item.amount,thresholdText:item.thresholdLabel||(item.minAmount?`满${item.minAmount}可用`:'无门槛'),validUntilLabel:`有效期至${String(item.expiresAt||'').slice(0,10).replaceAll('-','/')}`,scopeLabel:item.scopeLabel||'全部商品可用'}))), nextCursor: null, hasMore: false } : await request('/coupons', { data: { status, cursor, pageSize: 20 } })
     return pageResult(result, '优惠券')
   })
 }

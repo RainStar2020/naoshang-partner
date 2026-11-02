@@ -1,6 +1,6 @@
 import {config} from '../config'
 import {request} from './api'
-import {withBusinessContext,businessAccount,checkBusinessAccount} from './business'
+import {withBusinessContext,businessAccount,checkBusinessAccount,clearAgencyIncomeCache} from './business'
 import {mockOperationOptions,mockOperationPreview,mockOperationCommit} from './mock/business-operations'
 import {parseBusinessAmount} from '../features/business/format'
 import {mockBusinessState,saveMockBusinessState} from './mock/business'
@@ -15,7 +15,8 @@ export function rememberBusinessOperationIntent(kind,contextId,quote,idempotency
  uni.setStorageSync(key,JSON.parse(JSON.stringify({quoteId:quote.id,idempotencyKey,quote,draft,dispatched:previous?.dispatched || false})))
 }
 const definitiveRejection=error=>[400,403,404,409,422].includes(error.statusCode)&&['QUOTE_EXPIRED','INVALID_QUOTE','VALIDATION_ERROR','FORBIDDEN','INSUFFICIENT_BALANCE','VERSION_CONFLICT'].includes(error.code)
-const capability=(kind,context)=>kind==='withdraw'?'wallet:withdraw':kind==='allocation'?`${context.module}:income`:`wholesale:${kind}`
+// Points redeem (withdraw) is open to any valid business context; no wallet:* gate.
+const capability=(kind,context)=>kind==='withdraw'?null:kind==='allocation'?`${context.module}:income`:`wholesale:${kind}`
 const guardKind=kind=>{if(!known.includes(kind))throw new Error('当前功能暂不可用，请返回后重试')}
 function scopeKind(kind,context){if(!['withdraw','allocation'].includes(kind)&&context.module!=='wholesale')throw new Error('当前身份不支持此操作')}
 export const parseAmount=parseBusinessAmount
@@ -43,7 +44,7 @@ export function previewBusinessOperation(kind,contextId,input,entryId=''){
 }
 // TODO(API): tokenize beneficiary bank details separately; quotes/records carry
 // only the server token and masked bank metadata, never raw card numbers.
-export function registerBusinessPayee(contextId,input){return withBusinessContext(contextId,'wallet:withdraw',async(account,context)=>{
+export function registerBusinessPayee(contextId,input){return withBusinessContext(contextId,null,async(account,context)=>{
  const name=String(input.name||'').trim(),bankName=String(input.bankName||'').trim(),bankNumber=String(input.bankNumber||'').replaceAll(' ','')
  if(!['PERSONAL','COMPANY'].includes(input.accountType)||!name||name.length>60||!bankName||bankName.length>60||!/^\d{16,19}$/.test(bankNumber))throw new Error('请完善收款人、开户行及银行卡号')
  if(!config.useMock){const result=await request('/wallet/payees',{method:'POST',data:{contextId,accountType:input.accountType,name,bankName,bankNumber}});if(!result?.payeeToken)throw new Error('收款账户保存未完成，请检查信息后重试');return result}
@@ -68,6 +69,7 @@ export function commitBusinessOperation(kind,contextId,quoteId,idempotencyKey,en
       const validId=value=>typeof value==='string' && value.trim().length>0
       if(result.status==='PENDING_PAYMENT'?!validId(result.orderId):![result.operationId,result.id,result.withdrawalId].some(validId))throw new Error('操作回执不完整，结果待确认，请勿重复提交')
       if(tracked)uni.removeStorageSync(storageKey)
+      if(kind==='withdraw')clearAgencyIncomeCache(context.id)
       return result
     }catch(error){if(tracked && (config.useMock || definitiveRejection(error))){checkBusinessAccount(account);uni.removeStorageSync(storageKey)}throw error}
   })

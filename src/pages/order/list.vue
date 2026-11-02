@@ -13,7 +13,7 @@ const filters=[{id:'all',label:'全部'},{id:'pending-payment',label:'待付款'
 let epoch=0,cursor=null,searchTerm='',memberId='',contextId=''
 function detail(id){uni.navigateTo({url:`/pages/order/detail?id=${encodeURIComponent(id)}${contextId?`&contextId=${encodeURIComponent(contextId)}&memberId=${encodeURIComponent(memberId)}`:''}`})}
 async function fetchOrders(cursor){if(!memberId)return getMyOrders(filter.value,cursor,searchTerm);if(contextId){const member=await getStoreMember(contextId,memberId);if(!member.allowedActions.includes('read-orders'))throw new Error('当前身份无权查看订单')}return getCommerceOrders({filter:filter.value,cursor,keyword:searchTerm,memberId,contextId})}
-const money=value=>Number.isFinite(value)?(value/100).toFixed(2):'—'
+const money=value=>{const number=Number(value);return Number.isFinite(number)?number.toFixed(2):'—'}
 onLoad(options=>{memberId=options.memberId||'';contextId=options.contextId||'';heading.value=memberId?'会员订单':'我的订单';if(filters.some(item=>item.id===options.status))filter.value=options.status})
 function change(next){if(next!==filter.value){filter.value=next;load()}}
 async function load(){const current=++epoch;status.value='loading';items.value=[];loadingMore.value=false;moreError.value='';searchTerm=keyword.value.trim();try{const result=await fetchOrders(null);if(current===epoch){items.value=result.items;cursor=result.nextCursor;hasMore.value=result.hasMore===true;status.value='ready'}}catch(reason){if(current===epoch){error.value=reason.message;status.value='error'}}}

@@ -1,4 +1,4 @@
-<template><PartnerToolPage ref="page" title="提现记录" kind="withdrawals" :query="query" /></template>
+<template><PartnerToolPage ref="page" title="兑换记录" kind="withdrawals" :query="query" /></template>
 <script setup>
 import PartnerToolPage from '../../components/PartnerToolPage.vue'
 import { usePartnerToolPage } from '../../composables/usePartnerToolPage'

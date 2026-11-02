@@ -29,6 +29,10 @@
       <button v-if="can('write-feedback')" class="row-side green" @click="feedback(member,'self-study')">智习反馈</button>
      </view>
      <view class="member-row">
+      <text class="row-label">升学卡</text>
+      <view class="row-body">共 <em>{{hour(admissionHours(member).total)}}</em> 时，已消耗 <em>{{hour(admissionHours(member).used)}}</em> 时，剩余 <em>{{hour(admissionHours(member).remaining)}}</em> 时</view>
+     </view>
+     <view class="member-row">
       <text class="row-label">集训营</text>
       <view class="row-body">{{member.campNote || '暂无记录'}}</view>
       <button v-if="can('write-feedback')" class="row-side green" @click="feedback(member,'camp')">集训反馈</button>
@@ -85,6 +89,7 @@ const can=action=>data.value?.allowedActions?.includes(action)
 const hour=value=>Number.isInteger(value)?value:'—'
 function readRouteId(value){let text=value||'';for(let i=0;i<2&&text.includes('%');i++){try{const next=decodeURIComponent(text);if(next===text)break;text=next}catch{break}}return text}
 function remain(total,used){const a=Number(total),b=Number(used);return Number.isInteger(a)&&Number.isInteger(b)?Math.max(0,a-b):(Number.isFinite(a)&&Number.isFinite(b)&&String(total)!==''&&String(used)!==''?Math.max(0,Math.trunc(a)-Math.trunc(b)):'—')}
+function admissionHours(member){const value=member.admissionHours||member.schoolHours||member.promotionHours||{},total=value.total??member.admissionTotal??'—',used=value.used??member.admissionUsed??'—';return {total,used,remaining:value.remaining??member.admissionRemaining??remain(total,used)}}
 function payload(member,patch){return {version:member.version,trainingTotal:member.trainingTotal,trainingUsed:member.trainingUsed,specialTotal:member.specialTotal,specialUsed:member.specialUsed,selfStudyNote:member.selfStudyNote||'',campNote:member.campNote||'',remark:member.remark||'',...patch}}
 function openHours(member){current.value=member;actionError.value='';draft.value={trainingTotal:member.trainingTotal,trainingUsed:member.trainingUsed,specialTotal:member.specialTotal,specialUsed:member.specialUsed};editor.value='hours'}
 function openNote(member,key,title){current.value=member;noteKey.value=key;noteTitle.value=title;actionError.value='';draft.value={text:member[key]||''};editor.value='note'}

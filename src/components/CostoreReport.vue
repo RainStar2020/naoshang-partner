@@ -5,7 +5,7 @@
    <template v-if="status==='ready' && report">
     <template v-if="toolId==='income'">
      <view class="income-head">
-      <view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view>¥{{money(metric.value)}}</view></view>
+      <view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view>{{money(metric.value)}}积分</view></view>
      </view>
      <view class="income-actions">
       <button v-if="canWallet('read')" class="wh-secondary wh-pill" @click="wallet('withdrawals')">提现记录</button>
@@ -52,8 +52,8 @@ const monthTitle=computed(()=>{const index=Number(String(month.value).slice(5,7)
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('costore',props.pageQuery?.contextId);context.value=ctx;return getBusinessReport('costore',props.toolId,ctx.id,{month:month.value})},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 watch(report,value=>{items.value=value?.items||[]})
-const show=(value,kind)=>value==null?'—':kind==='money'?`¥${money(value)}`:kind==='percent'?percent(value):value
-const plusAmount=value=>!Number.isInteger(value)?'—':value%100===0?`+${value/100}`:`+${money(value)}`
+const show=(value,kind)=>value==null?'—':kind==='money'?`${money(value)}积分`:kind==='percent'?percent(value):value
+const plusAmount=value=>!Number.isFinite(Number(value))?'—':`+${money(value).replace(/\.00$/,'')}积分`
 const canWallet=id=>businessPreview(config)||context.value?.capabilities?.includes(`wallet:${id}`)
 function wallet(page){uni.navigateTo({url:`/pages/wallet/${page}?contextId=${context.value.id}`})}
 function changeMonth(event){month.value=event.detail.value;load()}

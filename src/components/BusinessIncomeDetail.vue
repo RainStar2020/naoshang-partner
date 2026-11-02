@@ -11,7 +11,7 @@
       <text class="income-kicker">{{date(data.createdAt)}}</text>
      </view>
      <view class="income-side">
-      <text class="income-pill">{{data.channel || '收益'}}</text>
+      <text class="income-pill">{{data.channel || '积分'}}</text>
       <view class="income-amount">{{view.amount}}</view>
      </view>
     </view>
@@ -65,6 +65,7 @@
 <script setup>
 import {computed,ref,watch} from 'vue'
 import {money,percent} from '../features/exclusive/format'
+import {wholesaleLevelDisplay} from '../features/business/account-rank'
 import {businessDateLabel as date} from '../features/business/format'
 import {getBusinessContext,getBusinessIncomeDetail} from '../services/business'
 import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOperation} from '../services/business-operations'
@@ -74,7 +75,7 @@ const props=defineProps({pageQuery:Object})
 const context=ref(null),allocationOpen=ref(false),options=ref(null),targetId=ref(''),agentId=ref(''),quote=ref(null),busy=ref(false),operationError=ref('')
 let attemptKey=''
 const {data,status,error,load}=useAsyncPage(async()=>{
-  if(!props.pageQuery?.id)throw new Error('缺少收益记录编号')
+  if(!props.pageQuery?.id)throw new Error('缺少积分记录编号')
   const ctx=await getBusinessContext(null,props.pageQuery.contextId)
   context.value=ctx
   closeAllocation()
@@ -84,23 +85,25 @@ watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 const view=computed(()=>{
   const entry=data.value
   if(entry?.presentation)return entry.presentation
-  const signed=entry?.amount==null?'—':`${entry.amount>0?'+':''}${entry.amount<0?'-':''}¥${money(Math.abs(entry.amount||0))}`
+  const signed=entry?.amount==null?'—':`${entry.amount>0?'+':''}${entry.amount<0?'-':''}${money(Math.abs(entry.amount||0))}积分`
   return {
     amount:signed,
     notice:entry?.pendingNote||'',
     facts:[
-      {label:'支付类型',value:entry?.paymentTypeLabel||entry?.channel||'—'},
-      {label:'本人身份',value:entry?.identityLabel||context.value?.label||'—'},
-      {label:'业务提点',value:entry?.rateBps==null?'—':percent(entry.rateBps)},
+      {label:'业务类型',value:entry?.bizTypeLabel||entry?.paymentTypeLabel||entry?.channel||'—'},
+      {label:'业务明细',value:entry?.bizDetail||'—'},
+      {label:'有效值',value:entry?.baseAmount==null?'—':`${money(entry.baseAmount)}积分`},
+      {label:'计价方式',value:entry?.rateLabel||'—'},
     ],
-    people:[entry?.recommended,entry?.buyer].filter(Boolean).map((item,index)=>({title:index?'购买人信息':'推荐人信息',name:item.name||'暂未提供',badge:item.roleLabel||'',avatarUrl:item.avatarUrl||'',lines:[item.phone?`联系方式：${item.phone}`:'联系方式待后台提供',item.address?`门店地址：${item.address}`:''].filter(Boolean)})),
-    store:entry?.store?.name?{title:'支付门店',name:entry.store.name,number:entry.store.number||'',address:entry.store.address||'',manager:entry.store.manager||'',imageUrl:entry.store.imageUrl||'/static/common/icon-store.png'}:null,
+    people:[entry?.recommendedBy||entry?.recommended,entry?.purchaser||entry?.buyer].filter(Boolean).map((item,index)=>({title:index?'购买人信息':'推荐人信息',name:item.name||'暂未提供',badge:displayLevel(item.levelLabel||item.roleLabel),avatarUrl:item.avatarUrl||'',lines:[item.phone?`联系方式：${item.phone}`:'联系方式待后台提供',item.address?`门店地址：${item.address}`:''].filter(Boolean)})),
+    store:(entry?.deliveryStore||entry?.store)?.name?{title:'服务门店',name:(entry.deliveryStore||entry.store).name,number:(entry.deliveryStore||entry.store).number||(entry.deliveryStore||entry.store).code||'',address:(entry.deliveryStore||entry.store).address||'',manager:(entry.deliveryStore||entry.store).manager||'',imageUrl:(entry.deliveryStore||entry.store).imageUrl||'/static/common/icon-store.png'}:null,
   }
 })
 const candidates=computed(()=>options.value?.fields?.find(field=>field.key==='targetId')?.options||[])
+const displayLevel=value=>wholesaleLevelDisplay(value)||'—'
 const sheetTitle=computed(()=>data.value?.allocationKind==='inspection'?'分配巡查提点':'分配销售提点')
 const canConfirm=computed(()=>targetId.value&&candidates.value.some(item=>item.value===targetId.value&&item.available!==false)&&(targetId.value!=='other'||/^[A-Za-z0-9_-]{2,32}$/.test(agentId.value.trim())))
-const format=detail=>detail.kind==='money'?`¥${money(detail.value)}`:detail.kind==='percent'?percent(detail.value):detail.value??'—'
+const format=detail=>detail.kind==='money'?`${money(detail.value)}积分`:detail.kind==='percent'?percent(detail.value):detail.value??'—'
 function closeAllocation(){allocationOpen.value=false;quote.value=null;targetId.value='';agentId.value='';operationError.value='';attemptKey=''}
 function choose(value){if(value!==targetId.value){targetId.value=value;quote.value=null;attemptKey='';operationError.value=''}}
 watch(agentId,()=>{quote.value=null;attemptKey=''})

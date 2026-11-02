@@ -5,14 +5,14 @@ export const businessModules = [
 ]
 const tool = (id,module,label,path,icon,type,endpoint) => ({ id,module,label,path,icon:`/static/${icon}.png`,type,endpoint,capability:`${module}:${id}` })
 export const businessTools = [
-  tool('income','wholesale','收益','/pages/partner/income','partner/icon-income','income','/partner/income'),
-  tool('superior','wholesale','上级','/pages/partner/superior','partner/icon-superior','relations','/partner/superior'),
+  tool('income','wholesale','积分','/pages/partner/income','partner/icon-income','income','/partner/income'),
+  tool('superior','wholesale','运营商','/pages/partner/superior','partner/icon-superior','relations','/partner/superior'),
   tool('share','wholesale','分享码','/pages/partner/share','partner/icon-invitation','share','/promotion/share-code'),
   tool('materials','wholesale','素材库','/pages/partner/materials','partner/icon-materials','materials','/materials'),
-  tool('global-awards','wholesale','全球奖','/pages/partner/global-awards','partner/icon-global-award','report','/partner/global-awards'),
+  tool('global-awards','wholesale','总批补贴','/pages/partner/global-awards','partner/icon-global-award','report','/partner/global-awards'),
   tool('promotion','wholesale','晋升任务','/pages/partner/promotion','common/icon-activate','tasks','/partner/promotion-tasks'),
   tool('experience','wholesale','经验明细','/pages/partner/experience','common/icon-folder','ledger','/partner/experience-ledger'),
-  tool('team','wholesale','团队明细','/pages/partner/team','partner/icon-team','team','/partner/team'),
+  tool('team','wholesale','查看明细','/pages/partner/team','partner/icon-team','team','/partner/team'),
   tool('quota-ledger','wholesale','进货明细','/pages/partner/quota-ledger','common/icon-folder','ledger','/partner/quota-ledger'),
   tool('quota-transfers','wholesale','划转明细','/pages/partner/quota-transfers','common/icon-switch-arrows','ledger','/partner/quota-ledger'),
   tool('quota-batches','wholesale','活动VIP','/pages/partner/quota-batches','partner/icon-membership-dividend','quota','/partner/quotas'),
@@ -32,8 +32,19 @@ export const toolKey = item => `${item.module}/${item.id}`
 export function findBusinessTool(module,id) { return businessTools.find(item=>item.module===module&&item.id===id) }
 export function businessPreview(config) { return config.useMock === true && config.previewAllBusinessFeatures === true }
 export function visibleBusinessTools(context,config) {
-  return businessTools.filter(item=>item.module===context?.module&&(businessPreview(config)||context.capabilities?.includes(item.capability)))
+  return businessTools.filter(item=>{
+    if(item.module!==context?.module)return false
+    if(!(businessPreview(config)||context.capabilities?.includes(item.capability)))return false
+    // Top rank has no further promotion path.
+    if(item.id==='promotion'&&context.levelName==='联创合伙人')return false
+    return true
+  })
 }
 
-// Paid angel keeps four shortcuts. Founder status adds the global award. Child pages keep the full set.
-export const businessHomeTools=(tools,context,partnerStatus)=>tools.filter(item=>context?.module!=='wholesale'||(partnerStatus==='ANGEL'?['income','superior','share','materials']:['income','superior','share','materials','global-awards']).includes(item.id))
+// Wholesale home shortcuts: base four always. Global award follows bootstrap eligibility when present; otherwise keep the legacy angel/non-angel split. Child pages keep the full capability set.
+export const businessHomeTools=(tools,context,partnerStatus,globalAwardEligibility)=>{
+  if(context?.module!=='wholesale')return tools
+  const base=['income','superior','share','materials']
+  const showGlobal=globalAwardEligibility!=null?globalAwardEligibility.eligible===true:partnerStatus!=='ANGEL'
+  return tools.filter(item=>(showGlobal?[...base,'global-awards']:base).includes(item.id))
+}

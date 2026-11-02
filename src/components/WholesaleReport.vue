@@ -48,7 +48,7 @@
                 ><view class="wh-superior-name"
                   >{{ report.superior.name }}
                   <text class="wh-tag">{{
-                    report.superior.levelLabel || "合伙人"
+                    wholesaleLevelDisplay(report.superior.tier || report.superior.levelLabel || report.superior.tierLabel) || "合伙人"
                   }}</text></view
                 ><view class="wh-muted"
                   >联系方式：{{ report.superior.phone || "—" }}
@@ -64,12 +64,12 @@
                     /></button></view></view></view
           ></template>
           <template v-else
-            ><view class="wh-section-heading wh-center">填写上级邀请码</view
+            ><view class="wh-section-heading wh-center">填写运营商邀请码</view
             ><input
               v-model="superiorCode"
               class="wh-input"
               maxlength="64"
-              placeholder="请输入上级邀请码"
+              placeholder="请输入运营商邀请码"
             /><text v-if="superiorError" class="wh-error">{{
               superiorError
             }}</text
@@ -253,13 +253,13 @@
             ><view class="wh-price-lines"
               ><view
                 ><text>已缴纳合伙人费用</text
-                ><text>¥{{ money(upgradeQuote.paid) }}</text></view
+                ><text>{{ money(upgradeQuote.paid) }}积分</text></view
               ><view
                 ><text>{{ rankShort(report.promotion.afterName) }}标准价</text
-                ><text>¥{{ money(upgradeQuote.standard) }}</text></view
+                ><text>{{ money(upgradeQuote.standard) }}积分</text></view
               ><view
                 ><text>升级需补差价</text
-                ><text>¥{{ money(upgradeQuote.difference) }}</text></view
+                ><text>{{ money(upgradeQuote.difference) }}积分</text></view
               ></view
             ></template
           >
@@ -295,6 +295,22 @@
         </template>
         <template v-else-if="toolId === 'team'">
           <view
+            v-if="report.summary"
+            class="wh-card wh-stock-summary"
+            ><view class="wh-split"
+              ><view
+                ><text>团队人数</text
+                ><view>{{ report.summary.memberCount ?? items.length }}</view></view
+              ><view
+                ><text>直属成员</text
+                ><view>{{ report.summary.directMemberCount ?? "—" }}</view></view
+              ><view
+                ><text>团队VIP</text
+                ><view>{{ report.summary.teamVipCount ?? "—" }}</view></view
+              ></view
+            ></view
+          >
+          <view
             v-for="person in items"
             :key="person.id"
             class="wh-card wh-team-card"
@@ -306,14 +322,13 @@
                 ><view v-else class="wh-avatar">{{
                   person.name?.slice(0, 1)
                 }}</view
-                ><text class="wh-tag">{{
-                  person.tagLabel || person.levelLabel
-                }}</text></view
+                ><text class="wh-tag">{{ teamBadge(person) }}</text></view
               ><view class="wh-team-info"
                 ><view class="wh-row"
                   ><view class="wh-team-name">{{ person.name }}</view
-                  ><text class="wh-muted"
+                  ><text v-if="person.joinedAt" class="wh-muted"
                     >{{ date(person.joinedAt).slice(0, 10) }}加入</text
+                  ><text v-else-if="person.isDirect" class="wh-muted">直属</text
                   ></view
                 ><view class="wh-team-tags"
                   ><text
@@ -322,6 +337,9 @@
                   ><text
                     ><text class="wh-team-label">手机号</text>
                     {{ person.phone || "—" }}</text
+                  ><text v-if="person.teamVipCount != null"
+                    ><text class="wh-team-label">团队VIP</text>
+                    {{ person.teamVipCount }}</text
                   ></view
                 ><view v-if="person.storeId" class="wh-team-store"
                   ><text class="wh-team-label">门店</text>
@@ -398,10 +416,10 @@
           <view class="wh-card wh-stock-summary"
             ><view class="wh-split"
               ><view
-                ><text>剩余标准VIP</text
+                ><text>剩余标准VIP名额</text
                 ><view>{{ report.standardRemaining ?? "—" }}个</view></view
               ><view
-                ><text>剩余活动VIP</text
+                ><text>剩余活动VIP名额</text
                 ><view>{{ report.activityRemaining ?? "—" }}个</view></view
               ></view
             ><view class="wh-row wh-stock-buttons"
@@ -543,54 +561,49 @@
           >
         </template>
         <template v-else-if="toolId === 'income'">
-          <view class="wh-income-top"
-            ><view class="wh-row wh-income-head"
-              ><view
-                ><text class="wh-muted">可提现金额</text
-                ><view class="wh-title"
-                  >¥{{ money(report.available) }}</view
-                ></view
-              ><view class="wh-row wh-income-actions"
-                ><button
-                  v-if="canWallet('read')"
-                  class="wh-secondary wh-pill"
-                  @click="wallet('withdrawals')"
-                >
-                  提现记录</button
-                ><button
-                  v-if="canWallet('withdraw')"
-                  class="wh-primary wh-pill"
-                  @click="wallet('withdraw-apply')"
-                >
-                  申请提现
-                </button></view
+          <view class="income-hero">
+            <view
+              ><text>可提现积分</text
+              ><view>{{ money(incomeTotal) }}</view></view
+            >
+            <view class="income-actions"
+              ><button @click="wallet('withdrawals')">兑换记录</button
+              ><button class="solid" @click="wallet('withdraw-apply')"
+                >申请兑换</button
               ></view
-            ><view class="wh-stats-grid wh-metrics"
-              ><view v-for="metric in report.metrics" :key="metric.label"
-                ><text>{{ metric.label }}</text
-                ><view>{{ show(metric.value, metric.kind) }}</view></view
-              ></view
+            >
+          </view>
+          <view class="income-channels"
+            ><view v-for="metric in incomeChannels" :key="metric.label"
+              ><text>{{ metric.label }}</text
+              ><view>{{
+                metric.value == null ? "—" : money(metric.value)
+              }}</view></view
             ></view
-          ><view class="wh-section-heading">收益明细</view>
-          <WholesaleRecordCard
+          >
+          <view class="income-heading"><text>积分明细</text></view>
+          <button
             v-for="item in items"
             :key="item.id"
-            :kicker="item.sourceName"
-            :title="item.title"
-            :caption="date(item.createdAt)"
-            :amount="signedAmount(item.amount)"
-            :badge="item.channel || '收益'"
+            class="income-card"
             @click="openIncome(item)"
-            ><WholesaleStatSplit
-              v-if="item.details?.length"
-              divided
-              :items="
-                item.details.map((detail) => ({
-                  label: detail.label,
-                  value: show(detail.value, detail.kind),
-                }))
-              "
-          /></WholesaleRecordCard>
+          >
+            <view class="income-card-copy"
+              ><text>{{ incomeMember(item) }}</text
+              ><view>{{ item.title || item.bizTypeLabel || "积分记录" }}</view
+              ><text>{{ incomeTime(item) }}</text
+              ><text v-if="item.pendingNote" class="income-note">{{
+                item.pendingNote
+              }}</text></view
+            >
+            <view class="income-card-side"
+              ><text class="income-channel">{{
+                incomeChannel(item)
+              }}</text
+              ><view>{{ signedAmount(item.amount) }}</view
+              ><text>查看详情</text></view
+            >
+          </button>
         </template>
         <EmptyState
           v-if="
@@ -617,7 +630,7 @@
   import { computed, ref, watch, onUnmounted } from "vue";
   import { config } from "../config";
   import { businessPreview } from "../features/business/catalog";
-  import { partnerUpgradeQuote } from "../features/business/account-rank";
+  import { partnerUpgradeQuote, wholesaleLevelDisplay } from "../features/business/account-rank";
   import { money, percent } from "../features/exclusive/format";
   import { businessDateLabel as date } from "../features/business/format";
   import {
@@ -648,7 +661,7 @@
     qr = ref(null),
     isMock = config.useMock;
   const titles = {
-      superior: "上级信息",
+      superior: "运营商信息",
       promotion: "升级合伙人",
       share: "分享码",
     },
@@ -704,7 +717,7 @@
     value == null
       ? "—"
       : kind === "money"
-        ? `¥${money(value)}`
+        ? `${money(value)}积分`
         : format(value, kind);
   const monthNames = [
     "",
@@ -723,7 +736,7 @@
   ];
   function monthTitle(value) {
     const index = Number(String(value || "").slice(5, 7));
-    return `${monthNames[index] || value}月全球奖`;
+    return `${monthNames[index] || value}月总批补贴`;
   }
   function batchStats(item) {
     return [
@@ -742,13 +755,75 @@
       `下级等级：${item.targetLevel || "—"}`,
     ];
     if (item.peerAward != null)
-      fields.push(`平级奖：¥${money(item.peerAward)}`);
+      fields.push(`孵化补贴：${money(item.peerAward)}积分`);
     return fields;
   }
   function signedAmount(value) {
     if (value == null) return "—";
     return `${value > 0 ? "+" : ""}${money(value)}`;
   }
+  const incomeMetric = (label) =>
+    report.value?.metrics?.find((item) => item.label === label)?.value;
+  const incomeTotal = computed(
+    () =>
+      report.value?.available ??
+      incomeMetric("可提现积分") ??
+      incomeMetric("可提现金额") ??
+      incomeMetric("积分合计") ??
+      incomeMetric("收益合计") ??
+      (items.value || []).reduce(
+        (sum, item) => sum + (Number(item.amount) || 0),
+        0,
+      ),
+  );
+  // Match awardDisplay() rename: 复购奖→运维补贴, 平级奖→孵化补贴
+  const incomeChannelLabels = ["直推奖", "运维补贴", "孵化补贴"];
+  const incomeChannels = computed(() => {
+    const rows = incomeChannelLabels.map((label) => {
+      const apiValue = incomeMetric(label);
+      const itemValue = (items.value || [])
+        .filter((item) => incomeChannel(item) === label)
+        .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      return { label, value: apiValue ?? itemValue };
+    });
+    if (rows.some((item) => item.value != null)) return rows;
+    return (report.value?.metrics || [])
+      .filter(
+        (item) =>
+          ![
+            "可提现积分",
+            "可提现金额",
+            "积分合计",
+            "收益合计",
+            "待结算收益",
+            "待结算积分",
+          ].includes(item.label),
+      )
+      .slice(0, 3)
+      .map((item) => ({ label: item.label, value: item.value }));
+  });
+  const incomeChannel = (item) =>
+    item.incomeChannelLabel ||
+    item.incomeChannel ||
+    item.channel ||
+    "积分";
+  const incomeMember = (item) => {
+    const member =
+      item.recommendedBy || item.party || item.beneficiary || item.buyer;
+    if (member)
+      return member.phone
+        ? `${member.name || "—"}/${member.phone}`
+        : member.name || "—";
+    return item.partyLabel || item.sourceName || item.beneficiaryName || "—";
+  };
+  const incomeTime = (item) =>
+    item.createdAt
+      ? date(item.createdAt)
+      : item.occurredAt
+        ? date(item.occurredAt)
+        : item.updatedAt
+          ? date(item.updatedAt)
+          : "—";
   function openIncome(item) {
     if (!item.layoutOnly) incomeDetail(item.id);
   }
@@ -780,8 +855,12 @@
     if (value) uni.setClipboardData({ data: value });
   }
   const rankShort = (name) => String(name || "").replace(/合伙人$/, "");
+  const teamBadge = (person) =>
+    wholesaleLevelDisplay(
+      person?.tier || person?.tagLabel || person?.levelLabel || person?.tierLabel,
+    ) || "—";
   const rankHasPartner = (name) => /合伙人$/.test(String(name || ""));
-  const yuan = (value) => (Number.isInteger(value) ? String(value / 100) : "—");
+  const yuan = (value) => (Number.isFinite(Number(value)) ? money(value).replace(/\.00$/, "") : "—");
   const upgradeQuote = computed(() =>
     partnerUpgradeQuote(report.value?.promotion || {}),
   );
@@ -1161,14 +1240,6 @@
     font-size: 0.78em;
     line-height: 1.5;
   }
-  .wh-income-head,
-  .wh-income-actions {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .wh-income-actions {
-    justify-content: flex-end;
-  }
   .wh-global-summary .wh-metrics > view > view,
   .wh-summary-four > view > view {
     font-weight: 600;
@@ -1192,13 +1263,155 @@
   .wh-global-summary .wh-center {
     margin-bottom: 0.5em;
   }
-  .wh-income-top {
-    margin: -0.75em -0.75em 0.8em;
-    background: #353a59;
-    padding: 1em 0.75em;
+  .wholesale-ui button.income-card {
+    margin: 0 0 0.7em;
   }
-  .wh-income-top .wh-pill {
-    font-size: 0.75em !important;
+  .income-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8em;
+    margin-bottom: 0.8em;
+  }
+  .income-hero > view:first-child > text {
+    display: block;
+    color: #c5cbe0;
+    font-size: 0.85em;
+  }
+  .income-hero > view:first-child > view {
+    font-size: 1.7em;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .income-actions {
+    display: flex;
+    gap: 0.5em;
+    flex: none;
+  }
+  .income-actions button {
+    margin: 0;
+    padding: 0.35em 0.85em;
+    border-radius: 2em;
+    background: #464c6b;
+    color: #d5dced;
+    font-size: 0.82em;
+    line-height: 1.6;
+  }
+  .income-actions .solid {
+    background: linear-gradient(95deg, #0340ff, #009bff);
+    color: #fff;
+  }
+  .income-channels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 0.9em;
+    padding: 0.7em 0.2em;
+    border-radius: 0.55em;
+    background: #464c6b;
+    text-align: center;
+  }
+  .income-channels > view {
+    min-width: 0;
+  }
+  .income-channels > view + view {
+    box-shadow: inset 1px 0 0 #5c6484;
+  }
+  .income-channels text {
+    display: block;
+    color: #a8adc3;
+    font-size: 0.78em;
+  }
+  .income-channels view > view {
+    font-size: 1em;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .income-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6em;
+    margin: 0.2em 0 0.7em;
+  }
+  .income-heading > text {
+    position: relative;
+    padding-left: 0.7em;
+    font-weight: 600;
+  }
+  .income-heading > text::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.2em;
+    bottom: 0.2em;
+    width: 0.22em;
+    border-radius: 1em;
+    background: #3d8cff;
+  }
+  .income-card {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.7em;
+    margin: 0 0 0.7em;
+    padding: 0.9em;
+    box-sizing: border-box;
+    border-radius: 0.75em;
+    background: #353a59;
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    text-align: left;
+  }
+  .income-card::after {
+    border: 0;
+  }
+  .income-card-copy {
+    min-width: 0;
+    flex: 1;
+  }
+  .income-card-copy > text,
+  .income-card-copy > view {
+    display: block;
+  }
+  .income-card-copy > text {
+    color: #989eb6;
+    font-size: 0.78em;
+    line-height: 1.55;
+  }
+  .income-card-copy > view {
+    margin: 0.15em 0;
+    font-size: 0.95em;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .income-note {
+    color: #989eb6 !important;
+  }
+  .income-card-side {
+    flex: none;
+    text-align: right;
+  }
+  .income-channel {
+    display: inline-block;
+    padding: 0 0.55em;
+    border-radius: 1em;
+    background: linear-gradient(100deg, #00b7ff, #3157ff);
+    font-size: 0.7em;
+    line-height: 1.7;
+  }
+  .income-card-side > view {
+    margin: 0.25em 0;
+    color: #57adff;
+    font-size: 1.05em;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .income-card-side > text:last-child {
+    display: block;
+    color: #989eb6;
+    font-size: 0.75em;
   }
   .wh-share-card {
     border-radius: 1.1em;

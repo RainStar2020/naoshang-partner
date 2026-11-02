@@ -199,8 +199,8 @@ export const postAuthWechatExchanges = (input = {}) => callEndpoint("POST /auth/
  * 拉取当前账号经营身份 + **对外编号 + 权益门禁状态**
  * GET /me/bootstrap
  * 参数：无
- * 返回：displayId, entitlement{state,amount,expiresAt,frozen,canExportBills}, contexts[], businessContexts[]
- * - **GET `/me/bootstrap`**：无业务参数，返回下面的身份集合。
+ * 返回：displayId, entitlement{state,amount,expiresAt,frozen,canExportBills}, contexts[], businessContexts[], globalAwardEligibility?, superior?, team?, vipDetails?
+ * - **GET `/me/bootstrap`**：无业务参数，返回下面的身份集合；批发商工作台额外使用全球奖资格、上级、团队明细与 VIP 明细。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */

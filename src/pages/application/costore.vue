@@ -32,7 +32,7 @@
             <text v-else class="apply-note">合店协议暂未发布{{ isMock ? '，当前仅可演示申请流程。' : '，暂不能提交正式申请。' }}</text>
             <text v-if="submitError" class="apply-error">{{ submitError }}</text>
             <text v-if="pendingIntent" class="apply-note">上一笔申请结果待确认，请重试原申请或查看我的申请。</text>
-            <button class="submit" :disabled="submitting || quoting || !quote || (!pendingIntent && !isMock && !agreed)" @click="submit">{{ submitting ? '提交中…' : pendingIntent ? '重试原申请' : '支付并申请合店' }}</button>
+            <button class="submit" :disabled="submitting || quoting || !quote || (!pendingIntent && !isMock && !agreed)" @click="submit">{{ submitting ? '提交中…' : pendingIntent ? '重试原申请' : '确认申请合店' }}</button>
             <button class="text-link applications" @click="openApplications">我的申请</button>
           </view>
           <view class="apply-card benefits">
@@ -131,9 +131,8 @@ async function submit() {
     if (!result?.application?.id) throw new Error('申请结果异常，请到我的申请确认')
     quote.value = null
     pendingIntent.value=null
-    const orderId = result.orderId || result.application.orderId
-    if (!orderId) throw new Error('未返回付款订单，请到我的申请确认后重试')
-    uni.navigateTo({ url: `/pages/payment/cashier?orderId=${encodeURIComponent(orderId)}` })
+    uni.showToast({ title: '申请已提交', icon: 'success' })
+    uni.navigateTo({ url: '/pages/application/list' })
   } catch (reason) { if (active && current === epoch) {if(isMock)clearCostoreApplicationIntent();pendingIntent.value=getCostoreApplicationIntent();submitError.value = reason.message || '提交失败，请重试'} }
   finally { if (active) submitting.value = false }
 }

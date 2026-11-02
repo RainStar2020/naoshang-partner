@@ -17,7 +17,7 @@ const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await get
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}})
 watch(report,result=>{if(result){items.value=result.items;hasMore.value=result.hasMore;cursor=result.nextCursor}})
-const formatValue=(value,kind)=>kind==='money'?`¥${money(value)}`:kind==='percent'?percent(value):value??'—'
+const formatValue=(value,kind)=>kind==='money'?`${money(value)}积分`:kind==='percent'?percent(value):value??'—'
 const dateLabel=businessDateLabel
 function changeMonth(event){month.value=event.detail.value;load()}
 function togglePending(){filter.value=filter.value==='pending'?'':'pending';load()}

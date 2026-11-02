@@ -11,12 +11,54 @@ function user() {
   if (!current?.id) throw new Error('请先登录')
   return { ...current, sessionToken: getSession()?.token }
 }
+function isLearningIdentity(item, accountId) {
+  return item?.accountId === accountId && ['parent', 'child'].includes(item.mode) && (item.mode !== 'child' || item.memberId)
+}
+function memberToChildIdentity(accountId, member) {
+  if (!member?.id) return null
+  return {
+    id: member.contextId || `child:${accountId}:${member.id}`,
+    accountId,
+    mode: 'child',
+    memberId: member.id,
+    name: member.name,
+    displayId: member.displayId,
+    grade: member.gradeLabel || member.grade || '',
+    badge: member.badge || '会员',
+    avatarUrl: member.avatarUrl || '',
+  }
+}
 export async function getLearningIdentities() {
   const current = user()
-  const rows = config.useMock ? mockIdentities(current) : (await request('/me/bootstrap')).contexts
+  if (config.useMock) {
+    const rows = mockIdentities(current)
+    if (getSession()?.user?.id !== current.id || getSession()?.token !== current.sessionToken) throw new Error('登录账号已变化，请刷新后重试')
+    if (!Array.isArray(rows)) throw new Error('身份数据格式异常')
+    return rows.filter(item => isLearningIdentity(item, current.id))
+  }
+  // Bootstrap contexts may omit newly added family members; /members is the source of truth for children.
+  const [bootstrap, membersPage] = await Promise.all([
+    request('/me/bootstrap'),
+    request('/members', { data: { pageSize: 20, scope: 'family' } }),
+  ])
   if (getSession()?.user?.id !== current.id || getSession()?.token !== current.sessionToken) throw new Error('登录账号已变化，请刷新后重试')
-  if (!Array.isArray(rows)) throw new Error('身份数据格式异常')
-  return rows.filter(item => item.accountId === current.id && ['parent', 'child'].includes(item.mode) && (item.mode !== 'child' || item.memberId))
+  const contexts = bootstrap?.contexts
+  if (!Array.isArray(contexts)) throw new Error('身份数据格式异常')
+  const memberItems = Array.isArray(membersPage?.items) ? membersPage.items : []
+  const children = memberItems.map(member => memberToChildIdentity(current.id, member)).filter(Boolean)
+  const childIds = new Set(children.map(item => item.memberId))
+  const fromBootstrap = contexts.filter(item => isLearningIdentity(item, current.id) && (item.mode !== 'child' || !childIds.has(item.memberId)))
+  const parent = fromBootstrap.find(item => item.mode === 'parent') || {
+    id: `parent:${current.id}`,
+    accountId: current.id,
+    mode: 'parent',
+    name: current.name || bootstrap?.name || '家长',
+    displayId: bootstrap?.displayId || current.displayId || current.id,
+    grade: '',
+    badge: '家长',
+  }
+  const bootstrapChildren = fromBootstrap.filter(item => item.mode === 'child')
+  return [parent, ...children, ...bootstrapChildren]
 }
 // TODO(API): progress is scoped to the authenticated parent's child, level and
 // chapter. The API must independently validate ownership and course entitlement.

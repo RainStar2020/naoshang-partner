@@ -22,9 +22,60 @@ export type Result<T> = T | LockedResponse
 export interface Entitlement { state: EntitlementState; amount: Money; expiresAt?: string; frozen?: boolean; canExportBills?: boolean }
 export type LoginRequest = { channel: 'parent'; phone: string; password: string } | { channel: 'coach'; loginAccount: string; password: string } | { channel: 'admin'; password: string }
 export interface Session { token: string; user: { id: string; name: string; role: string; displayId: string }; accountType: 'parent' | 'coach' | 'admin'; entitlement: Entitlement; expiresAt?: string }
-export interface Context { id: string; accountId: string; mode: 'parent' | 'child'; name: string; memberId?: string }
-export interface BusinessContext { id: string; accountId: string; module: 'wholesale' | 'costore' | 'agency'; label: string; capabilities: string[]; assignmentId?: string; contractId?: string; storeId?: string; agencyType?: 'STORE' | 'COUNTY' | 'CITY' | 'PROVINCE' }
-export interface Bootstrap { displayId: string; entitlement: Entitlement; contexts: Context[]; businessContexts: BusinessContext[] }
+export interface Context { id: string; accountId: string; mode: 'parent' | 'child'; name: string; memberId?: string; displayId?: string; grade?: string; badge?: string }
+export interface BusinessContext { id: string; accountId: string; module: 'wholesale' | 'costore' | 'agency'; label: string; capabilities: string[]; assignmentId?: string; contractId?: string; storeId?: string; agencyType?: 'STORE' | 'COUNTY' | 'CITY' | 'PROVINCE'; levelName?: string; detail?: string; regionLabel?: string; scopeLabel?: string; validUntil?: string | null; store?: Store | null }
+export interface GlobalAwardEligibility {
+  eligible: boolean
+  tierEligible?: boolean
+  entitlementEligible?: boolean
+  currentPeriod?: string
+  withinGracePeriod?: boolean
+  daysSinceCofounder?: number | null
+  directPushedVipCount?: number
+  ownVipCount?: number
+  teamVipCount?: number
+  reason?: string
+}
+export interface BootstrapPartner {
+  id: string
+  displayId?: string
+  name: string
+  /** Cleartext mobile number for display; do not mask on the client. */
+  phone?: string
+  phoneMasked?: string
+  tier?: string
+  tierLabel?: string
+  levelLabel?: string
+  depth?: number
+  isDirect?: boolean
+  teamVipCount?: number
+  avatarUrl?: string
+}
+export interface BootstrapTeam {
+  summary?: { memberCount?: number; directMemberCount?: number; teamVipCount?: number }
+  members?: BootstrapPartner[]
+}
+export interface BootstrapVipDetails {
+  remainingCount?: number
+  standardRemaining?: number
+  activityRemaining?: number
+  transferredCount?: number
+  transferred?: number
+  transferredVip?: number
+  quotaTransferred?: number
+  activityBatches?: Array<Record<string, unknown>>
+  teamVipMembers?: BootstrapPartner[]
+}
+export interface Bootstrap {
+  displayId: string
+  entitlement: Entitlement
+  contexts: Context[]
+  businessContexts: BusinessContext[]
+  globalAwardEligibility?: GlobalAwardEligibility | null
+  superior?: BootstrapPartner | null
+  team?: BootstrapTeam | null
+  vipDetails?: BootstrapVipDetails | null
+}
 export interface RichContent { format: 'nodes'; version: number; nodes: Array<Record<string, unknown>> }
 export interface Address { id: string; recipient: string; phone: string; regionCodes: string[]; regionNames: string[]; detail: string; isDefault: boolean; version: number }
 export interface Member { id: string; contextId: string; displayId: string; name: string; gradeCode: string; genderCode: string; memberLevel: MemberLevel; version: number }

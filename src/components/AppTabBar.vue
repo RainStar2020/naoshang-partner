@@ -9,7 +9,7 @@
 <script setup>
 import { ref } from 'vue'
 defineProps({ active: { type: String, required: true } })
-const tabs = [{ id: 'member', label: '会员', url: '/pages/member/index' }, { id: 'partners', label: '联营', url: '/pages/partners/index' }, { id: 'selection', label: '甄选', url: '/pages/selection/index' }, { id: 'profile', label: '我的', url: '/pages/profile/index' }]
+const tabs = [{ id: 'member', label: '会员', url: '/pages/member/index' }, { id: 'selection', label: '甄选', url: '/pages/selection/index' }, { id: 'partners', label: '管理', url: '/pages/partners/index' }, { id: 'profile', label: '我的', url: '/pages/profile/index' }]
 const navigating = ref(false)
 function navigate(item) {
   if (navigating.value) return
