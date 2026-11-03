@@ -9,9 +9,9 @@
    <view v-if="showPerformance" class="detail-performance"><view v-for="metric in (data.node.performance||[]).slice(0,5)" :key="metric.label"><text>{{metric.label}}</text><strong>{{metricValue(metric)}}</strong></view></view>
    <view class="detail-base-title">基础信息</view>
    <view class="detail-base">
-    <view><text>合伙等级：</text><strong>{{data.node.partnerLevel || '—'}}</strong></view><view><text>地区：</text><strong>{{data.node.regionLabel || '—'}}</strong></view>
-    <view v-if="isRegional"><text>代理区域：</text><strong>{{territoryText}}</strong></view><view v-else><text>门店数量：</text><strong>{{data.node.storeCount ?? '—'}}</strong></view>
-    <view v-if="!isRegional"><text>合店老板数量：</text><strong>{{data.node.ownerCount ?? '—'}}</strong></view>
+    <view><text>合伙等级：</text><strong>{{data.node.partnerLevel || ''}}</strong></view><view><text>地区：</text><strong>{{data.node.regionLabel || ''}}</strong></view>
+    <view v-if="isRegional"><text>代理区域：</text><strong>{{territoryText}}</strong></view><view v-else><text>门店数量：</text><strong>{{data.node.storeCount ?? 0}}</strong></view>
+    <view v-if="!isRegional"><text>合店老板数量：</text><strong>{{data.node.ownerCount ?? 0}}</strong></view>
     <view class="detail-base-wide"><text>{{isRegional?'最早代理时间：':'最早开店时间：'}}</text><strong>{{date(data.node.createdAt)}}</strong></view>
    </view>
    <template v-if="isRegional">
@@ -19,7 +19,7 @@
     <view v-if="territories.length" class="detail-territories"><button v-for="(area,index) in territories" :key="area" :class="{selected:territoryIndex===index}" @click="territoryIndex=index">{{area}}</button></view>
     <view v-for="child in displayedChildren" :key="child.id" class="detail-team-card" @click="open(child.id)">
      <view class="detail-team-heading"><image v-if="child.avatarUrl" :src="child.avatarUrl" mode="aspectFill"/><view v-else>{{child.name?.slice(0,1) || '团'}}</view><text>{{child.name}}</text><em>{{child.levelLabel || '区域代理'}}</em><button>查看详情 ›</button></view>
-     <view class="detail-team-fields"><view><text>用户ID</text><strong>{{child.displayId || child.id}}</strong></view><view><text>手机号</text><strong>{{child.phone || '—'}}</strong></view><view v-if="child.levelLabel==='单店代理'"><text>门店数量</text><strong>{{child.storeCount ?? '—'}}</strong></view><view v-if="child.levelLabel==='单店代理'"><text>合店老板数量</text><strong>{{child.ownerCount ?? '—'}}</strong></view><view v-if="child.levelLabel!=='单店代理'" class="detail-team-wide"><text>代理区域</text><strong>{{child.territoryList?.join('、') || child.regionLabel || '—'}}</strong></view></view>
+     <view class="detail-team-fields"><view><text>用户ID</text><strong>{{child.displayId || child.id}}</strong></view><view><text>手机号</text><strong>{{child.phone || ''}}</strong></view><view v-if="child.levelLabel==='单店代理'"><text>门店数量</text><strong>{{child.storeCount ?? 0}}</strong></view><view v-if="child.levelLabel==='单店代理'"><text>合店老板数量</text><strong>{{child.ownerCount ?? 0}}</strong></view><view v-if="child.levelLabel!=='单店代理'" class="detail-team-wide"><text>代理区域</text><strong>{{child.territoryList?.join('、') || child.regionLabel || ''}}</strong></view></view>
     </view>
     <EmptyState v-if="!displayedChildren.length" text="当前区域暂无下级团队"/>
    </template>
@@ -49,9 +49,9 @@ const isRegional=computed(()=>['市代','区县代理'].includes(data.value?.nod
 const isStore=computed(()=>['单店代理','门店成员'].includes(data.value?.node?.levelLabel))
 const showPerformance=computed(()=>isRegional.value||(isStore.value&&context.value?.agencyType==='COUNTY'))
 const territories=computed(()=>data.value?.node?.territoryList||[])
-const territoryText=computed(()=>territories.value.join('、')||data.value?.node?.regionLabel||'—')
+const territoryText=computed(()=>territories.value.join('、')||data.value?.node?.regionLabel||'')
 const displayedChildren=computed(()=>{const rows=data.value?.children?.items||[];return territoryIndex.value?rows.filter((_,index)=>index%2===territoryIndex.value%2):rows})
-const metricValue=metric=>metric?.kind==='money'?money(metric.value):metric?.value??'—'
+const metricValue=metric=>metric?.kind==='money'?money(metric.value):metric?.value??0
 function open(id){uni.navigateTo({url:`/pages/agency/team-detail?contextId=${encodeURIComponent(context.value.id)}&nodeId=${encodeURIComponent(id)}`})}
 async function more(){if(loadingMore.value||!data.value?.children.hasMore)return;loadingMore.value=true;moreError.value='';try{const result=await getBusinessReport('agency','team',context.value.id,{parentNodeId:data.value.node.id,cursor:data.value.children.nextCursor});if(active)data.value.children={...result,items:[...data.value.children.items,...result.items]}}catch(reason){if(active)moreError.value=reason.message}finally{if(active)loadingMore.value=false}}
 onUnmounted(()=>{active=false});defineExpose({refresh:load})

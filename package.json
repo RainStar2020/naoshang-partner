@@ -9,6 +9,7 @@
     "test:materials": "node --experimental-vm-modules --test tests/materials.test.cjs",
     "test:learning": "node --experimental-vm-modules --test tests/learning.test.cjs",
     "test:auth": "node --experimental-vm-modules --test tests/auth.test.cjs",
+    "test:partner-wallet": "node --experimental-vm-modules --test tests/partner-wallet.test.cjs",
     "dev:custom": "uni -p",
     "dev:h5": "uni",
     "dev:h5:ssr": "uni --ssr",

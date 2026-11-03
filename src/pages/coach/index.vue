@@ -14,8 +14,8 @@
       <button v-for="action in actions" :key="action.label" @click="action.run"><image :src="action.icon" mode="aspectFit"/><text>{{action.label}}</text></button>
      </view>
     </view>
-    <view class="coach-section">门店会员</view>
-    <view v-if="!data.members.length" class="shop-muted">暂无门店会员</view>
+    <view class="coach-section">门店用户</view>
+    <view v-if="!data.members.length" class="shop-muted">暂无门店用户</view>
     <view v-for="member in data.members" :key="member.id" class="shop-card coach-card">
      <view class="coach-member">
       <image v-if="member.avatarUrl" :src="member.avatarUrl" mode="aspectFill" class="coach-avatar"/>
@@ -27,8 +27,8 @@
       </view>
      </view>
      <view class="coach-member-actions">
-      <button v-if="data.allowedActions.includes('manage-members')" class="shop-primary" @click="detail(member.id)">查看会员</button>
-      <button v-if="data.allowedActions.includes('read-orders')" class="shop-primary" @click="orders(member.id)">查看订单</button>
+      <button v-if="data.allowedActions.includes('manage-members')" class="shop-primary" @click="detail(member)">查看会员</button>
+      <button v-if="data.allowedActions.includes('read-orders')" class="shop-primary" @click="orders(member.memberId||member.id)">查看订单</button>
      </view>
     </view>
    </template>
@@ -40,7 +40,7 @@
      <view>
       <view class="coach-store-name">{{data.store.name || '门店'}}<text v-if="data.store.number">{{data.store.number}}</text></view>
       <text>{{data.store.address || '地址待后台提供'}}</text>
-      <text>店长信息：{{data.store.managerName || '—'}}/{{data.store.phone || '—'}}</text>
+      <text>店长信息：{{data.store.managerName || ''}}/{{data.store.phone || ''}}</text>
      </view>
     </view>
     <button class="coach-store-close" aria-label="关闭门店信息" @click="storeOpen=false"><image src="/static/common/icon-close-circle.png" mode="aspectFit"/></button>
@@ -65,8 +65,8 @@ const isStaff=isCoachAccount(getSession()),storeOpen=ref(false)
 let contextId=''
 const {data,status,error,load}=useAsyncPage(async()=>{if(!contextId&&!isStaff){const contexts=await getBusinessContexts();contextId=contexts.find(x=>x.module==='agency'&&x.agencyType==='STORE')?.id;if(!contextId)throw new Error('当前账号没有健脑官工作台权限')}const result=await getCoachWorkspace(contextId);contextId=result.contextId||contextId;return result},false)
 const actions=[{label:'门店信息',icon:'/static/common/icon-store.png',run:()=>{storeOpen.value=true}},{label:'修改密码',icon:'/static/common/icon-lock.png',run:password},{label:'登出',icon:'/static/common/icon-logout.png',run:leave}]
-function detail(id){uni.navigateTo({url:`/pages/members/detail?contextId=${contextId}&memberId=${id}`})}
-function orders(id){uni.navigateTo({url:`/pages/order/list?memberId=${id}&contextId=${contextId}`})}
+function detail(member){const id=member?.accountId||member?.userId||member?.memberId||member?.id;if(!id)return;uni.navigateTo({url:`/pages/members/detail?contextId=${encodeURIComponent(contextId)}&memberId=${encodeURIComponent(id)}&from=store`})}
+function orders(id){if(!id)return;uni.navigateTo({url:`/pages/order/list?memberId=${encodeURIComponent(id)}&contextId=${encodeURIComponent(contextId)}`})}
 function password(){uni.navigateTo({url:'/pages/settings/change-password?audience=coach'})}
 function leave(){uni.showModal({title:'退出登录',content:'您确定要退出登录吗？',success:result=>{if(result.confirm)logout()}})}
 onLoad(query=>{contextId=query.contextId||''});onShow(load)

@@ -1,10 +1,38 @@
 import { config } from '../config'
 import { request, getSession } from './api'
 import { visibleExclusiveFeatures } from '../features/exclusive/catalog'
-import { normalizeContent, isMediaUrl } from '../features/content/rich-content'
+import { isAngelOrAbove } from '../features/business/account-rank'
+import { emptyContent, normalizeContent, isMediaUrl } from '../features/content/rich-content'
 import { mockExclusiveState, saveMockExclusiveState, mockCostoreOptions, mockFounderAwards } from './mock/exclusive'
 import { mockCostorePaymentOrder } from './mock/commerce'
 const copy = value => JSON.parse(JSON.stringify(value))
+function coerceRichContent(value) {
+  if (value == null) return emptyContent()
+  if (typeof value === 'string') {
+    const text = value.trim()
+    if (!text) return emptyContent()
+    return normalizeContent({ version: 1, format: 'nodes', nodes: [{ name: 'p', children: [{ type: 'text', text }] }] })
+  }
+  return normalizeContent(value)
+}
+function mapCostoreStore(store) {
+  if (!store || typeof store !== 'object') return null
+  const id = store.id || store.storeAgentId
+  if (!id) return null
+  const monthlyFee = Number(store.monthlyFee ?? store.monthlyFeeYuan ?? store.fee)
+  return {
+    ...store,
+    id,
+    name: store.name || '',
+    number: store.number || store.storeCode || '',
+    address: store.address || '',
+    coverUrl: store.coverUrl || store.imageUrl || '',
+    ownerLabel: store.ownerLabel || '',
+    managerName: store.managerName || store.manager?.name || '',
+    phone: store.phone || store.manager?.phone || store.contact || '',
+    monthlyFee: Number.isFinite(monthlyFee) && monthlyFee > 0 ? monthlyFee : 0,
+  }
+}
 export function accountSnapshot() {
   const user = getSession()?.user
   if (!user?.id) throw new Error('请先登录')
@@ -27,13 +55,25 @@ export async function getExclusiveAccess(profileResult) {
   checkAccount(user)
   if (!result) return { accountId: user.id, contextId: null, capabilities: [] }
   if (result.accountId !== user.id || !Array.isArray(result.capabilities) || (result.capabilities.length && !result.contextId)) throw new Error('专属功能身份数据异常')
-  return result
+  const capabilities = [...result.capabilities]
+  const rankHint = user.levelName || user.partnerStatus || user.partnerLevel || user.rankLabel || ''
+  if (!capabilities.includes('costore:apply') && isAngelOrAbove(user.displayId || user.id, rankHint)) {
+    capabilities.push('costore:apply')
+  }
+  return {
+    ...result,
+    capabilities,
+    contextId: result.contextId || (capabilities.length ? `account:${user.id}` : null),
+  }
 }
 export async function withExclusive(featureId, operation) {
   const user = accountSnapshot(), access = await getExclusiveAccess()
   checkAccount(user)
   if (!visibleExclusiveFeatures(access, config).some(item => item.id === featureId)) {
-    const error = new Error('当前身份暂不能使用此功能'); error.code = 'FORBIDDEN'; throw error
+    const message = featureId === 'costore-application'
+      ? '中批发商及以上身份才可以使用该功能'
+      : '当前身份暂不能使用此功能'
+    const error = new Error(message); error.code = 'FORBIDDEN'; throw error
   }
   const result = await operation(user, access); checkAccount(user); return result
 }
@@ -46,7 +86,22 @@ export function getCostoreOptions() {
   return withExclusive('costore-application', async (_user, access) => {
     const result = config.useMock ? mockCostoreOptions() : await request('/costore/application-options', { data: { contextId: access.contextId } })
     if (!Array.isArray(result?.stores) || !Array.isArray(result.durations)) throw new Error('合店申请选项异常')
-    return { ...result, benefits: normalizeContent(result.benefits), agreement: { ...result.agreement, content: normalizeContent(result.agreement?.content) } }
+    const stores = result.stores.map(mapCostoreStore).filter(Boolean)
+    if (!stores.length && result.stores.length) throw new Error('合店申请选项异常')
+    // Plain-string benefits are placeholders, not CMS node documents; keep empty state.
+    const benefits = (result.benefits && typeof result.benefits === 'object')
+      ? coerceRichContent(result.benefits)
+      : emptyContent()
+    return {
+      ...result,
+      stores,
+      benefits,
+      agreement: {
+        ...(result.agreement || {}),
+        version: result.agreement?.version || null,
+        content: coerceRichContent(result.agreement?.content),
+      },
+    }
   })
 }
 export function quoteCostore(storeId, durationId) {

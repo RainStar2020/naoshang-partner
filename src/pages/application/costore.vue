@@ -3,7 +3,13 @@
     <view class="apply-frame">
       <BusinessPageHeader title="申请合店" fallback="/pages/profile/index" />
       <view class="apply-body">
-        <FeaturePageState :status="status" :error="error" @retry="load" />
+        <FeaturePageState
+          :status="status"
+          :error="error"
+          forbidden-title="暂无法申请合店"
+          forbidden-detail="中批发商及以上身份才可以使用该功能"
+          @retry="load"
+        />
         <template v-if="status === 'ready'">
           <view class="apply-card">
             <view class="panel-heading"><text>选择门店</text><button class="switch-store" :disabled="submitting || !!pendingIntent" @click="storeOpen = true">切换<image src="/static/common/icon-switch-arrows.png" mode="aspectFit" /></button></view>
@@ -22,7 +28,7 @@
             <view class="duration-options">
               <button v-for="option in data.durations" :key="option.id" :class="{ selected: durationId === option.id }" :disabled="submitting || !!pendingIntent" @click="selectDuration(option.id)">{{ option.label }}</button>
             </view>
-            <view class="quote-total">合计价格：<text>{{ quoting ? '试算中…' : quote ? `¥${money(quote.payableAmount)}` : '—' }}</text></view>
+            <view class="quote-total">合计价格：<text>{{ quoting ? '试算中…' : quote ? `¥${money(quote.payableAmount)}` : '¥0' }}</text></view>
             <text v-if="quoteError" class="apply-error">{{ quoteError }}</text>
             <button v-if="quoteError || (!quote && !quoting && storeId && durationId)" class="text-link" :disabled="submitting" @click="refreshQuote">重新试算</button>
             <view v-if="data.agreement?.version && data.agreement.content.nodes.length" class="agreement-line">
@@ -32,7 +38,7 @@
             <text v-else class="apply-note">合店协议暂未发布{{ isMock ? '，当前仅可演示申请流程。' : '，暂不能提交正式申请。' }}</text>
             <text v-if="submitError" class="apply-error">{{ submitError }}</text>
             <text v-if="pendingIntent" class="apply-note">上一笔申请结果待确认，请重试原申请或查看我的申请。</text>
-            <button class="submit" :disabled="submitting || quoting || !quote || (!pendingIntent && !isMock && !agreed)" @click="submit">{{ submitting ? '提交中…' : pendingIntent ? '重试原申请' : '确认申请合店' }}</button>
+            <button class="submit" :disabled="submitting || quoting || !quote || (!pendingIntent && !isMock && !agreed)" @click="submit">{{ submitting ? '提交中…' : pendingIntent ? '重试原申请' : '提交开通申请' }}</button>
             <button class="text-link applications" @click="openApplications">我的申请</button>
           </view>
           <view class="apply-card benefits">
@@ -54,9 +60,9 @@
               <text v-if="store.ownerLabel" class="owner-label">{{ store.ownerLabel }}</text>
               <text class="store-address">{{ store.address }}</text>
               <view class="store-facts">
-                <view><text class="fact-label">店长姓名</text><text>{{ store.managerName || '—' }}</text></view>
-                <view><text class="fact-label">联系方式</text><text>{{ store.phone || '—' }}</text></view>
-                <view><text class="fact-label">合店费</text><text>{{ store.monthlyFee ? `¥${money(store.monthlyFee)}/月` : '—' }}</text></view>
+                <view><text class="fact-label">店长姓名</text><text>{{ store.managerName || '' }}</text></view>
+                <view><text class="fact-label">联系方式</text><text>{{ store.phone || '' }}</text></view>
+                <view><text class="fact-label">合店费</text><text>{{ store.monthlyFee ? `¥${money(store.monthlyFee)}/月` : '¥0/月' }}</text></view>
               </view>
             </view>
           </button>

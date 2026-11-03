@@ -5,15 +5,15 @@ import { ref } from 'vue'
 import { onLoad,onShow,onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import {getCommerceOrders} from '../../services/commerce'
-import {getStoreMember} from '../../services/training'
 import { getMyOrders } from '../../services/profile'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const filters=[{id:'all',label:'全部'},{id:'pending-payment',label:'待付款'},{id:'waiting-shipment',label:'待发货'},{id:'waiting-receipt',label:'待收货'},{id:'completed',label:'已完成'}],filter=ref('all'),keyword=ref(''),status=ref('loading'),items=ref([]),error=ref(''),hasMore=ref(false),loadingMore=ref(false),moreError=ref(''),heading=ref('我的订单')
 let epoch=0,cursor=null,searchTerm='',memberId='',contextId=''
 function detail(id){uni.navigateTo({url:`/pages/order/detail?id=${encodeURIComponent(id)}${contextId?`&contextId=${encodeURIComponent(contextId)}&memberId=${encodeURIComponent(memberId)}`:''}`})}
-async function fetchOrders(cursor){if(!memberId)return getMyOrders(filter.value,cursor,searchTerm);if(contextId){const member=await getStoreMember(contextId,memberId);if(!member.allowedActions.includes('read-orders'))throw new Error('当前身份无权查看订单')}return getCommerceOrders({filter:filter.value,cursor,keyword:searchTerm,memberId,contextId})}
-const money=value=>{const number=Number(value);return Number.isFinite(number)?number.toFixed(2):'—'}
+// Store / coach entry: always allow viewing member orders (read-only via contextId on detail).
+async function fetchOrders(cursor){if(!memberId)return getMyOrders(filter.value,cursor,searchTerm);return getCommerceOrders({filter:filter.value,cursor,keyword:searchTerm,memberId,contextId:contextId||undefined})}
+const money=value=>{const number=Number(value);return Number.isFinite(number)?number.toFixed(2):'0.00'}
 onLoad(options=>{memberId=options.memberId||'';contextId=options.contextId||'';heading.value=memberId?'会员订单':'我的订单';if(filters.some(item=>item.id===options.status))filter.value=options.status})
 function change(next){if(next!==filter.value){filter.value=next;load()}}
 async function load(){const current=++epoch;status.value='loading';items.value=[];loadingMore.value=false;moreError.value='';searchTerm=keyword.value.trim();try{const result=await fetchOrders(null);if(current===epoch){items.value=result.items;cursor=result.nextCursor;hasMore.value=result.hasMore===true;status.value='ready'}}catch(reason){if(current===epoch){error.value=reason.message;status.value='error'}}}

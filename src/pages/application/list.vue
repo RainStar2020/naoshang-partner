@@ -48,7 +48,7 @@ let cursor = null, epoch = 0
 const { data, status, error, load } = useAsyncPage(() => getMyApplications())
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
 watch(data, result => { if (result) { items.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })
-const dateLabel = value => value ? businessDateLabel(value) : '—'
+const dateLabel = value => value ? businessDateLabel(value) : ''
 function pay(orderId){uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(orderId)}`})}
 const paymentLabel = value => ({ NOT_STARTED: '未付款', PENDING: '待付款', PAID: '已付款', CANCELLED: '已取消' }[value] || '待确认')
 const statusClass = value => ({ PENDING_REVIEW: 'pending', APPROVED: 'approved', REJECTED: 'rejected' }[value] || '')

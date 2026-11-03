@@ -26,7 +26,7 @@
               <view class="feedback-title">{{ item.title }}</view>
               <view class="feedback-meta">
                 <view>
-                  <text>健脑官：{{ item.coachName || '—' }}</text>
+                  <text>健脑官：{{ item.coachName || '' }}</text>
                   <text>反馈时间：{{ item.createdAtLabel || businessDateLabel(item.createdAt) }}</text>
                 </view>
                 <button @click="detail(item.id)">查看详情</button>
@@ -38,6 +38,7 @@
         </template>
       </view>
     </view>
+    <view v-if="canAdd" class="record-dock"><button class="record-add" @click="addFeedback">添加反馈</button></view>
   </view>
 </template>
 <script setup>
@@ -52,18 +53,26 @@ import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
-const memberId = ref(''), kind = ref(''), items = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref('')
+const memberId = ref(''), kind = ref(''), contextId = ref(''), items = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref('')
 let cursor = null, epoch = 0
-const headings = { orders: '会员订单', training: '陪练反馈', 'self-study': '智习反馈', camp: '集训反馈' }
+const headings = { orders: '会员订单', training: '陪练反馈', admission: '升学反馈', 'self-study': '智习反馈', camp: '集训反馈' }
 const heading = computed(() => headings[kind.value] || '会员记录')
 const { data, status, error, load } = useAsyncPage(() => { if (!memberId.value) throw new Error('缺少会员编号'); return getMemberRecords(memberId.value, kind.value) }, false)
+const canAdd = computed(() => status.value === 'ready' && kind.value !== 'orders' && !items.value.length)
 function readRouteId(value) { let text = value || ''; for (let i = 0; i < 2 && text.includes('%'); i++) { try { const next = decodeURIComponent(text); if (next === text) break; text = next } catch { break } } return text }
-onLoad(options => { memberId.value = readRouteId(options.memberId); kind.value = options.kind || '' })
+onLoad(options => { memberId.value = readRouteId(options.memberId); kind.value = options.kind || ''; contextId.value = readRouteId(options.contextId) })
 onShow(load)
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
 watch(data, result => { if (result) { items.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })
 function orderDetail(id) { uni.navigateTo({ url: `/pages/order/detail?id=${encodeURIComponent(id)}` }) }
-function detail(id) { uni.navigateTo({ url: `/pages/feedback/detail?memberId=${encodeURIComponent(memberId.value)}&id=${encodeURIComponent(id)}` }) }
+function detail(id) {
+  const context = contextId.value ? `&contextId=${encodeURIComponent(contextId.value)}` : ''
+  uni.navigateTo({ url: `/pages/feedback/detail?memberId=${encodeURIComponent(memberId.value)}&id=${encodeURIComponent(id)}${context}` })
+}
+function addFeedback() {
+  const context = contextId.value ? `&contextId=${encodeURIComponent(contextId.value)}` : ''
+  uni.navigateTo({ url: `/pages/feedback/edit?memberId=${encodeURIComponent(memberId.value)}&kind=${encodeURIComponent(kind.value)}${context}` })
+}
 async function more() {
   if (loadingMore.value || !hasMore.value) return
   const current = epoch
@@ -83,9 +92,11 @@ onUnload(() => { ++epoch })
 <style scoped>
 .record-page { min-height: 100vh; background: #272c47; color: #fff; font-size: clamp(14px, 3.73vw, 16px); }
 .record-frame { max-width: 750px; margin: 0 auto; }
-.record-body { padding: .85em 1em calc(1.4em + env(safe-area-inset-bottom)); }
+.record-body { padding: .85em 1em calc(5.5em + env(safe-area-inset-bottom)); }
 .record-page button { margin: 0; padding: 0; background: none; color: inherit; line-height: inherit; }
 .record-page button::after { border: 0; }
+.record-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-width: 750px; margin: 0 auto; padding: .8em 1.2em calc(.8em + env(safe-area-inset-bottom)); background: linear-gradient(#272c4700, #272c47 28%); box-sizing: border-box; }
+.record-page .record-dock .record-add { width: 100%; margin: 0; padding: 0; border-radius: 3em; background: linear-gradient(95deg, #0340ff, #009bff); color: #fff; font-size: 1em; line-height: 2.7; }
 .order-card, .feedback-card { position: relative; margin-bottom: .85em; padding: 1em .9em .9em; border-radius: .85em; background: #353a59; }
 .order-status { position: absolute; top: 0; right: 0; padding: .15em .7em; border-radius: 0 .85em 0 .55em; background: #596381; color: #d7deee; font-size: .78em; }
 .order-no { padding-right: 4.2em; color: #c5cbe0; font-size: .86em; }

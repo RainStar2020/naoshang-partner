@@ -63,7 +63,7 @@
                 <text class="confirm-product-title">{{ data.product.title }}</text>
               </view>
               <view class="confirm-product-side">
-                <text class="shop-price">¥{{ plainYuan(selectedSku?.amount) }}</text>
+                <text class="shop-price">¥{{ plainYuan(unitPrice) }}</text>
                 <text class="confirm-count">x{{ draft.quantity }}</text>
               </view>
             </view>
@@ -72,24 +72,24 @@
               <text>订单备注</text>
               <input v-model="draft.remark" class="confirm-remark" placeholder="请输入" placeholder-class="confirm-placeholder" maxlength="200" :disabled="busy || !!pendingCreation" />
             </view>
-            <view class="confirm-line"><text>商品金额</text><text>{{ quote ? '¥' + money(quote.goodsAmount) : '—' }}</text></view>
+            <view class="confirm-line"><text>商品金额</text><text>{{ amountText(goodsAmount) }}</text></view>
             <view class="confirm-line"><text>折扣优惠</text><text>{{ quote?.tierDiscountLabel || data.product.checkoutDiscountLabel || '无' }}</text></view>
             <view class="confirm-line" @click="openCoupons">
               <text>优惠券</text>
               <view class="confirm-line-value">
-                <text v-if="selectedCoupon && quote">-¥{{ money(quote.discountAmount) }}</text>
+                <text v-if="selectedCoupon">{{ couponLine }}</text>
                 <text v-else class="confirm-placeholder">请选择</text>
                 <image class="pick-chevron" src="/static/common/icon-chevron-right.png" mode="aspectFit" />
               </view>
             </view>
-            <view class="confirm-line"><text>总计</text><text class="confirm-pay">{{ quote ? '¥' + money(quote.payableAmount) : '—' }}</text></view>
+            <view class="confirm-line"><text>总计</text><text class="confirm-pay">{{ amountText(payableAmount) }}</text></view>
             <text v-if="operationError" class="shop-error">{{ operationError }}</text>
           </view>
         </template>
       </view>
     </view>
     <view v-if="data" class="shop-footer">
-      <view class="confirm-total">合计：<text class="shop-price">¥{{ quote ? money(quote.payableAmount) : '—' }}</text></view>
+      <view class="confirm-total">合计：<text class="shop-price">{{ amountText(payableAmount) }}</text></view>
       <button class="shop-primary" :disabled="busy" @click="submit">{{ submitLabel }}</button>
     </view>
     <view v-if="selectionType" class="shop-mask" @click="selectionType = ''">
@@ -193,6 +193,51 @@ const selectedSku = computed(() => data.value?.product.skus.find(item => item.id
 const selectedCoupon = computed(() => coupons.value.find(item => item.id === draft.value.couponId) || null)
 const sheetTitle = computed(() => ({ addresses: '选择收货地址', stores: '选择所属门店' }[selectionType.value] || ''))
 const submitLabel = computed(() => busy.value ? '处理中…' : pendingCreation.value ? '重试原订单提交' : '确认订单')
+const unitPrice = computed(() => {
+  const quoted = Number(quote.value?.product?.unitPrice)
+  if (Number.isFinite(quoted) && quoted >= 0) return quoted
+  const viewer = Number(data.value?.product?.viewerPrice?.unitAmount)
+  if (Number.isFinite(viewer) && viewer >= 0) return viewer
+  const sku = Number(selectedSku.value?.amount)
+  return Number.isFinite(sku) && sku >= 0 ? sku : null
+})
+const previewGoodsAmount = computed(() => {
+  if (unitPrice.value == null) return null
+  return Number((unitPrice.value * Number(draft.value.quantity || 1)).toFixed(2))
+})
+const previewDiscountAmount = computed(() => {
+  if (!selectedCoupon.value || previewGoodsAmount.value == null) return 0
+  const off = couponAmount(selectedCoupon.value)
+  if (off == null) return 0
+  return Math.min(previewGoodsAmount.value, off)
+})
+const goodsAmount = computed(() => {
+  const quoted = Number(quote.value?.goodsAmount)
+  return Number.isFinite(quoted) && quoted >= 0 ? quoted : previewGoodsAmount.value
+})
+const discountAmount = computed(() => {
+  if (quote.value) {
+    const quoted = Number(quote.value.discountAmount)
+    return Number.isFinite(quoted) && quoted >= 0 ? quoted : 0
+  }
+  return previewDiscountAmount.value
+})
+const payableAmount = computed(() => {
+  const quoted = Number(quote.value?.payableAmount)
+  if (Number.isFinite(quoted) && quoted >= 0) return quoted
+  if (goodsAmount.value == null) return null
+  return Number(Math.max(0, goodsAmount.value - discountAmount.value).toFixed(2))
+})
+const couponLine = computed(() => {
+  if (!selectedCoupon.value) return ''
+  if (quote.value) return `-¥${money(discountAmount.value)}`
+  const off = couponAmount(selectedCoupon.value)
+  if (off != null) return `${selectedCoupon.value.title} -¥${money(off)}`
+  return selectedCoupon.value.title
+})
+function amountText(value) {
+  return value == null ? '¥0' : `¥${money(value)}`
+}
 function addressLine(item) { return `${(item.regionNames || []).join('')}${item.detail || ''}` }
 function couponAmount(item) {
   const amount = Number(item?.discountAmount ?? item?.amount)
@@ -282,6 +327,16 @@ async function load() {
     const selected = options.addresses.find(item => item.id === draft.value.addressId) || options.addresses.find(item => item.isDefault)
     draft.value.addressId = selected?.id
     status.value = 'ready'
+    if (!pendingCreation.value) {
+      const pending = getPendingCheckout(draft.value)
+      if (pending) {
+        pendingCreation.value = pending
+        draft.value = { ...pending.draft }
+        quote.value = pending.quote
+        attemptKey = pending.key
+        return
+      }
+    }
     if (pendingCreation.value) {
       quote.value = pendingCreation.value.quote
       attemptKey = pendingCreation.value.key
@@ -294,8 +349,16 @@ async function load() {
 }
 async function submit() {
   if (busy.value || submitted) return
-  busy.value = true
   operationError.value = ''
+  if (!pendingCreation.value && !requirementsMet()) {
+    const product = data.value?.product
+    if (product?.requiresMember && !draft.value.memberId) operationError.value = '请选择服务会员'
+    else if (product?.fulfillmentType === 'PHYSICAL' && !draft.value.addressId) operationError.value = '请选择收货地址'
+    else if (!draft.value.storeId) operationError.value = '请选择所属门店'
+    else operationError.value = '请完善订单信息'
+    return
+  }
+  busy.value = true
   try {
     if (!pendingCreation.value && (!quote.value || remarkChanged())) {
       await calculate()
@@ -316,6 +379,7 @@ async function submit() {
         clearPendingCheckout(draft.value)
         pendingCreation.value = null
         quote.value = null
+        attemptKey = ''
       }
     }
   } finally {

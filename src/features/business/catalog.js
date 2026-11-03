@@ -41,10 +41,10 @@ export function visibleBusinessTools(context,config) {
   })
 }
 
-// Wholesale home shortcuts: base four always. Global award follows bootstrap eligibility when present; otherwise keep the legacy angel/non-angel split. Child pages keep the full capability set.
+// Wholesale home shortcuts: base four always. 总批补贴 only when /partner/global-awards says eligible.
 export const businessHomeTools=(tools,context,partnerStatus,globalAwardEligibility)=>{
   if(context?.module!=='wholesale')return tools
   const base=['income','superior','share','materials']
-  const showGlobal=globalAwardEligibility!=null?globalAwardEligibility.eligible===true:partnerStatus!=='ANGEL'
+  const showGlobal=globalAwardEligibility?.eligible===true
   return tools.filter(item=>(showGlobal?[...base,'global-awards']:base).includes(item.id))
 }

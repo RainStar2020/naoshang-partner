@@ -31,12 +31,17 @@ export function mockWholesaleReport(user,context,state,resource,params){
   return {...base,promotionExperience:69800,productExperience:39920,items:(params.filter==='products'?products:promotion).map(x=>({...x,createdAt:layoutAt}))}
  }
  if(resource.id==='global-awards'){
+  const rank=accountRank(user.displayId||user.id)
+  // Non-cofounder: eligibility-only denial (matches live API / future slim payload).
+  if(rank?.code!=='LC'){
+    return {...base,eligibilityLabel:'非联创无资格',metrics:[],summary:{},columns:[],items:[],hasMore:false,nextCursor:null}
+  }
   // Fixture strings for the two designed headers. Pages render the DTO and do not decide eligibility.
   const matured=String(params.month)<'2023-10'
-  const header=matured?{eligibilityLabel:'当月分红权益：生效中',eligibilityNote:'（您每月需要直推1个VIP才能享有当月分红权益）'}:{eligibilityLabel:'无条件分红权益剩余：2年11个月',eligibilityNote:'（到期后您每月需要直推1个VIP才能享有当月分红权益）'}
-  const columns=[{key:'month',label:'月份'},{key:'eligibility',label:'分红资格'},{key:'amount',label:'总分红',kind:'money'},{key:'weightedAmount',label:'加权分红',kind:'money'},{key:'performanceAmount',label:'业绩分红',kind:'money'},{key:'vipSold',label:'本月VIP卖出'},{key:'shareBps',label:'个人业绩占比',kind:'percent'},{key:'founderCount',label:'联创总数量'},{key:'poolAmount',label:'本月奖池累计',kind:'money'}]
+  const header=matured?{eligibilityLabel:'当月分红权益：生效中',eligibilityNote:'（您每月需要直推1个小批发商才能享有当月分红权益）'}:{eligibilityLabel:'无条件分红权益剩余：2年11个月',eligibilityNote:'（到期后您每月需要直推1个小批发商才能享有当月分红权益）'}
+  const columns=[{key:'month',label:'月份'},{key:'eligibility',label:'分红资格'},{key:'amount',label:'总分红',kind:'money'},{key:'weightedAmount',label:'加权分红',kind:'money'},{key:'performanceAmount',label:'业绩分红',kind:'money'},{key:'vipSold',label:'本月小批发商卖出'},{key:'shareBps',label:'个人业绩占比',kind:'percent'},{key:'founderCount',label:'总批发商总数量'},{key:'poolAmount',label:'本月奖池累计',kind:'money'}]
   const row=(id,eligibility)=>({id,month:params.month,eligibility,amount:60000,weightedAmount:37500,performanceAmount:22500,vipSold:'10个',shareBps:3000,founderCount:2,poolAmount:150000})
-  return {...base,...header,metrics:[{label:'总分红',value:60000,kind:'money'},{label:'加权分红',value:37500,kind:'money'},{label:'业绩分红',value:22500,kind:'money'}],summary:[{label:'本月VIP卖出',value:'10个'},{label:'个人业绩占比',value:3000,kind:'percent'},{label:'联创总数量',value:2},{label:'本月奖池累计',value:150000,kind:'money'}],columns,items:[row('global-1','无条件分红'),row('global-2',matured?'当月无分红权':'无条件分红'),row('global-3',matured?'当月有分红权':'无条件分红')]}
+  return {...base,...header,metrics:[{label:'总分红',value:60000,kind:'money'},{label:'加权分红',value:37500,kind:'money'},{label:'业绩分红',value:22500,kind:'money'}],summary:[{label:'本月小批发商卖出',value:'10个'},{label:'个人业绩占比',value:3000,kind:'percent'},{label:'总批发商总数量',value:2},{label:'本月奖池累计',value:150000,kind:'money'}],columns,items:[row('global-1','无条件分红'),row('global-2',matured?'当月无分红权':'无条件分红'),row('global-3',matured?'当月有分红权':'无条件分红')]}
  }
  if(resource.id==='income'){
   const person='李志远/19919988991',entry=index=>state.entries[index]?.id

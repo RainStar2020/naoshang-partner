@@ -4,11 +4,56 @@ import {withBusinessContext} from './business'
 import {mockBusinessState,saveMockBusinessState,mockClone,mockStoreWorkspace} from './mock/business'
 import {mockProfileState} from './mock/profile'
 import {mockExclusiveState,saveMockExclusiveState} from './mock/exclusive'
+import {ensureRegionNames} from '../features/region'
+function normalizeStore(store){
+  if(!store||typeof store!=='object')return store
+  const regionCodes=Array.isArray(store.regionCodes)?store.regionCodes:[]
+  const feeAmount=store.feeAmount??store.monthlyFee
+  const minimumFeeAmount=store.minimumFeeAmount??store.minFeeAmount
+  return {
+    ...store,
+    number:store.number||store.storeNo||store.regionCode||'',
+    managerName:store.managerName||store.manager?.name||'',
+    contact:store.contact||store.managerPhone||store.phone||store.manager?.phone||'',
+    address:store.address||'',
+    regionCodes,
+    regionNames:ensureRegionNames(regionCodes,store.regionNames),
+    storefrontUrl:store.storefrontUrl||store.storefrontPhotoUrl||store.coverUrl||'',
+    feeAmount:Number.isFinite(Number(feeAmount))?Number(feeAmount):null,
+    minimumFeeAmount:Number.isFinite(Number(minimumFeeAmount))?Number(minimumFeeAmount):null,
+  }
+}
+function normalizeStoreUser(user){
+  if(!user||typeof user!=='object')return user
+  const children=Array.isArray(user.children)?user.children:[]
+  return {
+    ...user,
+    accountId:user.accountId||user.userId||user.id,
+    memberId:user.memberId||children[0]?.id||'',
+    displayId:user.displayId||user.id||'',
+    phone:user.phone||'',
+    storeConsumptionAmount:Number(user.storeConsumptionAmount??user.storeConsumption??0)||0,
+    children,
+    allowedActions:Array.isArray(user.allowedActions)?user.allowedActions:[],
+  }
+}
+function normalizeWorkspaceActions(actions){
+  const list=Array.isArray(actions)?[...actions]:[]
+  const aliases=[['update-store','edit-store'],['manage-coach','save-coach','remove-coach'],['decide-application','approve'],['transfer-member','transfer']]
+  for(const [from,...to] of aliases){if(list.includes(from))for(const item of to)if(!list.includes(item))list.push(item)}
+  return list
+}
 export function getBusinessStore(contextId){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
   if(context.module!=='agency')throw new Error('当前身份暂不支持此功能')
   const result=config.useMock?mockStoreWorkspace(account,context):await request('/agency/store-workspace',{data:{assignmentId:context.assignmentId,contextId:context.id,storeId:context.storeId}})
   if(!result?.store?.id||!Array.isArray(result.staff)||!Array.isArray(result.approvals)||!Array.isArray(result.members)||!Array.isArray(result.owners)||!Array.isArray(result.allowedActions))throw new Error('门店信息暂时无法加载，请稍后重试')
-  return result
+  return {
+    ...result,
+    store:normalizeStore(result.store),
+    members:result.members.map(normalizeStoreUser),
+    childMembers:Array.isArray(result.childMembers)?result.childMembers:[],
+    allowedActions:normalizeWorkspaceActions(result.allowedActions),
+  }
 })}
 export function saveBusinessCoach(contextId,storeId,id,draft,idempotencyKey){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
   const name=String(draft.name||'').trim(),loginAccount=String(draft.loginAccount||'').trim()
@@ -33,11 +78,13 @@ export function saveBusinessStore(contextId,storeId,draft){return withBusinessCo
   const managerName=String(draft.managerName||'').trim(),name=String(draft.name||'').trim(),address=String(draft.address||'').trim(),contact=String(draft.contact||'').trim()
   const regionNames=Array.isArray(draft.regionNames)?draft.regionNames:[],regionCodes=Array.isArray(draft.regionCodes)?draft.regionCodes:[]
   if(profile){
+    if(context.agencyType!=='STORE')throw new Error('仅本店单店代理可编辑门店信息')
+    if(context.storeId&&String(context.storeId)!==String(storeId))throw new Error('仅本店单店代理可编辑门店信息')
     if(!managerName||Array.from(managerName).length>30)throw new Error('请填写1—30字姓名')
     if(!/^1\d{10}$/.test(contact))throw new Error('请填写正确联系手机号')
     if(regionNames.length!==3||regionCodes.length!==3)throw new Error('请选择门店地区')
     if(!address||Array.from(address).length>200)throw new Error('请填写1—200字门店地址')
-    if(!Number.isInteger(draft.feeAmount)||draft.feeAmount<0)throw new Error('请输入合店费用')
+    if(!Number.isFinite(draft.feeAmount)||draft.feeAmount<0)throw new Error('请输入合店费用')
   }else{
     if(!name||Array.from(name).length>60||!address||Array.from(address).length>200)throw new Error('请填写有效门店名称与地址')
     if(contact&&!/^1\d{10}$/.test(contact))throw new Error('请填写正确联系手机号')
@@ -45,7 +92,8 @@ export function saveBusinessStore(contextId,storeId,draft){return withBusinessCo
   if(!config.useMock)return request(`/stores/${encodeURIComponent(storeId)}`,{method:'PATCH',data:{...(profile?{managerName,regionNames,regionCodes,feeAmount:draft.feeAmount,storefrontAssetId:draft.storefrontAssetId||''}:{name}),address,contact,version:draft.version,contextId:context.id}})
   const state=mockBusinessState(account,context);if(state.store.id!==storeId||state.store.version!==draft.version)throw new Error('门店资料已变化或无权访问')
   if(profile){
-    if(Number.isInteger(state.store.minimumFeeAmount)&&draft.feeAmount<state.store.minimumFeeAmount)throw new Error('合店费用不能低于当前报价')
+    const minimum=Number(state.store.minimumFeeAmount)
+    if(Number.isFinite(minimum)&&draft.feeAmount<minimum)throw new Error('合店费用不能低于当前报价')
     const asset=draft.storefrontAssetId?mockProfileState(account).assets.get(draft.storefrontAssetId):null
     if(draft.storefrontAssetId&&asset?.purpose!=='storefront')throw new Error('请上传门头照')
     if(!draft.storefrontAssetId&&!state.store.storefrontUrl)throw new Error('请上传门头照')
@@ -55,7 +103,10 @@ export function saveBusinessStore(contextId,storeId,draft){return withBusinessCo
 })}
 export function removeBusinessCoach(contextId,storeId,id,version){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
   if(!id)throw new Error('未找到该健脑官，请刷新后重试')
-  if(!config.useMock)throw new Error('当前暂不支持删除健脑官，请联系平台客服协助处理')
+  if(!config.useMock){
+    try{return await request(`/stores/${encodeURIComponent(storeId)}/coaches/${encodeURIComponent(id)}`,{method:'DELETE',data:{version,contextId:context.id}})}
+    catch(reason){if(reason?.status===404||/404|not\s*found|不支持/i.test(String(reason?.message||'')))throw new Error('当前暂不支持删除健脑官，请联系平台客服协助处理');throw reason}
+  }
   const state=mockBusinessState(account,context);if(storeId!==state.store.id)throw new Error('您无权管理此门店')
   const index=state.staff.findIndex(item=>item.id===id)
   if(index<0||state.staff[index].version!==version)throw new Error('健脑官资料已更新，请刷新后重试')

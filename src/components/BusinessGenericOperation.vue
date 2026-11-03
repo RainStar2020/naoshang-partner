@@ -12,7 +12,7 @@ const props=defineProps({kind:String,pageQuery:Object}),context=ref(null),draft=
 let active=true,epoch=0,attemptKey='',receivedAt=0
 const {data:options,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext(['withdraw','allocation'].includes(props.kind)?null:'wholesale',props.pageQuery?.contextId);const output=await getBusinessOperationOptions(props.kind,ctx.id,props.pageQuery?.entryId||'');if(!Array.isArray(output?.fields)||!Array.isArray(output.allowedActions)||output.fields.some(field=>!['enum','integer','money'].includes(field.type)))throw new Error('操作信息暂时无法加载，请稍后重试');context.value=ctx;const next={};for(const field of output.fields){if(field.type==='enum')next[field.key]=field.options?.some(item=>item.value===props.pageQuery?.[field.key])?props.pageQuery[field.key]:'';else next[field.key]=''}draft.value=next;quote.value=null;result.value=null;attemptKey='';return output},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
-const format=detail=>detail.kind==='money'?`${money(detail.value)}积分`:detail.kind==='percent'?percent(detail.value):detail.value??'—'
+const format=detail=>detail.kind==='money'?`${money(detail.value)}积分`:detail.kind==='percent'?percent(detail.value):detail.value??0
 function choices(field){return (field.options||[]).filter(item=>!item.accountType||item.accountType===draft.value.accountType)}
 function choiceIndex(field){return Math.max(0,choices(field).findIndex(item=>item.value===draft.value[field.key]))}
 function setValue(key,value){if(busy.value)return;draft.value[key]=value;if(key==='accountType')draft.value.payeeToken='';quote.value=null;attemptKey='';operationError.value='';++epoch}

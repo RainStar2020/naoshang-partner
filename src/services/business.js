@@ -7,14 +7,65 @@ import { mockMeBootstrap,mockBusinessOverview,mockBusinessReport,mockBusinessSta
 import { incomePresentation } from './mock/income-detail'
 const selectionKey=id=>`naoshang-business-context:${id}`
 const promotionCache=new Map()
+const globalAwardsCache=new Map()
 const agencyIncomeCache=new Map()
 const awardCopy={平级奖:'孵化补贴',复购奖:'运维补贴',全球奖:'总批补贴',创始奖:'总裁补贴'}
 function awardDisplay(value){return typeof value==='string'?Object.entries(awardCopy).reduce((text,[source,target])=>text.replaceAll(source,target),value):value}
 function incomeDisplay(value){return typeof value==='string'?awardDisplay(value).replaceAll('收益','积分').replaceAll('提点','').replace(/订单金额|开通金额|计件金额|待分配金额|实付金额|计价金额/g,'有效值'):value}
-function parseBizTime(value){if(typeof value==='number'&&Number.isFinite(value))return value;if(typeof value==='string'&&value.trim()){const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:NaN}return NaN}
+function currentAwardMonth(){return new Date().toISOString().slice(0,7)}
+function parseGlobalAwardEligibility(report){
+  if(!report||typeof report!=='object')return {eligible:false,reason:''}
+  const label=String(report.eligibilityLabel||report.reason||'').trim()
+  if(typeof report.eligible==='boolean')return {eligible:report.eligible,reason:label}
+  // Current + future denial payloads: "非联创无资格" or eligibility-only bodies.
+  if(/无资格|无权限|不合格|非联创/.test(label))return {eligible:false,reason:label}
+  const meaningfulKeys=Object.keys(report).filter(key=>{
+    if(['eligibilityLabel','reason','eligible','hasMore','nextCursor','mockOnly'].includes(key))return false
+    const value=report[key]
+    if(value==null)return false
+    if(Array.isArray(value))return value.length>0
+    if(typeof value==='object')return Object.keys(value).length>0
+    return String(value).trim()!==''
+  })
+  if(!meaningfulKeys.length&&label)return {eligible:false,reason:label}
+  return {eligible:true,reason:label}
+}
+function parseBizTime(value){
+  if(typeof value==='number'&&Number.isFinite(value))return value
+  if(typeof value==='string'&&value.trim()){
+    if(/^\d+$/.test(value.trim())){const n=Number(value);return Number.isFinite(n)?n:NaN}
+    const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:NaN
+  }
+  return NaN
+}
+function normalizeAnnualUntil(value){
+  const time=parseBizTime(value)
+  return Number.isFinite(time)?time:value??null
+}
 function withYuanMoney(payload,keys){if(!payload||typeof payload!=='object')return payload;const next={...payload};for(const key of keys){if(next[key]==null)continue;const amount=Number(next[key]);if(!Number.isFinite(amount)||amount<0)throw new Error('金额数据异常');next[key]=amount}return next}
-export function clearPartnerPromotionCache(contextId){if(contextId)promotionCache.delete(contextId);else promotionCache.clear()}
+export function clearPartnerPromotionCache(contextId){
+  if(contextId){promotionCache.delete(contextId);globalAwardsCache.delete(contextId)}
+  else{promotionCache.clear();globalAwardsCache.clear()}
+}
 export function clearAgencyIncomeCache(contextId){if(contextId)agencyIncomeCache.delete(contextId);else agencyIncomeCache.clear()}
+function cacheGlobalAwards(contextId,month,report){
+  const eligibility=parseGlobalAwardEligibility(report)
+  globalAwardsCache.set(contextId,{month,report,eligibility})
+  return eligibility
+}
+async function fetchPartnerGlobalAwards(account,context,params={}){
+  const month=params.month||currentAwardMonth()
+  const cached=globalAwardsCache.get(context.id)
+  if(cached&&cached.month===month&&!params.force)return cached
+  const resource=findBusinessTool('wholesale','global-awards')
+  const result=config.useMock
+    ?mockBusinessReport(account,context,resource,{month,filter:params.filter||'promotion',keyword:params.keyword||''})
+    :await request('/partner/global-awards',{data:{month,filter:params.filter||'promotion',keyword:params.keyword||'',contextId:context.id,contractId:context.contractId||'',assignmentId:context.assignmentId||'',pageSize:20}})
+  checkBusinessAccount(account)
+  const normalized=presentAwardCopy(normalizeList(result))
+  const eligibility=cacheGlobalAwards(context.id,month,normalized)
+  return {month,report:normalized,eligibility}
+}
 function normalizePromotionReport(result){
   const normalized=normalizeList(result)
   let promotion=normalized.promotion?{...normalized.promotion}:null
@@ -46,7 +97,8 @@ function normalizeBootstrapPartner(person){
   // Prefer cleartext phone; do not fall back to masked display values.
   const levelLabel=person.levelLabel||person.tierLabel||''
   const partnerLevelLabel=wholesaleLevelDisplay(levelLabel)
-  return {...person,phone:person.phone||'',levelLabel,tagLabel:person.tagLabel||person.tierLabel||partnerLevelLabel}
+  const storeName=person.storeName||person.store?.name||''
+  return {...person,phone:person.phone||'',levelLabel,tagLabel:person.tagLabel||person.tierLabel||partnerLevelLabel,storeName}
 }
 function filterBootstrapMembers(members,keyword){
   const rows=(Array.isArray(members)?members:[]).map(normalizeBootstrapPartner).filter(Boolean)
@@ -99,7 +151,7 @@ function applyWholesaleBootstrap(result,bootstrap){
     ...result,
     ...Object.fromEntries(Object.entries(extras).filter(([,value])=>value!==undefined)),
     entitlement,
-    annualValidUntil:result.annualValidUntil ?? entitlement?.expiresAt ?? null,
+    annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? entitlement?.expiresAt ?? null),
     // Transferred VIP count: keep API zero, and default missing to 0 (not em dash).
     transferred:transferred??0,
   }
@@ -327,24 +379,34 @@ export async function getBusinessOverview(module,id){
   if(result?.accountId!==account.id||result.contextId!==context.id||!Array.isArray(result.benefits))throw new Error('工作台身份或数据格式异常')
   if(module==='agency'){
     clearPartnerPromotionCache()
-    const base=applyAgencyOverview({...result,annualValidUntil:result.annualValidUntil ?? result.entitlement?.expiresAt ?? null})
+    const base=applyAgencyOverview({...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? null)})
     const stats=await fetchAgencyDashboardStats(account,context)
     const merged={...base,...Object.fromEntries(Object.entries(stats).filter(([,value])=>value!==undefined))}
     return {...merged,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
   }
   if(module!=='wholesale'){
     clearPartnerPromotionCache()
-    const merged={...result,annualValidUntil:result.annualValidUntil ?? result.entitlement?.expiresAt ?? null}
+    const merged={...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? null)}
     return {...merged,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
   }
   clearPartnerPromotionCache(context.id)
   const base=applyWholesaleBootstrap(result,bootstrap)
-  const [,stats]=await Promise.all([
+  const [,stats,globalAwards]=await Promise.all([
     fetchPartnerPromotionTasks(account,context).catch(()=>null),
     fetchWholesaleDashboardStats(account,context),
+    // Prefetch 总批补贴 eligibility; hide home entry when not eligible.
+    fetchPartnerGlobalAwards(account,context).catch(()=>({eligibility:{eligible:false,reason:''},report:null})),
   ])
   const merged=mergeWholesaleDashboardStats(base,stats)
-  return {...merged,rawLevelName:merged.levelName,levelName:module==='wholesale'?wholesaleLevelDisplay(merged.levelName):merged.levelName,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
+  return {
+    ...merged,
+    globalAwardEligibility:globalAwards?.eligibility||{eligible:false,reason:''},
+    rawLevelName:merged.levelName,
+    levelName:module==='wholesale'?wholesaleLevelDisplay(merged.levelName):merged.levelName,
+    context,
+    tools:visibleBusinessTools(context,config),
+    benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)})),
+  }
 }
 function normalizeList(result){
   if(result==null)return {items:[],hasMore:false,nextCursor:null}
@@ -393,6 +455,13 @@ export function getBusinessReport(module,id,contextId,params={}){
     if(resource.id==='promotion'){
       if(promotionCache.has(context.id))return promotionCache.get(context.id)
       return fetchPartnerPromotionTasks(account,context)
+    }
+    if(resource.id==='global-awards'){
+      const month=params.month||currentAwardMonth()
+      const cached=globalAwardsCache.get(context.id)
+      if(cached?.month===month&&cached.report)return cached.report
+      const loaded=await fetchPartnerGlobalAwards(account,context,{month,filter:params.filter,keyword:params.keyword,force:true})
+      return loaded.report
     }
     const filter=String(params.filter||'')
     const keyword=String(params.keyword||'').trim()

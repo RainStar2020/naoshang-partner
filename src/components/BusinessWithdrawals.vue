@@ -11,7 +11,7 @@ const props=defineProps({pageQuery:Object}),context=ref(null),items=ref([]),hasM
 const {data,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext(null,props.pageQuery?.contextId);context.value=ctx;return getBusinessWithdrawals(ctx.id)},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true});watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}});watch(data,result=>{if(result){items.value=result.items;hasMore.value=result.hasMore;cursor=result.nextCursor}})
 const statusLabel=value=>({PENDING_REVIEW:'待审核',PROCESSING:'处理中',SUCCEEDED:'已完成',REJECTED:'未通过'}[value]||'状态待确认')
-const points=value=>value==null?'—':`${money(value)}积分`
+const points=value=>`${money(value)}积分`
 async function more(){if(loadingMore.value||!hasMore.value)return;const current=epoch;loadingMore.value=true;try{const result=await getBusinessWithdrawals(context.value.id,cursor);if(current===epoch){items.value=[...new Map([...items.value,...result.items].map(item=>[item.id,item])).values()];cursor=result.nextCursor;hasMore.value=result.hasMore}}catch(reason){if(current===epoch)moreError.value=reason.message}finally{if(current===epoch)loadingMore.value=false}}
 onUnmounted(()=>{++epoch});defineExpose({refresh:load})
 </script>

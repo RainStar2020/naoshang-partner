@@ -6,7 +6,27 @@ import * as mock from './mock/commerce'
 export function parseCommerceTime(value){if(typeof value==='number'&&Number.isFinite(value))return value;if(typeof value==='string'&&value.trim()){const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:NaN}return NaN}
 function isMoney(value){return Number.isFinite(Number(value))&&Number(value)>=0}
 function pickRemoteMoney(...values){for(const value of values){if(typeof value==='number'&&Number.isFinite(value))return value;if(typeof value==='string'&&value.trim()!==''&&Number.isFinite(Number(value)))return Number(value)}return null}
-function normalizeRemoteQuote(result){if(!result||typeof result!=='object')return result;const next={...result};for(const key of ['goodsAmount','discountAmount','payableAmount']){if(next[key]==null)continue;const amount=pickRemoteMoney(next[key]);if(amount==null||amount<0)throw new Error('金额数据异常');next[key]=amount}if(next.product&&typeof next.product==='object'){next.product={...next.product};for(const key of ['unitPrice','listUnitPrice','memberUnitPrice','channelUnitPrice']){if(next.product[key]==null)continue;const amount=pickRemoteMoney(next.product[key]);if(amount==null||amount<0)throw new Error('金额数据异常');next.product[key]=amount}}return next}
+function normalizeRemoteQuote(result){
+  if(!result||typeof result!=='object')return result
+  const next={...result}
+  const goods=pickRemoteMoney(next.goodsAmount,next.goods_amount,next.productAmount)
+  const discount=pickRemoteMoney(next.discountAmount,next.discount_amount,next.couponAmount)
+  const payable=pickRemoteMoney(next.payableAmount,next.payable_amount,next.payAmount,next.amount)
+  if(goods!=null){if(goods<0)throw new Error('金额数据异常');next.goodsAmount=goods}
+  if(discount!=null){if(discount<0)throw new Error('金额数据异常');next.discountAmount=discount}
+  else if(next.discountAmount==null)next.discountAmount=0
+  if(payable!=null){if(payable<0)throw new Error('金额数据异常');next.payableAmount=payable}
+  if(next.product&&typeof next.product==='object'){
+    next.product={...next.product}
+    for(const key of ['unitPrice','listUnitPrice','memberUnitPrice','channelUnitPrice']){
+      if(next.product[key]==null)continue
+      const amount=pickRemoteMoney(next.product[key])
+      if(amount==null||amount<0)throw new Error('金额数据异常')
+      next.product[key]=amount
+    }
+  }
+  return next
+}
 function normalizeRemoteOrderStatus(status){const key=String(status||'').trim().toUpperCase().replace(/-/g,'_');return ({PAID:'PAID',PENDING_PAYMENT:'PENDING_PAYMENT',PENDING:'PENDING_PAYMENT',UNPAID:'PENDING_PAYMENT',CANCELLED:'CANCELLED',CANCELED:'CANCELLED',COMPLETED:'COMPLETED'})[key]||String(status||'').trim()}
 function deriveRemoteOrderActions(order){if(Array.isArray(order.allowedActions))return order.allowedActions.map(String);const status=normalizeRemoteOrderStatus(order.status);const fulfillment=order.fulfillmentStatus||order.delivery?.fulfillmentStatus||null;if(status==='PENDING_PAYMENT')return ['pay','cancel'];if(status==='PAID'&&fulfillment==='SHIPPED')return ['confirm-receipt'];return []}
 function synthesizeRemoteOrderItems(order){if(Array.isArray(order.items)&&order.items.length)return order.items;const quantity=Math.max(1,Number(order.skuQty||order.qty||order.quantity||1)||1);const skuId=String(order.skuId||order.productKey||order.product?.key||order.productId||'item');const productId=String(order.productId||order.productKey||order.product?.id||order.product?.key||skuId);const title=String(order.productName||order.product?.name||order.title||productId);const unitYuan=pickRemoteMoney(order.unitPrice,order.unitAmount,order.paid!=null?order.paid/quantity:null,order.payableAmount!=null?order.payableAmount/quantity:null,order.amount!=null?order.amount/quantity:null);return [{id:String(order.itemId||skuId),skuId,productId,title,specLabel:String(order.skuLabel||order.specLabel||''),quantity,coverUrl:String(order.coverUrl||order.product?.coverUrl||''),unitAmount:unitYuan}]}
@@ -34,7 +54,31 @@ function normalizeCheckoutCoupon(coupon){
   return {...coupon,amount,discountAmount:amount,thresholdText,thresholdLabel:coupon.thresholdLabel||thresholdText}
 }
 export function getCheckoutOptions(productId){return scoped(async user=>{const result=config.useMock?mock.mockCheckoutOptions(user,productId):await request('/checkout/options',{data:{productId}});if(!['stores','members','addresses','coupons'].every(key=>Array.isArray(result[key])))throw new Error('结算选项数据异常');return {...result,coupons:result.coupons.map(normalizeCheckoutCoupon)}})}
-export function quoteCheckout(draft){return scoped(async user=>{if(!Number.isInteger(draft.quantity)||draft.quantity<1||draft.quantity>99)throw new Error('请输入1—99的整数数量');const raw=config.useMock?mock.mockCheckoutQuote(user,draft):await request('/checkout/quotes',{method:'POST',data:draft});const result=config.useMock?raw:normalizeRemoteQuote(raw);if(!result?.id||!isMoney(result.payableAmount)||!Number.isFinite(parseCommerceTime(result.expiresAt))||!Number.isFinite(parseCommerceTime(result.serverTime)))throw new Error('报价数据异常');return result})}
+function checkoutQuotePayload(draft){
+  const quantity=Number(draft.quantity)
+  if(!Number.isInteger(quantity)||quantity<1||quantity>99)throw new Error('请输入1—99的整数数量')
+  const payload={
+    productId:String(draft.productId||''),
+    skuId:String(draft.skuId||''),
+    quantity,
+    storeId:String(draft.storeId||''),
+    remark:String(draft.remark||'').trim(),
+  }
+  if(draft.addressId)payload.addressId=String(draft.addressId)
+  if(draft.memberId)payload.memberId=String(draft.memberId)
+  if(draft.couponId)payload.couponId=String(draft.couponId)
+  if(!payload.productId||!payload.skuId||!payload.storeId)throw new Error('请完善订单信息')
+  return payload
+}
+export function quoteCheckout(draft){return scoped(async user=>{
+  const payload=checkoutQuotePayload(draft)
+  const raw=config.useMock?mock.mockCheckoutQuote(user,payload):await request('/checkout/quotes',{method:'POST',data:payload})
+  const result=config.useMock?raw:normalizeRemoteQuote(raw)
+  if(!result?.id||!isMoney(result.payableAmount)||!Number.isFinite(parseCommerceTime(result.expiresAt))||!Number.isFinite(parseCommerceTime(result.serverTime)))throw new Error('报价数据异常')
+  if(result.goodsAmount==null)result.goodsAmount=pickRemoteMoney(result.goodsAmount,result.product?.unitPrice!=null?Number(result.product.unitPrice)*payload.quantity:null,result.payableAmount)
+  if(result.discountAmount==null)result.discountAmount=0
+  return result
+})}
 export function createCheckoutOrder(quoteId,idempotencyKey){return scoped(async user=>{if(!quoteId||!idempotencyKey)throw new Error('请重新确认订单');return orderResult(config.useMock?mock.mockCreateOrder(user,quoteId,idempotencyKey):await request('/orders',{method:'POST',data:{quoteId,idempotencyKey,payLater:true}}),!config.useMock)})}
 export function getCommerceOrders(options={}){return scoped(async user=>{const result=list(config.useMock?mock.mockOrders(user,options):await request('/orders',{data:options}));if(config.useMock||!Array.isArray(result.items))return result;return {...result,items:result.items.map(item=>{const wrapped=normalizeRemoteOrder({order:item});return wrapped.order})}})}
 export function getCommerceOrder(id,contextId){const read=async user=>{const result=orderResult(config.useMock?mock.mockOrder(user,id):await request(`/orders/${encodeURIComponent(id)}`,{data:contextId?{contextId}:undefined}),!config.useMock);return contextId?{...result,order:{...result.order,allowedActions:[]}}:result};return contextId?withBusinessContext(contextId,'agency:store-management',read):scoped(read)}
@@ -45,9 +89,21 @@ export function queryPayment(id){return scoped(async user=>{const token=getSessi
 export function getColumn(id){return scoped(async user=>config.useMock?mock.mockColumn(user,id):request(`/columns/${encodeURIComponent(id)}`))}
 export function activateColumn(id,code,idempotencyKey){return scoped(async user=>config.useMock?mock.mockActivateColumn(user,id,String(code).trim(),idempotencyKey):request('/activations',{method:'POST',data:{targetType:'column',targetId:id,code,idempotencyKey}}))}
 export const commerceRequestKey=()=>`request-${Date.now()}-${Math.random().toString(36).slice(2)}`
-// v2 drops fen-era pending quotes (old adapter stored yuan*100).
-const checkoutIntentKey=draft=>`naoshang-checkout-intent:v2:${getSession()?.user?.id}:${draft.productId}:${draft.skuId}:${draft.quantity}`
-export function getPendingCheckout(draft){return uni.getStorageSync(checkoutIntentKey(draft))||null}
+// v3 drops fen-era pending quotes. Draft equality rejects stale store/member/coupon reuse.
+const checkoutIntentKey=draft=>`naoshang-checkout-intent:v3:${getSession()?.user?.id}:${draft.productId}:${draft.skuId}:${draft.quantity}`
+function sameCheckoutDraft(left,right){
+  if(!left||!right)return false
+  return ['productId','skuId','quantity','storeId','memberId','couponId','addressId'].every(key=>String(left[key]??'')===String(right[key]??''))
+    && String(left.remark||'').trim()===String(right.remark||'').trim()
+}
+export function getPendingCheckout(draft){
+  const intent=uni.getStorageSync(checkoutIntentKey(draft))||null
+  if(!intent?.quote?.id||!intent?.key)return null
+  if(draft.storeId||draft.memberId||draft.couponId||draft.addressId){
+    if(!sameCheckoutDraft(intent.draft,draft))return null
+  }
+  return intent
+}
 export function rememberPendingCheckout(draft,quote,key){const intent={draft:{...draft},quote,key};uni.setStorageSync(checkoutIntentKey(draft),intent);return intent}
 export function clearPendingCheckout(draft){uni.removeStorageSync(checkoutIntentKey(draft))}
 const paymentStateKey=id=>`naoshang-payment-intent:${getSession()?.user?.id}:${id}`

@@ -1,6 +1,7 @@
 import { config } from '../config'
 import { request, clearBootstrapCache, getBootstrap } from './api'
 import { clearInvitation, getInvitation, parseParams } from './invitation'
+import { ensureRegionNames } from '../features/region'
 const codes = new Map()
 let resetProof = null
 let wechatBinding = null
@@ -87,16 +88,19 @@ export async function registerAccount(data) {
   if (!validPhone(data.phone)) throw new Error('请输入正确的手机号')
   if (!/^\d{6}$/.test(data.code)) throw new Error('请输入 6 位验证码')
   validatePassword(data.password, data.confirmation)
-  if (!Array.isArray(data.regionCodes) || data.regionCodes.length !== 3) throw new Error('请选择所在地区')
+  const regionCodes = data.regionCodes || []
+  const regionNames = ensureRegionNames(regionCodes, data.regionNames || data.region)
+  if (regionCodes.length !== 3 || regionNames.length !== 3) throw new Error('请选择所在地区')
   if (data.inviteCode && !/^[a-zA-Z0-9_-]{1,64}$/.test(data.inviteCode)) throw new Error('邀请码格式不正确')
   const binding = getWechatBinding()
   if (data.source === 'wechat' && !binding) throw new Error('微信授权已过期，请返回登录页重新授权')
-  const { confirmation, source, ...payload } = data
+  const { confirmation, source, region, ...rest } = data
+  const payload = { ...rest, regionCodes, regionNames, region: regionNames }
   if (binding && source === 'wechat') payload.wechatTicket = binding.ticket
   let result
   if (config.useMock) {
     checkMockCode(data.phone, 'register', data.code)
-    result = { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长', region: data.region, inviteCode: data.inviteCode } }
+    result = { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长', region: regionNames, inviteCode: data.inviteCode } }
   } else result = await request('/auth/registrations', { method: 'POST', data: payload })
   await saveSession(result); codes.delete(keyFor(data.phone, 'register')); wechatBinding = null; clearInvitation()
   return result

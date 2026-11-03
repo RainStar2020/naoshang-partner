@@ -1,5 +1,5 @@
 <template>
- <view class="account-page store-page feature-page" :class="{'has-dock':(panel==='staff' && tab==='coaches' && can('save-coach'))||panel==='edit'}">
+ <view class="account-page store-page feature-page" :class="{'has-dock':(panel==='staff' && tab==='coaches')||(panel==='edit' && canEditStore)||(panel==='info' && canEditStore)}">
   <FeaturePageState :status="status" :error="error" @retry="load"/>
   <template v-if="status==='ready'">
    <template v-if="panel==='staff'">
@@ -12,14 +12,14 @@
       <view class="store-person">
        <view class="store-avatar">
         <image v-if="owner.avatarUrl && !failedAvatars[owner.id]" :src="owner.avatarUrl" mode="aspectFill" @error="markAvatar(owner.id)"/>
-        <text v-else>{{owner.name?.slice(0,1) || '—'}}</text>
+        <text v-else>{{owner.name?.slice(0,1) || ''}}</text>
         <em>{{owner.roleLabel || '合店老板'}}</em>
        </view>
        <view class="store-person-copy">
         <view class="store-person-name">{{owner.name}}</view>
         <view class="store-person-meta">
-         <text class="store-id">ID {{owner.displayId || '—'}}</text>
-         <text>手机号 {{owner.phone || '—'}}</text>
+         <text class="store-id">ID {{owner.displayId || ''}}</text>
+         <text>手机号 {{owner.phone || ''}}</text>
         </view>
        </view>
       </view>
@@ -30,7 +30,7 @@
        </view>
       </view>
       <view class="store-contract">
-       <view><text>合店时长：{{owner.durationLabel || '—'}}</text><text>合店费用：{{feeText(owner.feeAmount)}}</text></view>
+       <view><text>合店时长：{{owner.durationLabel || ''}}</text><text>合店费用：{{feeText(owner.feeAmount)}}</text></view>
        <text>合店开始时间：{{clock(owner.startedAt)}}</text>
        <text>合店到期时间：{{clock(owner.validUntil)}}</text>
       </view>
@@ -44,34 +44,34 @@
        <view class="store-coach-account"><text>账号：{{coach.loginAccount}}</text><text>密码：{{passwordLabel(coach)}}</text></view>
       </view>
       <view class="store-coach-actions">
-       <button v-if="can('save-coach')" aria-label="编辑健脑官" @click="editCoach(coach)"><image src="/static/common/icon-edit.png" mode="aspectFit"/></button>
-       <button v-if="can('remove-coach')" aria-label="删除健脑官" @click="removeCoach(coach)"><image src="/static/common/icon-delete.png" mode="aspectFit"/></button>
+       <button aria-label="编辑健脑官" @click="editCoach(coach)"><image src="/static/common/icon-edit.png" mode="aspectFit"/></button>
+       <button aria-label="删除健脑官" @click="removeCoach(coach)"><image src="/static/common/icon-delete.png" mode="aspectFit"/></button>
       </view>
      </view>
      <EmptyState v-if="!data.staff.length" text="暂无健脑官"/>
     </template>
-    <view v-if="tab==='coaches' && can('save-coach')" class="store-dock"><button :disabled="saving" @click="editCoach(null)">添加健脑官</button></view>
+    <view v-if="tab==='coaches'" class="store-dock"><button class="store-add" :disabled="saving" @click="editCoach(null)">添加健脑官</button></view>
    </template>
    <template v-else-if="panel==='members'">
     <view v-for="member in data.members" :key="member.id" class="store-card store-member">
      <view class="store-person">
       <view class="store-avatar">
        <image v-if="member.avatarUrl && !failedAvatars[member.id]" :src="member.avatarUrl" mode="aspectFill" @error="markAvatar(member.id)"/>
-       <text v-else>{{member.name?.slice(0,1) || '—'}}</text>
+       <text v-else>{{member.name?.slice(0,1) || ''}}</text>
       </view>
       <view class="store-person-copy">
        <view class="store-person-name">{{member.name}}</view>
-       <view class="store-person-meta"><text>用户ID：{{member.displayId || '—'}}</text><text>手机号：{{member.phone || '—'}}</text></view>
+       <view class="store-person-meta"><text>用户ID：{{member.displayId || ''}}</text><text>手机号：{{member.phone || ''}}</text></view>
        <text class="store-line">门店消费：{{feeText(member.storeConsumptionAmount)}}</text>
       </view>
      </view>
      <view class="store-member-actions">
-      <button class="outline" @click="transferMember(member.memberId)">申请转店</button>
-      <button @click="memberDetail(member.memberId)">查看会员</button>
-      <button @click="memberOrders(member.memberId)">查看订单</button>
+      <button class="outline" @click="transferMember(storeUserMemberId(member))">申请转店</button>
+      <button @click="memberDetail(member)">查看会员</button>
+      <button @click="memberOrders(storeUserMemberId(member))">查看订单</button>
      </view>
     </view>
-    <EmptyState v-if="!data.members.length" text="暂无门店会员"/>
+    <EmptyState v-if="!data.members.length" text="暂无门店用户"/>
    </template>
    <template v-else-if="panel==='approvals'">
     <view class="approval-tabs"><button v-for="item in approvalTabs" :key="item.id" :class="{selected:approvalTab===item.id}" @click="approvalTab=item.id">{{item.label}}</button></view>
@@ -80,11 +80,11 @@
      <view class="store-person">
       <view class="store-avatar">
        <image v-if="item.avatarUrl && !failedAvatars[item.id]" :src="item.avatarUrl" mode="aspectFill" @error="markAvatar(item.id)"/>
-       <text v-else>{{item.applicantName?.slice(0,1) || '—'}}</text>
+       <text v-else>{{item.applicantName?.slice(0,1) || ''}}</text>
       </view>
       <view class="store-person-copy">
-       <view class="store-person-name">{{item.applicantName || '—'}}<text v-if="item.badge" class="approval-badge">{{item.badge}}</text></view>
-       <view class="store-person-meta"><text>用户ID：{{item.displayId || '—'}}</text><text>手机号：{{item.phone || '—'}}</text></view>
+       <view class="store-person-name">{{item.applicantName || ''}}<text v-if="item.badge" class="approval-badge">{{item.badge}}</text></view>
+       <view class="store-person-meta"><text>用户ID：{{item.displayId || ''}}</text><text>手机号：{{item.phone || ''}}</text></view>
       </view>
      </view>
      <view class="approval-rows">
@@ -93,8 +93,8 @@
        <view><text>合店费用</text><text>{{feeText(item.feeAmount)}}</text></view>
       </template>
       <template v-else>
-       <view><text>当前门店</text><text>{{item.currentStoreName || '—'}}</text></view>
-       <view><text>转入门店</text><text>{{item.targetStoreName || '—'}}</text></view>
+       <view><text>当前门店</text><text>{{item.currentStoreName || ''}}</text></view>
+       <view><text>转入门店</text><text>{{item.targetStoreName || ''}}</text></view>
       </template>
       <view><text>申请时间</text><text>{{clock(item.appliedAt)}}</text></view>
       <view v-if="item.reviewedAt"><text>审核时间</text><text>{{clock(item.reviewedAt)}}</text></view>
@@ -106,7 +106,7 @@
     </view>
     <EmptyState v-if="!visibleApprovals.length" text="暂无申请"/>
    </template>
-   <template v-else-if="panel==='edit'">
+   <template v-else-if="panel==='edit' && canEditStore">
     <view class="edit-card">
      <view class="edit-row"><text>姓名</text><input v-model="draft.managerName" :disabled="saving" maxlength="30" placeholder="请输入"/></view>
      <view class="edit-row"><text>手机号</text><input v-model="draft.contact" type="number" :disabled="saving" maxlength="11" placeholder="请输入"/></view>
@@ -120,7 +120,22 @@
      <view class="edit-row"><text>合店费用</text><input v-model="draft.feeText" :disabled="saving" maxlength="12" placeholder="请输入"/><text v-if="minimumText" class="minimum">最低{{minimumText}}</text></view>
     </view>
     <text v-if="saveError" class="store-error">{{saveError}}</text>
-    <view class="store-dock"><button :disabled="saving||uploading" @click="submitStore">{{saving?'提交中…':'提交申请'}}</button></view>
+    <view class="store-dock"><button class="store-add" :disabled="saving||uploading" @click="submitStore">{{saving?'提交中…':'提交申请'}}</button></view>
+   </template>
+   <template v-else-if="panel==='info'">
+    <view class="edit-card info-card">
+     <view class="edit-row"><text>店长</text><text class="info-value">{{storeProfile.managerName || '未填写'}}</text></view>
+     <view class="edit-row"><text>手机号</text><text class="info-value">{{storeProfile.contact || '未填写'}}</text></view>
+    </view>
+    <view class="edit-card info-card">
+     <view class="edit-row"><text>门店地区</text><text class="info-value">{{storeRegionLabel}}</text></view>
+     <view class="edit-row info-address"><text>门店地址</text><text class="info-value">{{storeProfile.address || '未填写'}}</text></view>
+     <view class="edit-row info-photo-row"><text>门店照片</text><view v-if="storeProfile.storefrontUrl" class="info-photo"><image :src="storeProfile.storefrontUrl" mode="aspectFill"/></view><text v-else class="info-value muted">未上传</text></view>
+    </view>
+    <view class="edit-card info-card">
+     <view class="edit-row"><text>合店费用</text><text class="info-value">{{storeFeeLabel}}</text></view>
+    </view>
+    <view v-if="canEditStore" class="store-dock"><button class="store-add" @click="editStore">编辑门店信息</button></view>
    </template>
    <template v-else>
     <view class="store-card">
@@ -128,7 +143,6 @@
      <text v-if="data.store.number" class="store-line">{{data.store.number}}</text>
      <text class="store-line">{{data.store.address || '地址待后台提供'}}</text>
      <text v-if="data.store.contact" class="store-line">{{data.store.contact}}</text>
-     <button v-if="can('edit-store')" class="store-text-link" @click="editStore">编辑门店信息</button>
     </view>
    </template>
   </template>
@@ -180,36 +194,63 @@ const panel=computed(()=>['members','approvals','info','edit'].includes(props.pa
 const sheetTitle=computed(()=>editor.value==='store'?'编辑门店':editor.value==='coach'?(draft.value.id?'编辑健脑官':'添加健脑官'):'审批确认')
 function readContextId(query){let id=String(query?.contextId||'');for(let n=0;n<2&&/%[0-9A-Fa-f]{2}/.test(id);n++){try{const next=decodeURIComponent(id);if(next===id)break;id=next}catch{break}}return id}
 const {data,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('agency',readContextId(props.pageQuery)||undefined);context.value=ctx;return getBusinessStore(ctx.id)},false)
-watch(()=>props.pageQuery,query=>{if(!query)return;if(query.tab==='coaches'||query.tab==='owners')tab.value=query.tab;load()},{immediate:true})
-watch(data,()=>{if(panel.value==='edit')fillStoreDraft()})
+watch(()=>props.pageQuery,query=>{if(!query)return;storeDraftReady=false;if(query.tab==='coaches'||query.tab==='owners')tab.value=query.tab;load()},{immediate:true})
+watch([data,panel],()=>{if(panel.value==='edit')fillStoreDraft()})
 const can=action=>data.value?.allowedActions?.includes(action)
+const canEditStore=computed(()=>{
+  const ctx=context.value,store=data.value?.store
+  if(!ctx||ctx.module!=='agency'||ctx.agencyType!=='STORE'||!store?.id)return false
+  // Only the store agent bound to this store may edit.
+  const keys=[store.id,store.storeNo,store.regionCode,store.number].filter(Boolean).map(String)
+  if(ctx.storeId&&!keys.includes(String(ctx.storeId)))return false
+  const actions=data.value?.allowedActions||[]
+  if(actions.length&&!(actions.includes('edit-store')||actions.includes('update-store')))return false
+  return true
+})
+watch([status,panel,canEditStore],()=>{
+  if(status.value!=='ready'||panel.value!=='edit'||canEditStore.value||!context.value?.id)return
+  uni.redirectTo({url:`/pages/store/index?contextId=${encodeURIComponent(context.value.id)}&view=info`})
+})
 const visibleApprovals=computed(()=>(data.value?.approvals||[]).filter(item=>approvalBucket(item)===approvalTab.value))
+const storeProfile=computed(()=>data.value?.store||{})
+const storeRegionLabel=computed(()=>{
+  const names=storeProfile.value.regionNames||[]
+  if(names.length)return names.join('')
+  return '未填写'
+})
+const storeFeeLabel=computed(()=>{
+  const amount=storeProfile.value.feeAmount
+  if(amount==null||amount==='')return '未填写'
+  return `¥${money(amount)}/月`
+})
 const regionLabel=computed(()=>(draft.value.regionNames||[]).join('')||'请选择')
-const minimumText=computed(()=>{const text=money(data.value?.store?.minimumFeeAmount);return text==='—'?'':`¥${text}`})
+const minimumText=computed(()=>{const amount=data.value?.store?.minimumFeeAmount;return amount==null||amount===''?'':`¥${money(amount)}`})
 function approvalBucket(item){if(item?.bucket)return item.bucket;if(item?.type==='COSTORE')return 'costore';return item?.direction==='IN'?'transfer-in':'transfer-out'}
 function approvalTitle(item){return item.title||'申请'}
 function approvalLabel(item){if(item.type==='COSTORE')return {PENDING:'待门店审核',APPROVED:'门店已通过',REJECTED:'门店已拒绝'}[item.status]||'状态待确认';if(item.type==='TRANSFER'&&item.status==='PENDING'&&(item.sourceApprovalStatus==='APPROVED'||item.targetApprovalStatus==='APPROVED'))return '等待另一方审核';return {PENDING:'待双方审核',APPROVED:'双方已通过',REJECTED:'已拒绝'}[item.status]||'状态待确认'}
 function approvalTone(item){return item.status==='REJECTED'?'rejected':item.status==='APPROVED'?'approved':'pending'}
-function feeMonth(value){const text=feeText(value);return text==='—'?'—':`${text}/月`}
+function feeMonth(value){return `${feeText(value)}/月`}
 function canDecide(item){if(item.status!=='PENDING'||!can('approve'))return false;if(approvalBucket(item)==='costore')return item.paymentStatus==='PAID';const side=approvalBucket(item)==='transfer-in'?'targetApprovalStatus':'sourceApprovalStatus';return !item[side]||item[side]==='PENDING'}
 function markAvatar(id){failedAvatars[id]=true}
-function dayText(value){return Number.isInteger(value)?String(value):'—'}
-function feeText(value){const text=money(value);return text==='—'?'—':`¥${text}`}
-function clock(value){const date=new Date(value);if(Number.isNaN(date.getTime()))return value||'—';const pad=n=>String(n).padStart(2,'0');return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`}
+function dayText(value){return Number.isInteger(value)?String(value):'0'}
+function feeText(value){return `¥${money(value)}`}
+function clock(value){const date=new Date(value);if(Number.isNaN(date.getTime()))return value||'';const pad=n=>String(n).padStart(2,'0');return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`}
 function passwordLabel(coach){return coach.credentialSet?'******':'待设置'}
+function storeUserAccountId(member){return member?.accountId||member?.userId||member?.memberId||member?.id||''}
+function storeUserMemberId(member){return member?.memberId||member?.id||''}
 function memberQuery(id){return `contextId=${encodeURIComponent(context.value.id)}&memberId=${encodeURIComponent(id)}`}
-function memberDetail(id){if(!id)return;uni.navigateTo({url:`/pages/members/detail?${memberQuery(id)}`})}
+function memberDetail(member){const id=storeUserAccountId(member);if(!id)return;uni.navigateTo({url:`/pages/members/detail?${memberQuery(id)}&from=store`})}
 function memberOrders(id){if(!id)return;uni.navigateTo({url:`/pages/order/list?${memberQuery(id)}`})}
 function transferMember(id){if(!id)return;uni.navigateTo({url:`/pages/store/transfer-apply?${memberQuery(id)}`})}
 function reset(){saveError.value='';attemptKey='';attemptPayload=''}
-function editStore(){uni.navigateTo({url:`/pages/store/index?contextId=${context.value.id}&view=edit`})}
-function fillStoreDraft(){if(storeDraftReady||!data.value?.store)return;const store=data.value.store;draft.value={managerName:store.managerName||'',contact:store.contact||'',address:store.address||'',regionNames:[...(store.regionNames||[])],regionCodes:[...(store.regionCodes||[])],feeText:'',storefrontAssetId:'',storefrontUrl:store.storefrontUrl||'',version:store.version,reason:''};storeDraftReady=true}
+function editStore(){if(!canEditStore.value){uni.showToast({title:'仅本店单店代理可编辑门店信息',icon:'none'});return}uni.navigateTo({url:`/pages/store/index?contextId=${encodeURIComponent(context.value.id)}&view=edit`})}
+function fillStoreDraft(){if(storeDraftReady||!data.value?.store)return;const store=data.value.store;const fee=store.feeAmount;draft.value={managerName:store.managerName||'',contact:store.contact||'',address:store.address||'',regionNames:[...(store.regionNames||[])],regionCodes:[...(store.regionCodes||[])],feeText:fee==null||fee===''?'':String(money(fee)),storefrontAssetId:'',storefrontUrl:store.storefrontUrl||'',version:store.version,reason:''};storeDraftReady=true}
 function regionChanged(value){draft.value={...draft.value,regionNames:value.names,regionCodes:value.codes}}
 function parseYuan(value){const text=String(value??'').trim();if(!/^\d+(\.\d{1,2})?$/.test(text))return null;const amount=Number(Number(text).toFixed(2));return Number.isFinite(amount)?amount:null}
 function askDecision(item,value){reset();selectedApplication.value=item;decision.value=value;draft.value={...draft.value,reason:''}}
 function cancelDecision(){if(!saving.value){decision.value='';saveError.value=''}}
 async function uploadStorefront(){if(uploading.value||saving.value)return;uploading.value=true;saveError.value='';try{const result=await new Promise((resolve,reject)=>uni.chooseImage({count:1,success:resolve,fail:reject})),file=result.tempFiles?.[0];if(!file||!active)return;const asset=await uploadProfileImage({path:file.path,size:file.size||1},'storefront');if(active){draft.value.storefrontAssetId=asset.assetId;draft.value.storefrontUrl=asset.previewUrl}}catch(reason){if(active&&reason?.message)saveError.value=reason.message}finally{if(active)uploading.value=false}}
-async function submitStore(){if(saving.value||uploading.value)return;const feeAmount=parseYuan(draft.value.feeText);if(feeAmount==null){saveError.value='请输入合店费用';return}saving.value=true;saveError.value='';try{await saveBusinessStore(context.value.id,data.value.store.id,{managerName:draft.value.managerName,contact:draft.value.contact,address:draft.value.address,regionNames:draft.value.regionNames,regionCodes:draft.value.regionCodes,feeAmount,storefrontAssetId:draft.value.storefrontAssetId,storefrontUrl:draft.value.storefrontUrl,version:draft.value.version});if(!active)return;uni.showToast({title:'申请已提交',icon:'success'});uni.navigateBack({fail:()=>uni.redirectTo({url:`/pages/store/index?contextId=${context.value.id}&view=info`})})}catch(reason){if(active)saveError.value=reason.message||'门店资料未保存，请检查后重试'}finally{if(active)saving.value=false}}
+async function submitStore(){if(saving.value||uploading.value)return;if(!canEditStore.value){saveError.value='仅本店单店代理可编辑门店信息';return}const feeAmount=parseYuan(draft.value.feeText);if(feeAmount==null){saveError.value='请输入合店费用';return}const minimum=Number(data.value?.store?.minimumFeeAmount);if(Number.isFinite(minimum)&&feeAmount<minimum){saveError.value=`合店费用不能低于${minimumText.value}`;return}if(!draft.value.storefrontUrl&&!draft.value.storefrontAssetId){saveError.value='请上传门头照';return}saving.value=true;saveError.value='';try{await saveBusinessStore(context.value.id,data.value.store.id,{managerName:draft.value.managerName,contact:draft.value.contact,address:draft.value.address,regionNames:draft.value.regionNames,regionCodes:draft.value.regionCodes,feeAmount,storefrontAssetId:draft.value.storefrontAssetId,storefrontUrl:draft.value.storefrontUrl,version:draft.value.version});if(!active)return;uni.showToast({title:'申请已提交',icon:'success'});uni.navigateBack({fail:()=>uni.redirectTo({url:`/pages/store/index?contextId=${context.value.id}&view=info`})})}catch(reason){if(active)saveError.value=reason.message||'门店资料未保存，请检查后重试'}finally{if(active)saving.value=false}}
 async function saveDecision(){if(saving.value||!selectedApplication.value)return;saving.value=true;saveError.value='';const fingerprint=JSON.stringify({id:selectedApplication.value.id,decision:decision.value,reason:draft.value.reason||''});if(fingerprint!==attemptPayload){attemptPayload=fingerprint;attemptKey=`store-${Date.now()}-${Math.random().toString(36).slice(2)}`}try{await decideBusinessApplication(context.value.id,data.value.store.id,selectedApplication.value.id,{decision:decision.value,reason:draft.value.reason,version:selectedApplication.value.version,idempotencyKey:attemptKey});if(!active)return;decision.value='';uni.showToast({title:'审核已记录',icon:'success'});await load()}catch(reason){if(active)saveError.value=reason.message||'审核未提交，请检查后重试'}finally{if(active)saving.value=false}}
 function editCoach(coach){reset();editor.value='coach';draft.value={id:coach?.id||'',name:coach?.name||'',loginAccount:coach?.loginAccount||'',password:'',version:coach?.version}}
 function close(){if(!saving.value){draft.value.password='';editor.value=''}}
@@ -247,11 +288,12 @@ onUnmounted(()=>{active=false});defineExpose({refresh:()=>{if(!editor.value)retu
 .store-contract{margin-top:.75em;color:#d5dced;font-size:.82em;line-height:1.7}
 .store-contract>view{display:flex;justify-content:space-between;gap:.8em}
 .store-contract>view>text,.store-contract>text{display:block;min-width:0;overflow-wrap:anywhere}
-.store-coach{display:flex;align-items:center;gap:.6em}
+.store-coach{position:relative;display:flex;align-items:flex-start;gap:.6em;padding-right:4.2em}
 .store-coach-copy{min-width:0;flex:1}
 .store-coach-account{display:flex;flex-wrap:wrap;gap:.2em .9em;margin-top:.35em;color:#b7c0d8;font-size:.78em}
-.store-coach-actions{display:flex;flex:none;gap:.15em}
-.store-coach-actions image{width:1.35em;height:1.35em}
+.store-coach-actions{position:absolute;top:.75em;right:.7em;display:flex;flex:none;align-items:center;gap:.35em}
+.store-coach-actions button{display:flex;align-items:center;justify-content:center;width:1.7em;height:1.7em}
+.store-coach-actions image{width:1.25em;height:1.25em}
 .store-line{display:block;margin-top:.35em;color:#b7c0d8;font-size:.82em;line-height:1.6;overflow-wrap:anywhere}
 .store-text-link{margin-top:.55em;color:#57adff;font-size:.85em}
 .store-member-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45em;margin-top:.8em}
@@ -278,11 +320,20 @@ onUnmounted(()=>{active=false});defineExpose({refresh:()=>{if(!editor.value)retu
 .edit-row{display:flex;align-items:center;gap:.7em;min-height:3.1em;border-bottom:1px solid #46506f}
 .edit-row:last-child{border-bottom:0}
 .edit-row>text:first-child{flex:none;width:4.4em;color:#d5dced}
-.edit-row input,.edit-row textarea,.edit-picker{min-width:0;flex:1;color:#fff;font-size:1em}
+.edit-row input,.edit-row textarea,.edit-picker,.info-value{min-width:0;flex:1;color:#fff;font-size:1em}
 .edit-row textarea{padding:.7em 0;line-height:1.5}
+.info-value{text-align:right;line-height:1.45;overflow-wrap:anywhere}
+.info-value.muted{color:#8b93ad}
+.info-address{align-items:flex-start;padding:.85em 0}
+.info-address>text:first-child{line-height:1.45}
+.info-address .info-value{padding:0;text-align:right}
+.info-photo-row{align-items:flex-start;padding:.7em 0}
+.info-photo-row>text:first-child{padding-top:.15em}
 .edit-address,.edit-photo{align-items:flex-start;padding:.7em 0}
-.edit-photo>text{padding-top:.8em}
+.edit-photo>text:first-child{padding-top:.8em}
 .minimum{flex:none;color:#8b93ad;font-size:.78em}
+.info-photo{flex:none;margin-left:auto;width:4.6em;height:4.6em;border-radius:.45em;overflow:hidden;background:#2c3354}
+.info-photo image{width:100%;height:100%}
 .upload-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;width:4.6em;height:4.6em;border-radius:.45em;background:#2c3354;color:#c5cbe0;font-size:.75em;line-height:1.3}
 .upload-tile image{width:100%;height:100%;border-radius:.45em}
 .upload-tile .plus{font-size:1.6em;line-height:1}
@@ -291,8 +342,8 @@ onUnmounted(()=>{active=false});defineExpose({refresh:()=>{if(!editor.value)retu
 .confirm-dialog textarea{box-sizing:border-box;width:100%;min-height:4.5em;margin-top:.8em;padding:.6em;border-radius:.4em;background:#4a5170;color:#fff;text-align:left}
 .confirm-actions{display:grid;grid-template-columns:1fr 1fr;margin-top:1.1em}
 .confirm-actions button{color:#57adff;font-size:1em;line-height:2}
-.store-dock{position:fixed;z-index:40;left:0;right:0;bottom:0;padding:.7em .9em calc(.7em + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(39,44,71,0),#272c47 28%)}
-.store-dock button,.store-submit{width:100%;max-width:750px;margin:0 auto;border-radius:3em;background:linear-gradient(95deg,#0340ff,#009bff);color:#fff;font-size:1em;line-height:2.7}
+.store-dock{position:fixed;z-index:40;left:0;right:0;bottom:0;padding:.7em .9em calc(.7em + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(39,44,71,0),#272c47 28%);box-sizing:border-box}
+.store-page .store-dock .store-add,.store-page .store-submit{display:block;width:100%;max-width:750px;margin:0 auto;padding:0;border-radius:3em;background:linear-gradient(95deg,#0340ff,#009bff);color:#fff;font-size:1em;line-height:2.7}
 .store-sheet{background:#3a4164}
 .store-sheet-title{position:relative;margin-bottom:1em;text-align:center;font-size:1.05em;font-weight:700;line-height:1.8}
 .store-sheet-title button{position:absolute;right:0;top:0}

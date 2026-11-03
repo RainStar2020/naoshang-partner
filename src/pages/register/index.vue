@@ -38,7 +38,7 @@ async function submit() {
   if (loading.value) return
   loading.value = true
   try {
-    await registerAccount({ phone: phone.value, code: code.value, password: password.value, confirmation: confirmation.value, inviteCode: inviteCode.value.trim(), region: region.value, regionCodes: regionCodes.value, source: source.value })
+    await registerAccount({ phone: phone.value, code: code.value, password: password.value, confirmation: confirmation.value, inviteCode: inviteCode.value.trim(), region: region.value, regionNames: region.value, regionCodes: regionCodes.value, source: source.value })
     password.value = ''; confirmation.value = ''
     uni.switchTab({ url: '/pages/member/index' })
   } catch (e) { authToast(e) } finally { loading.value = false }

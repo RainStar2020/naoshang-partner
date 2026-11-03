@@ -10,7 +10,7 @@
         <scroll-view class="shop-products" scroll-y @scroll="activePriceId = ''">
           <view v-for="section in sections" :key="section.id" class="selection-section">
             <text class="shop-subtitle">{{ section.label }}</text>
-            <view v-for="product in section.items" :key="product.id" class="shop-list-item">
+            <view v-for="product in section.items" :key="product.id" class="shop-list-item" :class="{ 'price-open': activePriceId === product.id }">
               <view class="shop-product-line" @click="open(product)">
                 <image :src="product.coverUrl" mode="aspectFill" />
                 <view>
@@ -67,7 +67,8 @@ onShow(() => { activePriceId.value = ''; load() })
 .selection-catalog .shop-categories .selected { background: linear-gradient(90deg, #2d518c, #0084b8); color: #fff; border-right: 2px solid #00c8ff; }
 .selection-catalog .shop-products { display: block; flex: 1; width: 0; height: 100%; padding: 1em .85em 1.5em; min-width: 0; }
 .selection-section + .selection-section { margin-top: .35em; }
-.selection-catalog .shop-list-item { position: relative; padding: 0 0 1.1em; }
+.selection-catalog .shop-list-item { position: relative; z-index: 1; padding: 0 0 1.1em; overflow: visible; }
+.selection-catalog .shop-list-item.price-open { z-index: 30; }
 .selection-catalog .shop-subtitle { display: block; font-size: 1em; line-height: 1.5; color: #b6c5e0; margin-bottom: .85em; }
 .selection-catalog .shop-product-line { align-items: center; gap: .6em; margin: 0 0 .9em; }
 .selection-catalog .shop-product-line > image { width: 3.75em; height: 3.75em; border-radius: .6em; }

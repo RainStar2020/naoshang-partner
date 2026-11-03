@@ -70,11 +70,11 @@
     <view class="relation-detail-card">
      <view class="relation-detail-copy">
       <view><text>{{relationPerson?.name || '暂未提供'}}</text><text v-if="relationPerson?.partnerLabel" class="relation-partner-badge">{{relationPerson.partnerLabel}}</text></view>
-      <text v-if="relationOpen==='superior'">代理等级：{{agencyIdentity(relationPerson,'superior') || '—'}}</text>
-      <text v-else>合伙身份：{{relationPerson?.partnerLabel || '—'}}</text>
-      <text>{{relationOpen==='superior'?'代理地区':'所在地区'}}：{{relationPerson?.regionLabel || relationPerson?.scopeLabel || '—'}}</text>
+      <text v-if="relationOpen==='superior'">代理等级：{{agencyIdentity(relationPerson,'superior') || ''}}</text>
+      <text v-else>合伙身份：{{relationPerson?.partnerLabel || ''}}</text>
+      <text>{{relationOpen==='superior'?'代理地区':'所在地区'}}：{{relationPerson?.regionLabel || relationPerson?.scopeLabel || ''}}</text>
      </view>
-     <view class="relation-photo"><view class="relation-arch"><image v-if="relationPerson?.avatarUrl" :src="relationPerson.avatarUrl" mode="aspectFill"/><view v-else>{{(relationPerson?.name || '—').slice(0,1)}}</view></view><text>{{relationOpen==='superior'?'区域上级':'推荐人'}}</text></view>
+     <view class="relation-photo"><view class="relation-arch"><image v-if="relationPerson?.avatarUrl" :src="relationPerson.avatarUrl" mode="aspectFill"/><view v-else>{{(relationPerson?.name || '').slice(0,1)}}</view></view><text>{{relationOpen==='superior'?'区域上级':'推荐人'}}</text></view>
     </view>
    </view>
   </view>
@@ -105,7 +105,7 @@ const agencyTitle=computed(()=>isStore.value ? (context.value?.store?.name || co
 const identityLabel=computed(()=>({PROVINCE:'省代',CITY:'市代',COUNTY:'区县代理',STORE:'单店代理'})[context.value?.agencyType] || '区域代理')
 const storeShortcuts=[
   {id:'staff',label:'门店管理',icon:'/static/partner/icon-superior.png'},
-  {id:'members',label:'门店会员',icon:'/static/partner/icon-membership-dividend.png',view:'members'},
+  {id:'members',label:'门店用户',icon:'/static/partner/icon-membership-dividend.png',view:'members'},
   {id:'approvals',label:'门店审批',icon:'/static/partner/icon-costore-approval.png',view:'approvals'},
   {id:'info',label:'门店信息',icon:'/static/partner/icon-store-info.png',view:'info'},
   {id:'income',label:'代理收益',icon:'/static/partner/icon-agency-income.png'},
@@ -117,9 +117,9 @@ const typeMeta={PROVINCE:'省代',CITY:'市代',COUNTY:'区代',STORE:'单店'}
 const tierLabel={STORE:'区县',COUNTY:'区县',CITY:'市代',PROVINCE:'省代'}
 const contextGroups=computed(()=>['PROVINCE','CITY','COUNTY','STORE'].map(key=>({key,label:typeMeta[key],items:contexts.value.filter(item=>item.agencyType===key)})).filter(group=>group.items.length))
 const modules=computed(()=>businessModules.filter(item=>allContexts.value.some(row=>row.module===item.id)))
-function countLabel(...values){for(const value of values){if(value==null||value==='')continue;const n=typeof value==='number'?value:Number(value);if(Number.isFinite(n))return String(n);if(typeof value==='string'&&value.trim())return value.trim()}return '—'}
+function countLabel(...values){for(const value of values){if(value==null||value==='')continue;const n=typeof value==='number'?value:Number(value);if(Number.isFinite(n))return String(n);if(typeof value==='string'&&value.trim())return value.trim()}return '0'}
 const teamCountLabel=computed(()=>countLabel(overview.value?.teamCount,overview.value?.team?.summary?.memberCount))
-const incomeLabel=computed(()=>{const amount=overview.value?.agencyIncome??overview.value?.available;return Number.isFinite(Number(amount))?money(amount):'—'})
+const incomeLabel=computed(()=>{const amount=overview.value?.agencyIncome??overview.value?.available;return Number.isFinite(Number(amount))?money(amount):'0'})
 function relationOf(key){return overview.value?.[key]||null}
 function hasRelation(key){return !!String(relationOf(key)?.name||'').trim()}
 function contextTitle(item){return item.agencyType==='STORE'?(item.store?.name||item.regionLabel||item.label):(item.regionLabel||item.label)}

@@ -8,31 +8,36 @@
           <view v-if="!items.length" class="member-empty" aria-label="暂无会员">
             <image src="/static/common/empty-content.png" mode="aspectFit" />
           </view>
-          <view v-for="(member, index) in items" :key="member.id" class="member-card">
-            <text class="member-index">会员{{ index + 1 }}</text>
+          <view v-for="member in items" :key="member.id" class="member-card">
+            <button class="consultant-entry" aria-label="服务顾问" @click="openConsultant(member)"><text>服务</text><text>顾问</text></button>
             <view class="member-heading">
               <image class="member-avatar" :src="member.avatarUrl || '/static/partner/avatar-member.png'" mode="aspectFill" />
               <view class="member-information">
                 <view class="member-name">{{ member.name }}<text v-if="member.badge" class="member-badge">{{ member.badge }}</text></view>
                 <view class="member-meta">
                   <text>ID：{{ member.displayId || member.id }}</text>
-                  <text>年级：{{ member.gradeLabel }}</text>
-                  <text>性别：{{ member.genderLabel }}</text>
+                  <text>年级：{{ member.gradeLabel || '' }}</text>
+                  <text>性别：{{ member.genderLabel || '' }}</text>
                 </view>
               </view>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">陪练卡</text>
               <view class="benefit-body">
-                <view>训练：共<text class="hour">{{ member.training?.total ?? '—' }}</text>时，已消耗<text class="hour">{{ member.training?.used ?? '—' }}</text>时，剩余<text class="hour">{{ member.training?.remaining ?? '—' }}</text>时</view>
-                <view v-if="member.customHours">特制：共<text class="hour">{{ member.customHours.total ?? '—' }}</text>时，已消耗<text class="hour">{{ member.customHours.used ?? '—' }}</text>时，剩余<text class="hour">{{ member.customHours.remaining ?? '—' }}</text>时</view>
+                <view>训练：共<text class="hour">{{ hour(member.training?.total ?? member.trainingTotal) }}</text>时，已消耗<text class="hour">{{ hour(member.training?.used ?? member.trainingUsed) }}</text>时，剩余<text class="hour">{{ hour(member.training?.remaining ?? remain(member.training?.total ?? member.trainingTotal, member.training?.used ?? member.trainingUsed)) }}</text>时</view>
+                <view>特制：共<text class="hour">{{ hour(member.customHours?.total ?? member.specialTotal) }}</text>时，已消耗<text class="hour">{{ hour(member.customHours?.used ?? member.specialUsed) }}</text>时，剩余<text class="hour">{{ hour(member.customHours?.remaining ?? remain(member.customHours?.total ?? member.specialTotal, member.customHours?.used ?? member.specialUsed)) }}</text>时</view>
               </view>
               <button class="benefit-feedback" @click="records(member, 'training')">陪练反馈</button>
               <button class="benefit-edit" @click="openHours(member)">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">升学卡</text>
-              <view class="benefit-body">共<text class="hour">{{ admissionHours(member).total }}</text>时，已消耗<text class="hour">{{ admissionHours(member).used }}</text>时，剩余<text class="hour">{{ admissionHours(member).remaining }}</text>时</view>
+              <view class="benefit-body">
+                <view>训练：共<text class="hour">{{ hour(admissionHours(member).total) }}</text>时，已消耗<text class="hour">{{ hour(admissionHours(member).used) }}</text>时，剩余<text class="hour">{{ hour(admissionHours(member).remaining) }}</text>时</view>
+                <view v-if="member.admissionNote">{{ member.admissionNote }}</view>
+              </view>
+              <button class="benefit-feedback" @click="records(member, 'admission')">升学反馈</button>
+              <button class="benefit-edit" @click="openNote(member, 'admissionNote', '编辑升学卡')">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">智习室</text>
@@ -110,6 +115,17 @@
         <button class="submit" @click="successText = ''">确定</button>
       </view>
     </view>
+    <view v-if="consultant" class="member-mask center-mask" @click="closeConsultant">
+      <view class="consultant-dialog" role="dialog" aria-label="服务顾问" @click.stop>
+        <text class="consultant-name">{{ consultant.name || '' }}</text>
+        <button v-if="consultant.phone" class="consultant-phone" @click="callConsultant"><text class="phone-icon">☎</text><text>{{ consultant.phone }}</text></button>
+        <view class="consultant-qr">
+          <image v-if="consultant.qrUrl" :src="consultant.qrUrl" mode="aspectFit" />
+          <BusinessQrCode v-else-if="consultant.qrPayload" ref="consultantQr" :value="consultant.qrPayload" :show-save="false" />
+        </view>
+        <button class="consultant-save" :disabled="savingQr" @click="saveConsultant">{{ savingQr ? '保存中…' : '保存图片' }}</button>
+      </view>
+    </view>
     <view v-if="trainingEditor" class="member-mask" :class="{ 'center-mask': trainingEditor === 'note' }" @click="closeTrainingEditor">
       <view class="member-sheet" :class="{ 'note-dialog': trainingEditor === 'note' }" role="dialog" :aria-label="trainingEditor === 'note' ? noteTitle : '编辑陪练卡课时'" @click.stop>
         <template v-if="trainingEditor === 'note'">
@@ -159,14 +175,24 @@ import { getFamilyMembers, getMemberDictionaries, saveFamilyMember, previewMembe
 import { uploadProfileImage } from '../../services/profile'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
+import BusinessQrCode from '../../components/BusinessQrCode.vue'
 useAuth()
 const items = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref(''), dictionaries = ref({ grades: [], genders: [] }), editorOpen = ref(false), editingId = ref(''), draft = ref({}), avatarPreview = ref(''), editorError = ref(''), saving = ref(false), uploading = ref(false), activationMember = ref(null), activationCode = ref(''), activationPreview = ref(null), activationError = ref(''), activating = ref(false), successText = ref('')
 const trainingEditor = ref(''), trainingBusy = ref(false), trainingDraft = ref({}), trainingError = ref(''), noteTitle = ref(''), noteKey = ref(''), trainingMember = ref(null)
+const consultant = ref(null), consultantQr = ref(null), savingQr = ref(false)
+const hour = value => {
+  const number = Number(value)
+  return Number.isFinite(number) ? (Number.isInteger(number) ? number : Math.trunc(number)) : 0
+}
+const remain = (total, used) => {
+  const a = Number(total), b = Number(used)
+  if (!Number.isFinite(a) || !Number.isFinite(b) || String(total) === '' || String(used) === '') return 0
+  return Math.max(0, Math.trunc(a) - Math.trunc(b))
+}
 const admissionHours = member => {
   const value = member.admissionHours || member.schoolHours || member.promotionHours || {}
-  const total = value.total ?? member.admissionTotal ?? '—', used = value.used ?? member.admissionUsed ?? '—'
-  const numericTotal = Number(total), numericUsed = Number(used)
-  return { total, used, remaining: Number.isFinite(numericTotal) && Number.isFinite(numericUsed) ? Math.max(0, numericTotal - numericUsed) : (value.remaining ?? member.admissionRemaining ?? '—') }
+  const total = value.total ?? member.admissionTotal ?? 0, used = value.used ?? member.admissionUsed ?? 0
+  return { total, used, remaining: value.remaining ?? member.admissionRemaining ?? remain(total, used) }
 }
 const hourGroups = [{ id: 'training', label: '训练', total: 'trainingTotal', used: 'trainingUsed' }, { id: 'special', label: '特制', total: 'specialTotal', used: 'specialUsed' }]
 let cursor = null, epoch = 0, editorEpoch = 0, activationEpoch = 0, trainingEpoch = 0, active = true, activationKey = '', memberSaveKey = '', memberSavePayload = ''
@@ -240,7 +266,39 @@ async function activate() {
   } catch (reason) { if (active && current === activationEpoch) activationError.value = reason.message || '激活失败，请重试' }
   finally { if (active) activating.value = false }
 }
-function records(member, kind) { uni.navigateTo({ url: `/pages/members/records?memberId=${encodeURIComponent(member.id)}&kind=${kind}` }) }
+function records(member, kind) {
+  const context = member.contextId ? `&contextId=${encodeURIComponent(member.contextId)}` : ''
+  uni.navigateTo({ url: `/pages/members/records?memberId=${encodeURIComponent(member.id)}&kind=${kind}${context}` })
+}
+function consultantOf(member) {
+  const source = member?.consultant || member?.serviceConsultant || {}
+  const name = source.name || member?.consultantName || member?.advisorName || '李志远'
+  const phone = source.phone || member?.consultantPhone || member?.advisorPhone || '19919988991'
+  const qrUrl = source.qrUrl || member?.consultantQrUrl || ''
+  const qrPayload = source.qrPayload || member?.consultantQrPayload || qrUrl || phone || name
+  return { name, phone, qrUrl, qrPayload }
+}
+function openConsultant(member) { consultant.value = consultantOf(member) }
+function closeConsultant() { if (!savingQr.value) consultant.value = null }
+function callConsultant() { const phone = consultant.value?.phone; if (phone) uni.makePhoneCall({ phoneNumber: String(phone), fail: () => {} }) }
+async function saveConsultant() {
+  if (savingQr.value || !consultant.value) return
+  savingQr.value = true
+  try {
+    if (consultant.value.qrUrl) {
+      const response = await new Promise((resolve, reject) => uni.downloadFile({ url: consultant.value.qrUrl, success: resolve, fail: reject }))
+      if (response.statusCode && response.statusCode !== 200) throw new Error('图片下载失败')
+      await new Promise((resolve, reject) => uni.saveImageToPhotosAlbum({ filePath: response.tempFilePath, success: resolve, fail: reject }))
+      uni.showToast({ title: '已保存', icon: 'success' })
+    } else if (consultantQr.value?.save) {
+      consultantQr.value.save()
+    } else {
+      throw new Error('暂无可保存的二维码')
+    }
+  } catch (reason) {
+    if (active) uni.showToast({ title: reason?.errMsg?.includes('auth') ? '请开启相册权限后重试' : (reason.message || '保存失败'), icon: 'none' })
+  } finally { if (active) savingQr.value = false }
+}
 function remainHours(total, used) {
   const a = Number(total), b = Number(used)
   if (Number.isInteger(a) && Number.isInteger(b)) return Math.max(0, a - b)
@@ -258,13 +316,14 @@ function trainingPayload(member, patch) {
   return {
     version: member.trainingVersion ?? member.version,
     contextId: member.contextId,
-    trainingTotal: hourField(member.training?.total, member.trainingTotal, member.trainInfo?.trainingTotal),
-    trainingUsed: hourField(member.training?.used, member.trainingUsed, member.trainInfo?.trainingUsed),
-    specialTotal: hourField(member.customHours?.total, member.specialTotal, member.trainInfo?.specialTotal),
-    specialUsed: hourField(member.customHours?.used, member.specialUsed, member.trainInfo?.specialUsed),
-    selfStudyNote: member.selfStudyNote || '',
-    campNote: member.campNote || '',
-    remark: member.remark || '',
+    trainingTotal: hourField(member.training?.total, member.training?.trainingTotal, member.trainingTotal, member.trainInfo?.trainingTotal),
+    trainingUsed: hourField(member.training?.used, member.training?.trainingUsed, member.trainingUsed, member.trainInfo?.trainingUsed),
+    specialTotal: hourField(member.customHours?.total, member.training?.specialTotal, member.specialTotal, member.trainInfo?.specialTotal),
+    specialUsed: hourField(member.customHours?.used, member.training?.specialUsed, member.specialUsed, member.trainInfo?.specialUsed),
+    selfStudyNote: member.selfStudyNote || member.training?.selfStudyNote || '',
+    campNote: member.campNote || member.training?.campNote || '',
+    remark: member.remark || member.training?.remark || '',
+    admissionNote: member.admissionNote || member.training?.admissionNote || '',
     ...patch,
   }
 }
@@ -273,10 +332,10 @@ function openHours(member) {
   trainingMember.value = member
   trainingError.value = ''
   trainingDraft.value = {
-    trainingTotal: member.training?.total ?? member.trainingTotal ?? '',
-    trainingUsed: member.training?.used ?? member.trainingUsed ?? '',
-    specialTotal: member.customHours?.total ?? member.specialTotal ?? '',
-    specialUsed: member.customHours?.used ?? member.specialUsed ?? '',
+    trainingTotal: member.training?.total ?? member.training?.trainingTotal ?? member.trainingTotal ?? '',
+    trainingUsed: member.training?.used ?? member.training?.trainingUsed ?? member.trainingUsed ?? '',
+    specialTotal: member.customHours?.total ?? member.training?.specialTotal ?? member.specialTotal ?? '',
+    specialUsed: member.customHours?.used ?? member.training?.specialUsed ?? member.specialUsed ?? '',
   }
   trainingEditor.value = 'hours'
 }
@@ -347,9 +406,10 @@ onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch; ++tr
 .member-body { padding: .85em 1em calc(6.2em + env(safe-area-inset-bottom)); }
 .member-empty { display: flex; min-height: calc(100vh - 14em - env(safe-area-inset-bottom)); align-items: center; justify-content: center; }
 .member-empty image { width: 7.2em; height: 7.2em; opacity: .72; }
-.member-card { position: relative; margin-bottom: .85em; padding: 1em .9em .85em; border-radius: .85em; background: #353a59; }
-.member-index { position: absolute; top: 0; right: 0; padding: .12em .55em; border-radius: 0 .85em 0 .55em; background: #596381; font-size: .78em; }
-.member-heading { display: flex; align-items: center; gap: .7em; margin-bottom: .8em; min-width: 0; }
+.member-card { position: relative; margin-bottom: .85em; padding: 1em .9em .85em; overflow: hidden; border-radius: .85em; background: #353a59; }
+.consultant-entry { position: absolute; top: .9em; right: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12em; min-width: 2.6em; min-height: 3.2em; margin: 0; padding: .4em .35em; border-radius: .55em 0 0 .55em; background: linear-gradient(180deg, #1aa7ff, #245bff); color: #fff; font-size: .78em; line-height: 1.15; writing-mode: horizontal-tb; }
+.consultant-entry text { display: block; white-space: nowrap; writing-mode: horizontal-tb; }
+.member-heading { display: flex; align-items: center; gap: .7em; margin-bottom: .8em; min-width: 0; padding-right: 2.6em; }
 .member-avatar { width: 3.2em; height: 3.2em; border-radius: 50%; flex-shrink: 0; background: #375682; }
 .member-information { flex: 1; min-width: 0; }
 .member-name { display: flex; align-items: center; flex-wrap: wrap; gap: .35em; font-weight: 700; line-height: 1.4; }
@@ -412,5 +472,14 @@ onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch; ++tr
 .hour-input input { min-width: 0; flex: 1; height: 100%; color: #fff; font-size: .85em; }
 .hour-input > text { flex: none; color: #c5cbe0; font-size: .75em; }
 .hour-input.locked { opacity: .8; }
+.consultant-dialog { width: min(18.5em, calc(100% - 2.4em)); padding: 1.35em 1.1em 1.15em; border-radius: 1.15em; background: #1d2643; text-align: center; }
+.consultant-name { display: block; margin-bottom: .7em; color: #fff; font-size: 1.15em; font-weight: 700; }
+.consultant-phone { display: inline-flex; align-items: center; justify-content: center; gap: .35em; margin: 0 auto .95em; padding: .35em 1.1em; border-radius: 2em; background: linear-gradient(90deg, #00c6ff, #0072ff); color: #fff; font-size: .92em; line-height: 1.4; }
+.phone-icon { font-size: .95em; transform: rotate(90deg); }
+.consultant-qr { width: 11.5em; height: 11.5em; margin: 0 auto .95em; padding: .55em; box-sizing: border-box; border-radius: .35em; background: #fff; }
+.consultant-qr image, .consultant-qr :deep(.qr-wrap) { width: 100%; height: 100%; margin: 0; }
+.consultant-qr :deep(.qr-code) { width: 100%; height: 100%; padding: 0; aspect-ratio: auto; }
+.consultant-qr :deep(.qr-canvas) { position: fixed; left: -9999px; }
+.consultant-save { width: 100%; margin: 0; border-radius: 2em; background: linear-gradient(90deg, #00c6ff, #0072ff); color: #fff; line-height: 2.55; }
 @media (max-width: 340px) { .hour-grid { grid-template-columns: 1fr; } }
 </style>

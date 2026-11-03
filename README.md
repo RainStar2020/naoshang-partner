@@ -70,7 +70,13 @@ Vue 3 + Vite + uni-app，面向 H5 与微信小程序。基于 DCloud 官方 vit
 `src/components/GradientInput.vue` 将输入框背景从左侧半透明渐变为右侧全透明，不影响输入文字和右侧操作。支持 `v-model`、`icon`、`type`、`password`、`placeholder`、`maxlength`、`disabled`、`confirmType` 属性，以及 `focus`、`blur`、`confirm` 事件。`suffix` 插槽可放忘记密码、发送验证码等操作。
 
 ```vue
-<GradientInput v-model="phone" icon="/static/login/icon-phone.png" type="number" :maxlength="11" placeholder="请输入手机号" />
+<GradientInput
+  v-model="phone"
+  icon="/static/login/icon-phone.png"
+  type="number"
+  :maxlength="11"
+  placeholder="请输入手机号"
+/>
 <GradientInput v-model="code" placeholder="请输入验证码">
   <template #suffix><text @click="sendCode">获取验证码</text></template>
 </GradientInput>

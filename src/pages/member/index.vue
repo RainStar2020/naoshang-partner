@@ -15,12 +15,12 @@
               <view class="identity-name-line"><text class="identity-name">{{ selected.name }}</text><text class="identity-badge">{{ selected.badge }}</text></view>
               <view class="identity-meta-line">
                 <text class="identity-meta">ID：{{ selected.displayId }}</text>
-                <text v-if="selected.grade" class="identity-meta">年级：{{ selected.grade }}</text>
+                <text v-if="selected.grade" class="identity-meta">年级：{{ homeGrade(selected.grade) }}</text>
               </view>
             </view>
           </view>
           <view class="identity-actions">
-            <button class="switch-button" @click="openFans"><image class="switch-image" :src="membershipActive ? '/static/partner/icon-superior.png' : '/static/common/icon-superior-muted.png'" mode="aspectFit" /><text>粉丝会员</text></button>
+            <button class="switch-button" @click="openMembership"><image class="switch-image" :src="membershipActive ? '/static/partner/icon-superior.png' : '/static/common/icon-superior-muted.png'" mode="aspectFit" /><text>粉丝会员</text></button>
             <button class="switch-button" @click="pickerOpen = true"><image class="switch-image" src="/static/common/icon-switch.png" mode="aspectFit" /><text>切换身份</text></button>
           </view>
         </view>
@@ -29,15 +29,15 @@
       <view class="journey" aria-label="会员成长等级">
         <button class="announcement-link" aria-label="公告榜" @click="openAnnouncements"><image src="/static/member/icon-announcement.png" mode="aspectFit"/><text>公告榜</text></button>
         <view v-for="tier in [3, 2, 1]" :key="tier" class="tier-band" :class="`tier-${tier}`">
-          <button class="tier-marker" :aria-label="`查看${['一阶','二阶','三阶'][tier - 1]}会员课程`" @click="openTier(tier)"><image :src="`/static/member/bg-tier-${tier}.png`" mode="scaleToFill"/><text>{{ ['一阶','二阶','三阶'][tier - 1] }}</text><text>{{ ['菁英会员','行能会员','羿烁会员'][tier - 1] }}</text></button>
+          <button class="tier-marker" :aria-label="`查看${['一阶','二阶','三阶'][tier - 1]}会员课程`" @click="openMembership"><image :src="`/static/member/bg-tier-${tier}.png`" mode="scaleToFill"/><text>{{ ['一阶','二阶','三阶'][tier - 1] }}</text><text>{{ ['菁英会员','行能会员','羿烁会员'][tier - 1] }}</text></button>
           <view v-for="level in reversedLevels.filter(item => item.tier === tier)" :key="level.id" class="level-row" :class="`position-${level.number}`">
             <button role="button" class="level-node" :class="{ unlocked: level.unlocked }" :aria-label="`L${level.number} ${level.name}，${level.unlocked ? '已解锁' : '未解锁'}`" @click="openLevel(level)">
               <image :src="`/static/common/icon-lv${level.tier}${level.unlocked ? '-active' : ''}.png`" mode="scaleToFill"/>
               <text class="level-number">L{{level.number}}</text><text class="level-name">{{level.name}}</text>
             </button>
             <view v-if="level.number === 1" class="journey-extra">
-              <button class="tier-chip" @click="openTier(1)"><image :src="level.unlocked ? '/static/member/bg-coding-tag-active.png' : '/static/member/bg-coding-tag.png'" mode="scaleToFill" /><text>编码</text></button>
-              <button class="tier-chip" aria-label="查看菁英会员课程" @click="openTier(1)"><image :src="level.unlocked ? '/static/member/bg-coding-tag-active.png' : '/static/member/bg-coding-tag.png'" mode="scaleToFill" /><text>菁英会员</text></button>
+              <button class="tier-chip" @click="openMembership"><image :src="level.unlocked ? '/static/member/bg-coding-tag-active.png' : '/static/member/bg-coding-tag.png'" mode="scaleToFill" /><text>编码</text></button>
+              <button class="tier-chip" aria-label="查看菁英会员课程" @click="openMembership"><image :src="level.unlocked ? '/static/member/bg-coding-tag-active.png' : '/static/member/bg-coding-tag.png'" mode="scaleToFill" /><text>菁英会员</text></button>
             </view>
           </view>
         </view>
@@ -73,6 +73,11 @@ const identities = ref([]), selected = ref(null), pickerOpen = ref(false)
 const status = ref('loading'), error = ref('')
 const reversedLevels = computed(() => [...levels.value].sort((a, b) => b.number - a.number))
 const membershipActive = computed(() => levels.value.some(level => level.unlocked))
+// Home identity card only: 幼儿园小班/中班/大班 → 小班/中班/大班
+function homeGrade(grade){
+  const text=String(grade||'').trim()
+  return text.replace(/^幼儿园(?=小班|中班|大班)/,'')
+}
 let loadEpoch = 0, levelEpoch = 0
 async function load() {
   if (!getSession()) return
@@ -99,15 +104,15 @@ function switchIdentity(id) {
   catch (reason) { uni.showToast({ title: reason.message, icon: 'none' }) }
 }
 function openLevel(level) {
-  if (!selected.value || !level?.id) return
+  if (!selected.value || selected.value.mode !== 'child' || !level?.id) return
   uni.navigateTo({ url: `/pages/learning/level-detail?levelId=${encodeURIComponent(level.id)}&contextId=${encodeURIComponent(selected.value.id)}&tab=catalog` })
 }
-function openTier(tier) {
-  const level = [...levels.value].filter(item => item.tier === tier).sort((a, b) => a.number - b.number)[0]
+// Fan / tier membership entry buttons share one destination and the same detail payload.
+function openMembership() {
+  const level = levels.value.find(item => item.number === 1) || levels.value[0]
   if (level) openLevel(level)
 }
 function openAnnouncements() { uni.navigateTo({ url: '/pages/learning/announcements' }) }
-function openFans() { openTier(1) }
 onShow(load)
 onUnload(() => { ++loadEpoch; ++levelEpoch })
 </script>

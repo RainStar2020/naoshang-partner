@@ -8,7 +8,7 @@
           <view class="feedback-card summary-card">
             <view class="summary-title">{{ data.title }}</view>
             <view class="summary-meta">
-              <text>健脑官：{{ data.coachName || '—' }}</text>
+              <text>健脑官：{{ data.coachName || '' }}</text>
               <text>{{ businessDateLabel(data.createdAt) }}</text>
             </view>
           </view>

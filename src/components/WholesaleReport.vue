@@ -51,7 +51,7 @@
                     wholesaleLevelDisplay(report.superior.tier || report.superior.levelLabel || report.superior.tierLabel) || "合伙人"
                   }}</text></view
                 ><view class="wh-muted"
-                  >联系方式：{{ report.superior.phone || "—" }}
+                  >联系方式：{{ report.superior.phone || "" }}
                   <button
                     v-if="report.superior.phone"
                     class="wh-copy"
@@ -142,7 +142,7 @@
             <view class="wh-upgrade-before">
               <text class="wh-upgrade-tab wh-upgrade-tab-before">升级前</text>
               <text class="wh-upgrade-title wh-upgrade-title-before">{{
-                report.promotion.beforeName
+                wholesaleLevelDisplay(report.promotion.beforeName)
               }}</text>
               <view class="wh-upgrade-dashed wh-upgrade-dashed-before" />
             </view>
@@ -180,16 +180,9 @@
               </svg>
               <view class="wh-upgrade-after-content">
                 <text class="wh-upgrade-tab wh-upgrade-tab-after">升级后</text>
-                <text class="wh-upgrade-title wh-upgrade-title-after"
-                  ><text class="wh-upgrade-title-emph">{{
-                    rankShort(report.promotion.afterName)
-                  }}</text
-                  ><text
-                    v-if="rankHasPartner(report.promotion.afterName)"
-                    class="wh-upgrade-title-suffix"
-                    >合伙人</text
-                  ></text
-                >
+                <text class="wh-upgrade-title wh-upgrade-title-after">{{
+                  wholesaleLevelDisplay(report.promotion.afterName)
+                }}</text>
                 <view class="wh-upgrade-dashed wh-upgrade-dashed-after" />
               </view>
             </view>
@@ -245,17 +238,17 @@
           >
           <template v-if="promotionTab === 'difference'"
             ><view class="wh-promotion-note"
-              >您当前是{{ report.promotion.beforeName }}，可通过补差价升级，{{
-                rankShort(report.promotion.afterName)
+              >您当前是{{ wholesaleLevelDisplay(report.promotion.beforeName) }}，可通过补差价升级，{{
+                wholesaleLevelDisplay(report.promotion.afterName)
               }}标准价{{ yuan(upgradeQuote.standard) }}，需补差价{{
                 yuan(upgradeQuote.difference)
               }}</view
             ><view class="wh-price-lines"
               ><view
-                ><text>已缴纳合伙人费用</text
+                ><text>已缴纳批发商费用</text
                 ><text>{{ money(upgradeQuote.paid) }}积分</text></view
               ><view
-                ><text>{{ rankShort(report.promotion.afterName) }}标准价</text
+                ><text>{{ wholesaleLevelDisplay(report.promotion.afterName) }}标准价</text
                 ><text>{{ money(upgradeQuote.standard) }}积分</text></view
               ><view
                 ><text>升级需补差价</text
@@ -269,7 +262,7 @@
             }}</view
             ><view class="wh-promotion-progress"
               ><view
-                ><text>VIP推广进度</text
+                ><text>小批发商推广进度</text
                 ><view
                   >{{ report.promotion.progress }}/{{
                     report.promotion.target
@@ -303,10 +296,10 @@
                 ><view>{{ report.summary.memberCount ?? items.length }}</view></view
               ><view
                 ><text>直属成员</text
-                ><view>{{ report.summary.directMemberCount ?? "—" }}</view></view
+                ><view>{{ report.summary.directMemberCount ?? 0 }}</view></view
               ><view
                 ><text>团队VIP</text
-                ><view>{{ report.summary.teamVipCount ?? "—" }}</view></view
+                ><view>{{ report.summary.teamVipCount ?? 0 }}</view></view
               ></view
             ></view
           >
@@ -336,12 +329,12 @@
                     {{ person.displayId }}</text
                   ><text
                     ><text class="wh-team-label">手机号</text>
-                    {{ person.phone || "—" }}</text
+                    {{ person.phone || "" }}</text
                   ><text v-if="person.teamVipCount != null"
                     ><text class="wh-team-label">团队VIP</text>
                     {{ person.teamVipCount }}</text
                   ></view
-                ><view v-if="person.storeId" class="wh-team-store"
+                ><view v-if="person.storeName" class="wh-team-store"
                   ><text class="wh-team-label">门店</text>
                   {{ person.storeName }}</view
                 ></view
@@ -417,10 +410,10 @@
             ><view class="wh-split"
               ><view
                 ><text>剩余标准VIP名额</text
-                ><view>{{ report.standardRemaining ?? "—" }}个</view></view
+                ><view>{{ report.standardRemaining ?? 0 }}个</view></view
               ><view
                 ><text>剩余活动VIP名额</text
-                ><view>{{ report.activityRemaining ?? "—" }}个</view></view
+                ><view>{{ report.activityRemaining ?? 0 }}个</view></view
               ></view
             ><view class="wh-row wh-stock-buttons"
               ><button
@@ -475,8 +468,8 @@
         <template v-else-if="toolId === 'experience'">
           <view class="wh-experience-summary wh-muted"
             >累计业务推广{{
-              report.promotionExperience ?? "—"
-            }}经验值，购买产品{{ report.productExperience ?? "—" }}经验值</view
+              report.promotionExperience ?? 0
+            }}经验值，购买产品{{ report.productExperience ?? 0 }}经验值</view
           ><view class="wh-tabs"
             ><button
               :class="{ active: filter !== 'products' }"
@@ -503,7 +496,7 @@
               divided
               :items="[
                 { label: '初始等级', value: item.initialLevel },
-                { label: '消耗VIP名额', value: `${item.quotaUsed ?? '—'}个` },
+                { label: '消耗VIP名额', value: `${item.quotaUsed ?? 0}个` },
               ]"
           /></WholesaleRecordCard>
         </template>
@@ -577,7 +570,7 @@
             ><view v-for="metric in incomeChannels" :key="metric.label"
               ><text>{{ metric.label }}</text
               ><view>{{
-                metric.value == null ? "—" : money(metric.value)
+                money(metric.value)
               }}</view></view
             ></view
           >
@@ -630,7 +623,7 @@
   import { computed, ref, watch, onUnmounted } from "vue";
   import { config } from "../config";
   import { businessPreview } from "../features/business/catalog";
-  import { partnerUpgradeQuote, wholesaleLevelDisplay } from "../features/business/account-rank";
+  import { partnerUpgradeQuote, wholesaleLevelDisplay, rewriteWholesaleCopy } from "../features/business/account-rank";
   import { money, percent } from "../features/exclusive/format";
   import { businessDateLabel as date } from "../features/business/format";
   import {
@@ -662,7 +655,7 @@
     isMock = config.useMock;
   const titles = {
       superior: "运营商信息",
-      promotion: "升级合伙人",
+      promotion: "升级批发商",
       share: "分享码",
     },
     month = ref(new Date().toISOString().slice(0, 7));
@@ -706,19 +699,15 @@
     }
   });
   const format = (value, kind) =>
-    value == null
-      ? "—"
-      : kind === "money"
-        ? money(value)
-        : kind === "percent"
-          ? percent(value)
-          : value;
+    kind === "money"
+      ? money(value)
+      : kind === "percent"
+        ? percent(value)
+        : value ?? 0;
   const show = (value, kind) =>
-    value == null
-      ? "—"
-      : kind === "money"
-        ? `${money(value)}积分`
-        : format(value, kind);
+    kind === "money"
+      ? `${money(value)}积分`
+      : format(value, kind);
   const monthNames = [
     "",
     "一",
@@ -740,26 +729,26 @@
   }
   function batchStats(item) {
     return [
-      { label: "有效期", value: item.validityLabel || "—" },
-      { label: "已使用", value: item.used == null ? "—" : `${item.used}个` },
+      { label: "有效期", value: item.validityLabel || "" },
+      { label: "已使用", value: `${item.used ?? 0}个` },
       {
         label: "当前剩余",
-        value: item.remaining == null ? "—" : `${item.remaining}个`,
+        value: `${item.remaining ?? 0}个`,
       },
     ];
   }
   function transferFields(item) {
     const fields = [
       `时间：${date(item.createdAt)}`,
-      `下级ID：${item.targetDisplayId || "—"}`,
-      `下级等级：${item.targetLevel || "—"}`,
+      `下级ID：${item.targetDisplayId || ""}`,
+      `下级等级：${item.targetLevel || ""}`,
     ];
     if (item.peerAward != null)
       fields.push(`孵化补贴：${money(item.peerAward)}积分`);
     return fields;
   }
   function signedAmount(value) {
-    if (value == null) return "—";
+    if (value == null) return "+0";
     return `${value > 0 ? "+" : ""}${money(value)}`;
   }
   const incomeMetric = (label) =>
@@ -812,9 +801,9 @@
       item.recommendedBy || item.party || item.beneficiary || item.buyer;
     if (member)
       return member.phone
-        ? `${member.name || "—"}/${member.phone}`
-        : member.name || "—";
-    return item.partyLabel || item.sourceName || item.beneficiaryName || "—";
+        ? `${member.name || ""}/${member.phone}`
+        : member.name || "";
+    return item.partyLabel || item.sourceName || item.beneficiaryName || "";
   };
   const incomeTime = (item) =>
     item.createdAt
@@ -823,7 +812,7 @@
         ? date(item.occurredAt)
         : item.updatedAt
           ? date(item.updatedAt)
-          : "—";
+          : "";
   function openIncome(item) {
     if (!item.layoutOnly) incomeDetail(item.id);
   }
@@ -854,13 +843,11 @@
   function copy(value) {
     if (value) uni.setClipboardData({ data: value });
   }
-  const rankShort = (name) => String(name || "").replace(/合伙人$/, "");
   const teamBadge = (person) =>
     wholesaleLevelDisplay(
       person?.tier || person?.tagLabel || person?.levelLabel || person?.tierLabel,
-    ) || "—";
-  const rankHasPartner = (name) => /合伙人$/.test(String(name || ""));
-  const yuan = (value) => (Number.isFinite(Number(value)) ? money(value).replace(/\.00$/, "") : "—");
+    ) || "";
+  const yuan = (value) => (Number.isFinite(Number(value)) ? money(value).replace(/\.00$/, "") : "0");
   const upgradeQuote = computed(() =>
     partnerUpgradeQuote(report.value?.promotion || {}),
   );
@@ -869,24 +856,26 @@
     const task = report.value?.task;
     if (!promotion) return "";
     if (task?.text || promotion.taskDescription)
-      return task?.text || promotion.taskDescription;
-    if (task?.deadlineText) return task.deadlineText;
+      return rewriteWholesaleCopy(task?.text || promotion.taskDescription);
+    if (task?.deadlineText) return rewriteWholesaleCopy(task.deadlineText);
     const opened = date(promotion.startedAt || promotion.openedAt).slice(0, 10);
+    const beforeLabel = wholesaleLevelDisplay(promotion.beforeName);
+    const afterLabel = wholesaleLevelDisplay(promotion.afterName);
     const vip =
       promotion.vipEquivalent ??
-      ({ VIP合伙人: 3, 天使合伙人: 9, 私董合伙人: 18 })[promotion.beforeName] ??
+      ({ VIP合伙人: 3, 天使合伙人: 9, 私董合伙人: 18, 小批发商: 3, 中批发商: 9, 大批发商: 18 })[promotion.beforeName] ??
+      ({ VIP合伙人: 3, 天使合伙人: 9, 私董合伙人: 18, 小批发商: 3, 中批发商: 9, 大批发商: 18 })[beforeLabel] ??
       3;
     const until = Number(promotion.validUntil);
     const days = Number.isFinite(until)
       ? Math.max(0, Math.ceil((until - Date.now()) / 86400000))
-      : promotion.daysLeft ?? "—";
-    const short = rankShort(promotion.beforeName);
-    // VIP→天使: only same-level count. 天使/私董: also allow VIP equivalent.
+      : promotion.daysLeft ?? 0;
+    // 小批发商→中批发商: only same-level count. Higher ranks also allow 小批发商 equivalent.
     const requirement =
-      promotion.beforeName === "VIP合伙人"
-        ? `直推3位VIP`
-        : `直推3位${short}或${vip}个VIP`;
-    return `任务有效期1年，自您${opened || "—"}开通合伙人起，1年内${requirement}即可免费晋升${promotion.afterName}，任务将于${days}天后截止`;
+      beforeLabel === "小批发商" || promotion.beforeName === "VIP合伙人"
+        ? `直推3位小批发商`
+        : `直推3位${beforeLabel}或${vip}个小批发商`;
+    return `任务有效期1年，自您${opened || ""}开通批发商起，1年内${requirement}即可免费晋升${afterLabel}，任务将于${days}天后截止`;
   });
   const promotionExpired = computed(() => {
     const until = Number(report.value?.promotion?.validUntil);

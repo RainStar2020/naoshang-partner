@@ -12,14 +12,14 @@
             <text>本月总裁补贴</text>
             <view class="award-total">{{ money(data.summary?.amount) }}积分</view>
             <view class="award-metrics">
-              <view><text>本人身份</text><text>{{ data.summary?.identityLabel || '—' }}</text></view>
-              <view><text>本月VIP数量</text><text>{{ data.summary?.vipCount ?? '—' }}</text></view>
+              <view><text>本人身份</text><text>{{ data.summary?.identityLabel || '' }}</text></view>
+              <view><text>本月VIP数量</text><text>{{ data.summary?.vipCount ?? 0 }}</text></view>
               <view><text>分红比例</text><text>{{ percent(data.summary?.rateBps) }}</text></view>
             </view>
           </view>
           <view class="report-table">
             <view class="table-row table-heading"><text>月份</text><text>VIP数量</text><text>分红比例</text><text>本月总裁补贴</text></view>
-            <view v-for="row in rows" :key="row.id" class="table-row"><text>{{ row.month }}</text><text>{{ row.vipCount ?? '—' }}</text><text>{{ percent(row.rateBps) }}</text><text>{{ money(row.amount) }}积分</text></view>
+            <view v-for="row in rows" :key="row.id" class="table-row"><text>{{ row.month }}</text><text>{{ row.vipCount ?? 0 }}</text><text>{{ percent(row.rateBps) }}</text><text>{{ money(row.amount) }}积分</text></view>
           </view>
           <EmptyState v-if="!rows.length" text="暂无总裁补贴记录" />
           <button v-if="hasMore" class="secondary" :disabled="loadingMore" @click="more">{{ loadingMore ? '加载中…' : '加载更多' }}</button>

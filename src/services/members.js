@@ -35,25 +35,31 @@ function hourBlock(total, used, remaining) {
 export function normalizeFamilyMember(member) {
   if (!member || typeof member !== 'object') return member
   const info = member.trainInfo && typeof member.trainInfo === 'object' ? member.trainInfo : null
+  const pack = member.training && typeof member.training === 'object' ? member.training : null
   const training = hourBlock(
-    finiteNumber(info?.trainingTotal ?? member.training?.total ?? member.trainingTotal),
-    finiteNumber(info?.trainingUsed ?? member.training?.used ?? member.trainingUsed),
-    finiteNumber(member.training?.remaining),
-  ) || member.training || null
+    finiteNumber(info?.trainingTotal ?? pack?.trainingTotal ?? pack?.total ?? member.trainingTotal),
+    finiteNumber(info?.trainingUsed ?? pack?.trainingUsed ?? pack?.used ?? member.trainingUsed),
+    finiteNumber(pack?.trainingRemaining ?? pack?.remaining ?? member.trainingRemaining),
+  ) || { total: 0, used: 0, remaining: 0 }
   const customHours = hourBlock(
-    finiteNumber(info?.specialTotal ?? member.customHours?.total ?? member.specialTotal),
-    finiteNumber(info?.specialUsed ?? member.customHours?.used ?? member.specialUsed),
-    finiteNumber(member.customHours?.remaining),
-  ) || member.customHours || null
+    finiteNumber(info?.specialTotal ?? pack?.specialTotal ?? member.customHours?.total ?? member.specialTotal),
+    finiteNumber(info?.specialUsed ?? pack?.specialUsed ?? member.customHours?.used ?? member.specialUsed),
+    finiteNumber(pack?.specialRemaining ?? member.customHours?.remaining ?? member.specialRemaining),
+  ) || { total: 0, used: 0, remaining: 0 }
   return {
     ...member,
     badge: member.badge || member.memberLevelName || '',
     training,
     customHours,
-    selfStudyNote: member.selfStudyNote ?? info?.selfStudyNote ?? '',
-    campNote: member.campNote ?? info?.campNote ?? '',
-    remark: member.remark ?? info?.remark ?? '',
-    trainingVersion: info?.version ?? member.trainingVersion ?? member.version,
+    trainingTotal: training.total,
+    trainingUsed: training.used,
+    specialTotal: customHours.total,
+    specialUsed: customHours.used,
+    selfStudyNote: member.selfStudyNote ?? pack?.selfStudyNote ?? info?.selfStudyNote ?? '',
+    campNote: member.campNote ?? pack?.campNote ?? info?.campNote ?? '',
+    remark: member.remark ?? pack?.remark ?? info?.remark ?? '',
+    admissionNote: member.admissionNote ?? pack?.admissionNote ?? info?.admissionNote ?? '',
+    trainingVersion: info?.version ?? pack?.version ?? member.trainingVersion ?? member.version,
   }
 }
 export function getMemberDictionaries() {
@@ -79,6 +85,7 @@ export function updateMemberTraining(id, draft) {
       selfStudyNote: draft.selfStudyNote || '',
       campNote: draft.campNote || '',
       remark: draft.remark || '',
+      admissionNote: draft.admissionNote || '',
     }
     if (config.useMock) return mockUpdateTraining(user, id, payload)
     return request(`/members/${encodeURIComponent(id)}/training`, { method: 'PATCH', data: { ...payload, contextId: draft.contextId } })
@@ -130,7 +137,7 @@ export function activateFamilyMember(memberId, preview, idempotencyKey) {
   })
 }
 export function getMemberRecords(memberId, kind, cursor = null) {
-  if (!['orders','training','self-study','camp'].includes(kind)) throw new Error('记录类型无效')
+  if (!['orders','training','admission','self-study','camp'].includes(kind)) throw new Error('记录类型无效')
   return scoped(async user => {
     if (config.useMock) { ownedMember(user,memberId); return kind==='orders'?mockOrders(user,{memberId}):mockFeedbackList(user,memberId,kind) }
     return listResult(await request(kind === 'orders' ? `/members/${encodeURIComponent(memberId)}/orders` : `/members/${encodeURIComponent(memberId)}/training-feedback`, { data: { kind: kind === 'orders' ? undefined : kind, cursor, pageSize: 20 } }))

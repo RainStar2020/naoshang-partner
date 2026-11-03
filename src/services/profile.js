@@ -5,7 +5,16 @@ import { config } from '../config'
 import { request, getSession } from './api'
 import { mockProfileState, mockBoundStore, copy } from './mock/profile'
 import { normalizeContent } from '../features/content/rich-content'
+import { ensureRegionNames } from '../features/region'
 const fail = message => { throw new Error(message) }
+function normalizeProfile(profile) {
+  const regionCodes = Array.isArray(profile?.regionCodes) ? profile.regionCodes : []
+  return {
+    ...profile,
+    regionCodes,
+    regionNames: ensureRegionNames(regionCodes, profile?.regionNames),
+  }
+}
 function pageResult(result, label) {
   if (result == null) return { items: [], hasMore: false, nextCursor: null }
   if (!Array.isArray(result.items)) {
@@ -27,21 +36,22 @@ export function getMyProfile() {
   return scoped(async user => {
     const result = config.useMock ? { profile: copy(mockProfileState(user).profile), store: mockBoundStore(), orderCounts: { pendingPayment: mockOrders(user,{filter:'pending-payment'}).items.length, waitingShipment: mockOrders(user,{filter:'waiting-shipment'}).items.length, waitingReceipt: mockOrders(user,{filter:'waiting-receipt'}).items.length, completed: mockOrders(user,{filter:'completed'}).items.length }, support: { phone: '', description: '' } } : await request('/me')
     if (result?.profile?.id !== user.id) fail('个人资料格式异常')
-    return result
+    return { ...result, profile: normalizeProfile(result.profile) }
   })
 }
 export function updateMyProfile(payload) {
   return scoped(async user => {
     const nickname = String(payload.nickname || '').trim()
     if (!nickname || Array.from(nickname).length > 24) fail('请输入1–24字昵称')
-    const codes = payload.regionCodes || [], names = payload.regionNames || []
+    const codes = payload.regionCodes || [], names = ensureRegionNames(codes, payload.regionNames)
     if (codes.length && (codes.length !== 3 || names.length !== 3)) fail('请选择完整地区')
     if (!config.useMock) {
-      const result = await request('/me', { method: 'PATCH', data: { nickname, regionCodes: codes.length ? codes : undefined, avatarAssetId: payload.avatarAssetId || undefined, version: payload.version } })
+      const result = await request('/me', { method: 'PATCH', data: { nickname, regionCodes: codes.length ? codes : undefined, regionNames: codes.length ? names : undefined, avatarAssetId: payload.avatarAssetId || undefined, version: payload.version } })
       if (getSession()?.user?.id !== user.id) fail('登录账号已变化，请重新加载')
       if (result?.profile?.id !== user.id || !result.profile.nickname) fail('个人资料格式异常')
-      const session = getSession(); uni.setStorageSync('naoshang-session', { ...session, user: { ...session.user, name: result.profile.nickname, region: result.profile.regionNames || [] } })
-      return result
+      const profile = normalizeProfile(result.profile)
+      const session = getSession(); uni.setStorageSync('naoshang-session', { ...session, user: { ...session.user, name: profile.nickname, region: profile.regionNames || [] } })
+      return { ...result, profile }
     }
     const state = mockProfileState(user), current = state.profile
     if (payload.version !== current.version) fail('资料已更新，请重新加载后再保存')
@@ -129,7 +139,7 @@ export function getSupportConfig() {
 }
 export function uploadProfileImage(file, purpose) {
   return scoped(async user => {
-    if (!['avatar','feedback','member-avatar','storefront'].includes(purpose) || !file?.path || !Number.isFinite(file.size) || file.size <= 0) fail('请选择有效图片')
+    if (!['avatar','feedback','member-avatar','storefront','consultant-qr'].includes(purpose) || !file?.path || !Number.isFinite(file.size) || file.size <= 0) fail('请选择有效图片')
     if (config.useMock) {
       const state = mockProfileState(user), assetId = `mock-${purpose}-${state.nextAsset++}`
       state.assets.set(assetId, { purpose, previewUrl: file.path })

@@ -1,7 +1,9 @@
 <template>
   <view class="partner-tool-page feature-page">
     <BusinessPageHeader v-if="title" :title="title" fallback="/pages/partners/index" />
-    <BusinessWithdrawals v-if="kind === 'withdrawals'" ref="page" :page-query="query" />
+    <PartnerPointsExchange v-if="kind === 'withdraw'" ref="page" :page-query="query" />
+    <PartnerStoreBinding v-else-if="kind === 'bind-store'" ref="page" />
+    <BusinessWithdrawals v-else-if="kind === 'withdrawals'" ref="page" :page-query="query" />
     <BusinessReport v-else-if="toolId" ref="page" :page-query="query" module="wholesale" :tool-id="toolId" />
     <BusinessOperation v-else-if="kind" ref="page" :page-query="query" :kind="kind" />
   </view>
@@ -12,6 +14,8 @@ import BusinessPageHeader from './BusinessPageHeader.vue'
 import BusinessReport from './BusinessReport.vue'
 import BusinessOperation from './BusinessOperation.vue'
 import BusinessWithdrawals from './BusinessWithdrawals.vue'
+import PartnerPointsExchange from './PartnerPointsExchange.vue'
+import PartnerStoreBinding from './PartnerStoreBinding.vue'
 
 defineProps({
   title: { type: String, default: '' },

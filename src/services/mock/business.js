@@ -209,7 +209,29 @@ function storeOwnerLayout(){
   const performance=()=>[{label:'本月业绩',value:775800},{label:'季度业绩',value:775800},{label:'半年业绩',value:149412},{label:'本年业绩',value:775800},{label:'累计业绩',value:775800}].map(item=>({...item,kind:'money'}))
   return [1,2].map(n=>({id:`demo-owner-${n}`,name:'李志远',avatarUrl:'/static/agency/avatar-li-zhiyuan.png',roleLabel:'合店老板',displayId:'TS0213214',phone:'19919988991',daysRemaining:68,durationLabel:'6个月',feeAmount:418800,startedAt:'2022-08-21T21:34:12+08:00',validUntil:'2022-08-21T21:34:12+08:00',performance:performance()}))
 }
-function storeCustomerLayout(user){const memberId=mockFamily(user).members[0]?.id||'';return [1,2,3,4].map(n=>({id:`store-customer-${n}`,memberId,name:'李志远',avatarUrl:'/static/agency/avatar-li-zhiyuan.png',displayId:'TS0213214',phone:'19919988991',storeConsumptionAmount:541184}))}
+function storeCustomerLayout(user){
+  const children=(mockFamily(user).members||[]).map((member,index)=>({
+    ...member,
+    memberIndex:index+1,
+    badge:member.badge||'',
+    training:{trainingTotal:20,trainingUsed:6,specialTotal:20,specialUsed:6,promotionTotal:0,promotionUsed:0,selfStudyNote:'',campNote:'',remark:''},
+    allowedActions:['edit-consultant','view-orders','edit-training','training-feedback'],
+  }))
+  // Store users are parent accounts; viewing members lists their children.
+  return [1,2].map(n=>({
+    id:`store-account-${n}`,
+    accountId:`store-account-${n}`,
+    userId:`store-account-${n}`,
+    memberId:children[0]?.id||'',
+    name:n===1?'总部联创-甲':'门店老板-己',
+    avatarUrl:'/static/agency/avatar-li-zhiyuan.png',
+    displayId:n===1?'LC0001':'TS0006',
+    phone:'19919988991',
+    storeConsumptionAmount:541184,
+    children,
+    allowedActions:['view-members','view-orders','apply-transfer'],
+  }))
+}
 function storeApprovalLayout(){
   const person={name:'李志远',avatarUrl:'/static/agency/avatar-li-zhiyuan.png',badge:'天使合伙人',displayId:'TS0213214',phone:'19919988991'}
   const at='2022-08-21T21:34:12+08:00'
@@ -231,10 +253,10 @@ function alignStoreLayout(state,context){
   const legacyStaff=state.staff?.length===1&&state.staff[0]?.loginAccount==='demo-coach'&&state.staff[0]?.name==='王老师'&&(state.staff[0].version||1)===1
   if(legacyStaff)state.staff=storeStaffLayout()
   const legacyName=['梧桐街训练中心','脑商线下桐柏路店','本地地址'].includes(state.store?.name)
-  if(context.store?.name&&legacyName&&(state.store.version||1)===1)state.store={...state.store,name:context.store.name,address:context.store.address||state.store.address,number:context.store.number||'',managerName:state.store.managerName||'张大伟',contact:state.store.contact||'19919988991',regionNames:state.store.regionNames||['河南省','郑州市','管城回族区'],regionCodes:state.store.regionCodes||['410000','410100','410104'],minimumFeeAmount:Number.isInteger(state.store.minimumFeeAmount)?state.store.minimumFeeAmount:69800}
+  if(context.store?.name&&legacyName&&(state.store.version||1)===1)state.store={...state.store,name:context.store.name,address:context.store.address||state.store.address,number:context.store.number||'',managerName:state.store.managerName||'张大伟',contact:state.store.contact||'19919988991',regionNames:state.store.regionNames||['河南省','郑州市','管城回族区'],regionCodes:state.store.regionCodes||['410000','410100','410104'],feeAmount:Number.isFinite(Number(state.store.feeAmount))?Number(state.store.feeAmount):698,minimumFeeAmount:Number.isFinite(Number(state.store.minimumFeeAmount))?Number(state.store.minimumFeeAmount):698,storefrontUrl:state.store.storefrontUrl||'/static/agency/store-wutong.png'}
   const legacyApproval=state.approvals?.length===1&&state.approvals[0]?.id==='demo-approval-1'&&state.approvals[0]?.status==='PENDING'&&(state.approvals[0].version||1)===1
   if(legacyApproval)state.approvals=storeApprovalLayout()
-  if((state.store.version||1)===1&&(!Number.isInteger(state.store.minimumFeeAmount)||!state.store.managerName||!state.store.contact||!state.store.address||state.store.address==='本地地址'))state.store={...state.store,managerName:state.store.managerName||'张大伟',contact:state.store.contact||'19919988991',regionNames:state.store.regionNames||['河南省','郑州市','管城回族区'],regionCodes:state.store.regionCodes||['410000','410100','410104'],address:state.store.address&&state.store.address!=='本地地址'?state.store.address:'中州大道与航海路交叉口东南角美林河畔1栋',minimumFeeAmount:Number.isInteger(state.store.minimumFeeAmount)?state.store.minimumFeeAmount:69800}
+  if((state.store.version||1)===1&&(!Number.isFinite(Number(state.store.minimumFeeAmount))||!state.store.managerName||!state.store.contact||!state.store.address||state.store.address==='本地地址'))state.store={...state.store,managerName:state.store.managerName||'张大伟',contact:state.store.contact||'19919988991',regionNames:state.store.regionNames||['河南省','郑州市','管城回族区'],regionCodes:state.store.regionCodes||['410000','410100','410104'],address:state.store.address&&state.store.address!=='本地地址'?state.store.address:'中州大道与航海路交叉口东南角美林河畔1栋',feeAmount:Number.isFinite(Number(state.store.feeAmount))?Number(state.store.feeAmount):698,minimumFeeAmount:Number.isFinite(Number(state.store.minimumFeeAmount))?Number(state.store.minimumFeeAmount):698,storefrontUrl:state.store.storefrontUrl||'/static/agency/store-wutong.png'}
 }
 export const mockClone=clone
 export function mockStoreWorkspace(user,context){

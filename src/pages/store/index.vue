@@ -7,7 +7,7 @@ import {useAuth} from '../../composables/useAuth'
 import {useBusinessReturn} from '../../composables/useBusinessReturn'
 import BusinessStore from '../../components/BusinessStore.vue'
 useAuth();useBusinessReturn();const page=ref(null),query=ref(null)
-const heading=computed(()=>({members:'门店会员',approvals:'门店审批',info:'门店信息',edit:'编辑门店信息'}[query.value?.view]||'门店管理'))
+const heading=computed(()=>({members:'门店用户',approvals:'门店审批',info:'门店信息',edit:'编辑门店信息'}[query.value?.view]||'门店管理'))
 onLoad(options=>{query.value=options});onShow(()=>{if(query.value)page.value?.refresh()})
 </script>
 
