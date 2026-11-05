@@ -21,7 +21,7 @@
             placeholder-class="exchange-placeholder"
             @input="onAmount"
           />
-          <text class="exchange-available">可兑换积分 {{ availableLabel }}</text>
+          <text class="exchange-available">{{ options.identityLabel }}可兑换积分 {{ availableLabel }}</text>
         </view>
         <text v-if="options.rateNote" class="exchange-note">{{ options.rateNote }}</text>
         <text v-if="operationError" class="exchange-error" role="alert">{{ operationError }}</text>
@@ -54,7 +54,7 @@ let epoch = 0
 let attemptKey = ''
 
 const { data: options, status, error, load } = useAsyncPage(async () => {
-  const output = await getPartnerPointsOptions()
+  const output = await getPartnerPointsOptions(props.pageQuery?.contextId)
   amount.value = ''
   result.value = null
   attemptKey = ''
@@ -110,7 +110,7 @@ async function submit() {
   try {
     const points = validateAmount()
     if (!attemptKey) attemptKey = `points-exchange-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const output = await exchangePartnerPoints(points, attemptKey)
+    const output = await exchangePartnerPoints(points, attemptKey, props.pageQuery?.contextId)
     if (!active || current !== epoch) return
     result.value = output
   } catch (reason) {

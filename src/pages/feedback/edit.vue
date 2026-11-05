@@ -47,7 +47,7 @@ useAuth()
 let contextId='',memberId='',kind='',active=true,key='',fingerprint=''
 const ready=ref(false),title=ref(''),text=ref(''),images=ref([]),attachments=ref([]),busy=ref(false),uploading=ref(false),error=ref('')
 const fileSize=size=>!Number.isFinite(size)?'':size>=1048576?`${(size/1048576).toFixed(2)}mb`:size>=1024?`${Math.round(size/1024)}kb`:`${size}b`
-async function upload(){uploading.value=true;error.value='';try{const files=await new Promise((resolve,reject)=>uni.chooseImage({count:6-images.value.length,success:resolve,fail:reject}));for(const file of files.tempFiles){const image=await uploadProfileImage({path:file.path,size:file.size},'feedback');if(active)images.value.push(image)}}catch(reason){if(active&&reason?.errMsg&&!/cancel/i.test(reason.errMsg))error.value=reason.message||'图片选择或上传失败'}finally{if(active)uploading.value=false}}
+async function upload(){uploading.value=true;error.value='';try{const files=await new Promise((resolve,reject)=>uni.chooseImage({count:6-images.value.length,success:resolve,fail:reject}));for(const file of files.tempFiles){const image=await uploadProfileImage({path:file.path,size:file.size,name:file.name||'',type:file.type||file.mimeType||''},'feedback');if(active)images.value.push(image)}}catch(reason){if(active&&reason?.errMsg&&!/cancel/i.test(reason.errMsg))error.value=reason.message||'图片选择或上传失败'}finally{if(active)uploading.value=false}}
 async function uploadAttachment(type){uploading.value=true;error.value='';try{let file
  // #ifdef H5
  const picked=await new Promise((resolve,reject)=>uni.chooseFile({count:1,extension:type==='video'?['.mp4']:['.pdf'],success:resolve,fail:reject}));file=picked.tempFiles[0]

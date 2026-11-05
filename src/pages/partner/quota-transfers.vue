@@ -1,6 +1,6 @@
-<template><PartnerToolPage ref="page" title="划转明细" tool-id="quota-transfers" :query="query" /></template>
+<template><QuotaTransfers ref="page" :query="query" /></template>
 <script setup>
-import PartnerToolPage from '../../components/PartnerToolPage.vue'
+import QuotaTransfers from '../../components/QuotaTransfers.vue'
 import { usePartnerToolPage } from '../../composables/usePartnerToolPage'
 const { page, query } = usePartnerToolPage()
 </script>

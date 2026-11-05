@@ -11,14 +11,19 @@ const props = defineProps({
   label: { type: String, default: '' },
   codes: { type: Array, default: () => [] },
   plain: Boolean,
-  // 3 = province/city/district; 2 = province/city only
+  // 1 = province; 2 = province/city; 3 = province/city/district
   levels: { type: Number, default: 3 },
   // Prepend an "全部" row that clears the selection
   allowAll: Boolean,
 })
 const emit = defineEmits(['change'])
 const ALL = { code: '', name: '全部' }
-const depth = computed(() => (props.levels === 2 ? 2 : 3))
+const depth = computed(() => {
+  const levels = Number(props.levels)
+  if (levels === 1) return 1
+  if (levels === 2) return 2
+  return 3
+})
 const indices = ref([0, 0, 0])
 const entries = code => Object.entries(areas[code] || {}).map(([code, name]) => ({ code, name }))
 const provinces = entries('86')
@@ -34,7 +39,8 @@ const districts = computed(() => {
   return entries(city.code)
 })
 const ranges = computed(() => {
-  const columns = [provinceOptions.value, cities.value]
+  const columns = [provinceOptions.value]
+  if (depth.value > 1) columns.push(cities.value)
   if (depth.value > 2) columns.push(districts.value)
   return columns.map(list => list.map(item => item.name))
 })
@@ -52,6 +58,10 @@ function restoreSelection() {
   const offset = props.allowAll ? 1 : 0
   const firstRaw = provinces.findIndex(item => item.code === props.codes[0])
   const first = firstRaw < 0 ? 0 : firstRaw + offset
+  if (depth.value === 1) {
+    indices.value = [first]
+    return
+  }
   const province = provinceOptions.value[first]
   const cityList = province?.code ? entries(province.code) : []
   const second = Math.max(0, cityList.findIndex(item => item.code === props.codes[1]))
@@ -73,7 +83,8 @@ function columnChange({ detail }) {
 }
 function confirm({ detail }) {
   indices.value = detail.value.slice(0, depth.value)
-  const selected = [provinceOptions.value[indices.value[0]], cities.value[indices.value[1]]]
+  const selected = [provinceOptions.value[indices.value[0]]]
+  if (depth.value > 1) selected.push(cities.value[indices.value[1]])
   if (depth.value > 2) selected.push(districts.value[indices.value[2]])
   if (props.allowAll && selected.some(item => !item?.code)) {
     emit('change', { names: [], codes: [] })

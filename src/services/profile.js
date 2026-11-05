@@ -1,20 +1,15 @@
-import { normalizeUploadIntent, isUploadReady } from './upload-contract'
-import {mockCommerceState,mockOrders} from './mock/commerce'
+import { resolveImageKind } from './upload-contract'
+import {uploadAsset} from './asset-upload'
+import {mockCommerceState} from './mock/commerce'
 import { normalizeRemoteOrderMoney } from './commerce'
 import { config } from '../config'
 import { request, getSession } from './api'
-import { mockProfileState, mockBoundStore, copy } from './mock/profile'
+import { mockProfileState, copy } from './mock/profile'
 import { normalizeContent } from '../features/content/rich-content'
 import { ensureRegionNames } from '../features/region'
+import { clearMeContext, loadMeContext, replaceMeContext, getCachedMeContext } from './me-context'
 const fail = message => { throw new Error(message) }
-function normalizeProfile(profile) {
-  const regionCodes = Array.isArray(profile?.regionCodes) ? profile.regionCodes : []
-  return {
-    ...profile,
-    regionCodes,
-    regionNames: ensureRegionNames(regionCodes, profile?.regionNames),
-  }
-}
+export { clearMeContext, getCachedMeContext, getCachedBoundStore, loadMeContext } from './me-context'
 function pageResult(result, label) {
   if (result == null) return { items: [], hasMore: false, nextCursor: null }
   if (!Array.isArray(result.items)) {
@@ -32,12 +27,8 @@ async function scoped(operation) {
   if (getSession()?.user?.id !== user.id) fail('登录账号已变化，请重新加载')
   return result
 }
-export function getMyProfile() {
-  return scoped(async user => {
-    const result = config.useMock ? { profile: copy(mockProfileState(user).profile), store: mockBoundStore(), orderCounts: { pendingPayment: mockOrders(user,{filter:'pending-payment'}).items.length, waitingShipment: mockOrders(user,{filter:'waiting-shipment'}).items.length, waitingReceipt: mockOrders(user,{filter:'waiting-receipt'}).items.length, completed: mockOrders(user,{filter:'completed'}).items.length }, support: { phone: '', description: '' } } : await request('/me')
-    if (result?.profile?.id !== user.id) fail('个人资料格式异常')
-    return { ...result, profile: normalizeProfile(result.profile) }
-  })
+export function getMyProfile({ force = false } = {}) {
+  return scoped(async () => loadMeContext({ force }))
 }
 export function updateMyProfile(payload) {
   return scoped(async user => {
@@ -49,9 +40,16 @@ export function updateMyProfile(payload) {
       const result = await request('/me', { method: 'PATCH', data: { nickname, regionCodes: codes.length ? codes : undefined, regionNames: codes.length ? names : undefined, avatarAssetId: payload.avatarAssetId || undefined, version: payload.version } })
       if (getSession()?.user?.id !== user.id) fail('登录账号已变化，请重新加载')
       if (result?.profile?.id !== user.id || !result.profile.nickname) fail('个人资料格式异常')
-      const profile = normalizeProfile(result.profile)
-      const session = getSession(); uni.setStorageSync('naoshang-session', { ...session, user: { ...session.user, name: profile.nickname, region: profile.regionNames || [] } })
-      return { ...result, profile }
+      clearMeContext()
+      const refreshed = await loadMeContext({ force: true }).catch(() => {
+        const cached = getCachedMeContext()
+        const profile = { ...result.profile, regionCodes: codes.length ? codes : result.profile.regionCodes, regionNames: codes.length ? names : result.profile.regionNames }
+        replaceMeContext({ ...(cached || {}), ...result, profile, store: result.store ?? cached?.store ?? null })
+        return getCachedMeContext()
+      })
+      const profile = refreshed?.profile || result.profile
+      const session = getSession(); uni.setStorageSync('naoshang-session', { ...session, user: { ...session.user, name: profile.nickname, region: profile.regionNames || [], ...(profile.inviteCode ? { inviteCode: profile.inviteCode } : {}) } })
+      return refreshed || { ...result, profile }
     }
     const state = mockProfileState(user), current = state.profile
     if (payload.version !== current.version) fail('资料已更新，请重新加载后再保存')
@@ -59,7 +57,8 @@ export function updateMyProfile(payload) {
     if (payload.avatarAssetId && (!avatar || avatar.purpose !== 'avatar')) fail('头像已失效，请重新选择')
     state.profile = { ...current, nickname, regionCodes: codes.length ? [...codes] : current.regionCodes, regionNames: codes.length ? [...names] : current.regionNames, avatarUrl: avatar?.previewUrl || current.avatarUrl, version: current.version + 1 }
     const session = getSession(); uni.setStorageSync('naoshang-session', { ...session, user: { ...session.user, name: nickname, region: state.profile.regionNames } })
-    return { profile: copy(state.profile) }
+    clearMeContext()
+    return loadMeContext({ force: true })
   })
 }
 function validAddress(payload) {
@@ -139,21 +138,23 @@ export function getSupportConfig() {
 }
 export function uploadProfileImage(file, purpose) {
   return scoped(async user => {
-    if (!['avatar','feedback','member-avatar','storefront','consultant-qr'].includes(purpose) || !file?.path || !Number.isFinite(file.size) || file.size <= 0) fail('请选择有效图片')
+    const size = Number(file?.size)
+    if (!['avatar','feedback','member-avatar','storefront','consultant-qr'].includes(purpose) || !file?.path || !Number.isFinite(size) || size <= 0) fail('请选择有效图片')
     if (config.useMock) {
       const state = mockProfileState(user), assetId = `mock-${purpose}-${state.nextAsset++}`
       state.assets.set(assetId, { purpose, previewUrl: file.path })
       return { assetId, previewUrl: file.path, mockOnly: true }
     }
-    const info = await new Promise((resolve, reject) => uni.getImageInfo({ src: file.path, success: resolve, fail: reject }))
-    if (!['png','jpg','jpeg'].includes(info.type)) fail('请选择PNG或JPG图片')
-    const intent = normalizeUploadIntent(await request('/assets/upload-intents', { method: 'POST', data: { purpose, size: file.size, mimeType: info.type === 'png' ? 'image/png' : 'image/jpeg', fileName: `image.${info.type === 'png' ? 'png' : 'jpg'}` } }))
-    if (!intent?.assetId || !/^https:\/\//.test(intent.uploadUrl) || intent.mode !== 'multipart') fail('上传配置暂不可用，请稍后重试')
-    if (intent.limits?.maxSize && file.size > intent.limits.maxSize) fail('图片超过允许大小')
-    await new Promise((resolve,reject) => uni.uploadFile({ url: intent.uploadUrl, filePath: file.path, name: intent.fileField || 'file', header: intent.headers || {}, formData: intent.fields || {}, success: result => result.statusCode >= 200 && result.statusCode < 300 ? resolve() : reject(new Error('图片上传失败')), fail: reject }))
-    const result = await request(`/assets/${encodeURIComponent(intent.assetId)}/completions`, { method: 'POST' })
-    if (!isUploadReady(result)) fail('图片尚未处理完成，请稍后重试')
-    return { assetId: intent.assetId, fileId: intent.fileId, previewUrl: result.previewUrl || file.path }
+    let info = {}
+    try {
+      info = await new Promise((resolve, reject) => uni.getImageInfo({ src: file.path, success: resolve, fail: reject }))
+    } catch {
+      info = {}
+    }
+    const kind = resolveImageKind(file, info)
+    if (!kind) fail('请选择PNG或JPG图片')
+    const result=await uploadAsset(file,{purpose,mimeType:kind.mimeType,fileName:`image.${kind.ext}`})
+    return {...result,previewUrl:result.previewUrl||file.path}
   })
 }
 export function submitSupportFeedback({ content, imageAssetIds = [], idempotencyKey }) {

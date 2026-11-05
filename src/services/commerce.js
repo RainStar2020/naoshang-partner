@@ -1,7 +1,64 @@
 import {config} from '../config'
 import {withBusinessContext} from './business'
 import {getSession,request} from './api'
+import {getCachedBoundStore,loadMeContext} from './me-context'
 import * as mock from './mock/commerce'
+
+const STORE_BINDING_REQUIRED_MESSAGE = '请联系邀请人为您绑定门店后再下单'
+
+function toCheckoutStore(store){
+  if(!store||typeof store!=='object'||store.id==null||store.id==='')return null
+  const manager=store.manager&&typeof store.manager==='object'?store.manager:null
+  return {
+    id:String(store.id),
+    name:String(store.name||store.storeName||''),
+    number:String(store.number||store.storeNo||store.storeCode||''),
+    address:String(store.address||''),
+    managerName:String(store.managerName||manager?.name||''),
+    phone:String(store.phone||store.managerPhone||manager?.phone||''),
+    coverUrl:String(store.coverUrl||store.imageUrl||''),
+  }
+}
+
+/** Bound store comes from personal center GET /me.store — never from checkout store lists. */
+function lockCheckoutToBoundStore(options,profileStore){
+  const boundStore=toCheckoutStore(profileStore)
+  if(!boundStore?.id){
+    return {
+      ...options,
+      stores:[],
+      defaultStoreId:null,
+      deliveryLocked:true,
+      storeBound:false,
+      storeBindingRequired:true,
+      storeBindingMessage:STORE_BINDING_REQUIRED_MESSAGE,
+    }
+  }
+  // Headquarters delivery keeps the locked HQ fulfillment store; still requires a bound store.
+  if(options.deliveryLocked){
+    return {...options,deliveryLocked:true,storeBound:true,storeBindingRequired:false,storeBindingMessage:''}
+  }
+  return {
+    ...options,
+    stores:[boundStore],
+    defaultStoreId:boundStore.id,
+    deliveryLocked:true,
+    storeBound:true,
+    storeBindingRequired:false,
+    storeBindingMessage:'',
+  }
+}
+
+async function resolveBoundStoreForCheckout(){
+  try{
+    let me=await loadMeContext()
+    // If login-time cache has no store, refresh once in case binding completed later.
+    if(!me?.store)me=await loadMeContext({force:true})
+    return me?.store||null
+  }catch{
+    return getCachedBoundStore()
+  }
+}
 // Money fields are yuan end-to-end (API + UI). Do not convert to fen for display.
 export function parseCommerceTime(value){if(typeof value==='number'&&Number.isFinite(value))return value;if(typeof value==='string'&&value.trim()){const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:NaN}return NaN}
 function isMoney(value){return Number.isFinite(Number(value))&&Number(value)>=0}
@@ -53,7 +110,13 @@ function normalizeCheckoutCoupon(coupon){
   const thresholdText=coupon.thresholdText||coupon.thresholdLabel||(Number.isFinite(Number(coupon.minAmount))?(Number(coupon.minAmount)?`满${Number(coupon.minAmount)}可用`:'无门槛'):'')
   return {...coupon,amount,discountAmount:amount,thresholdText,thresholdLabel:coupon.thresholdLabel||thresholdText}
 }
-export function getCheckoutOptions(productId){return scoped(async user=>{const result=config.useMock?mock.mockCheckoutOptions(user,productId):await request('/checkout/options',{data:{productId}});if(!['stores','members','addresses','coupons'].every(key=>Array.isArray(result[key])))throw new Error('结算选项数据异常');return {...result,coupons:result.coupons.map(normalizeCheckoutCoupon)}})}
+export function getCheckoutOptions(productId){return scoped(async user=>{
+  const result=config.useMock?mock.mockCheckoutOptions(user,productId):await request('/checkout/options',{data:{productId}})
+  if(!['stores','members','addresses','coupons'].every(key=>Array.isArray(result[key])))throw new Error('结算选项数据异常')
+  const boundStore=await resolveBoundStoreForCheckout()
+  return lockCheckoutToBoundStore({...result,coupons:result.coupons.map(normalizeCheckoutCoupon)},boundStore)
+})}
+export {STORE_BINDING_REQUIRED_MESSAGE}
 function checkoutQuotePayload(draft){
   const quantity=Number(draft.quantity)
   if(!Number.isInteger(quantity)||quantity<1||quantity>99)throw new Error('请输入1—99的整数数量')

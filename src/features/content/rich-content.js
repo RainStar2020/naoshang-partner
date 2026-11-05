@@ -1,3 +1,4 @@
+import {assetUrl} from '../../services/asset-url'
 // Frontend contract: the CMS publishes sanitized node JSON, never executable HTML.
 const tags = new Set(['p', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 's', 'br', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'img'])
 const typography = {
@@ -8,7 +9,7 @@ const typography = {
   blockquote: 'margin:12px 0;padding-left:12px;border-left:3px solid #8793b0;',
 }
 export const emptyContent = () => ({ version: 1, format: 'nodes', nodes: [] })
-export const isMediaUrl = value => typeof value === 'string' && /^https:\/\/[^\s<>"'\\]+$/i.test(value)
+export const isMediaUrl = value => typeof value === 'string' && (/^https:\/\/[^\s<>"'\\]+$/i.test(value) || /^\/assets\/[A-Za-z0-9_-]+\/file$/.test(value))
 
 /** Allowlisted node schema. The backend must also sanitize and authorize media. */
 export function normalizeContent(content) {
@@ -26,7 +27,7 @@ export function normalizeContent(content) {
       if (!tags.has(node.name)) return []
       if (node.name === 'img' && !isMediaUrl(node.attrs?.src)) return []
       const attrs = { style: typography[node.name] || 'word-break:break-word;' }
-      if (node.name === 'img') { attrs.src = node.attrs.src; attrs.alt = String(node.attrs.alt || '') }
+      if (node.name === 'img') { attrs.src = assetUrl(node.attrs.src); attrs.alt = String(node.attrs.alt || '') }
       return [{ name: node.name, attrs, children: clean(Array.isArray(node.children) ? node.children : [], depth + 1) }]
     })
   }

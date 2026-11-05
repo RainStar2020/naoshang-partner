@@ -14,7 +14,7 @@ export const businessTools = [
   tool('experience','wholesale','经验明细','/pages/partner/experience','common/icon-folder','ledger','/partner/experience-ledger'),
   tool('team','wholesale','查看明细','/pages/partner/team','partner/icon-team','team','/partner/team'),
   tool('quota-ledger','wholesale','进货明细','/pages/partner/quota-ledger','common/icon-folder','ledger','/partner/quota-ledger'),
-  tool('quota-transfers','wholesale','划转明细','/pages/partner/quota-transfers','common/icon-switch-arrows','ledger','/partner/quota-ledger'),
+  tool('quota-transfers','wholesale','划转明细','/pages/partner/quota-transfers','common/icon-switch-arrows','ledger','/partner/quota-transfers'),
   tool('quota-batches','wholesale','活动VIP','/pages/partner/quota-batches','partner/icon-membership-dividend','quota','/partner/quotas'),
   tool('quota-transfer','wholesale','划拨名额','/pages/partner/quota-transfer','common/icon-switch-arrows','operation','/partner/quota-transfer-quotes'),
   tool('quota-purchase','wholesale','购买VIP','/pages/partner/quota-purchase','profile/icon-order-payment','operation','/partner/quota-purchase-quotes'),

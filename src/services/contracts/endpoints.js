@@ -1245,24 +1245,24 @@ export const endpoints = [
   {
     "method": "GET",
     "path": "/wallet/withdrawals",
-    "description": "提现记录",
+    "description": "积分兑换记录",
     "parameters": "contextId, cursor?",
-    "response": "提现列表(id,amount,fee,netAmount,status)",
+    "response": "兑换列表(redemptionNo,identity,identityLabel,points,status)",
     "source": "前端API接口清单（功能标注）(1).md",
     "serverOnly": false,
-    "notes": "- **GET `/wallet/withdrawals`**：contextId 必填，分页可选；返回列表项 id/title/amount/fee/netAmount/status/accountType/accountName/bankName/maskedBankNumber/createdAt。\n- **POST `/wallet/withdrawals`**：contextId、quoteId、idempotencyKey 必填；返回 `{status:\"PENDING_REVIEW\",withdrawalId}` 或含 operationId 的等价回执。",
+    "notes": "- **GET `/wallet/withdrawals`**：contextId 必填，分页可选；每条返回 redemptionId/redemptionNo、points、status、identity/identityLabel/identityScopeLabel/identitySource/contextId。\n- **POST `/wallet/withdrawals`**：points、idempotencyKey、contextId 必填；identity 可作为无完整 contextId 时的备用。返回 `{status:\"PENDING_REVIEW\",redemptionId,redemptionNo,identity,identityLabel}`。redemptionNo 用于展示和对账，不能用 operationId 代替。",
     "pathParams": [],
     "name": "getWalletWithdrawals"
   },
   {
     "method": "GET",
     "path": "/wallet/withdrawal-options",
-    "description": "提现可选项（限额/手续费/账户）",
+    "description": "积分兑换可选项（身份钱包余额/限额）",
     "parameters": "contextId",
-    "response": "{余额, 最低100/最高50000, 手续费0.6%(最低1元), 账户候选}",
+    "response": "{availablePoints,identity,identityLabel,identityBalances,minPoints,maxPoints}",
     "source": "前端API接口清单（功能标注）(1).md",
     "serverOnly": false,
-    "notes": "- **GET `/wallet/withdrawal-options`**：contextId 必填；返回余额、最低/最高提现金额、手续费说明、账户类型与收款账户候选、allowedActions。",
+    "notes": "- **GET `/wallet/withdrawal-options`**：contextId 必填；availablePoints/maxPoints 仅为当前身份钱包，另返回 identity、identityLabel、identityBalances、totalAvailable 及带身份的 pointRecords。",
     "pathParams": [],
     "name": "getWalletWithdrawalOptions"
   },
@@ -1293,12 +1293,12 @@ export const endpoints = [
   {
     "method": "POST",
     "path": "/wallet/withdrawals",
-    "description": "提交提现（冻结余额）",
-    "parameters": "contextId, quoteId, idempotencyKey",
-    "response": "{status:PENDING_REVIEW, withdrawalId}",
+    "description": "提交积分兑换申请（冻结当前身份积分）",
+    "parameters": "points, idempotencyKey, contextId, identity?",
+    "response": "{status:PENDING_REVIEW, redemptionId, redemptionNo, identity}",
     "source": "前端API接口清单（功能标注）(1).md",
     "serverOnly": false,
-    "notes": "- **GET `/wallet/withdrawals`**：contextId 必填，分页可选；返回列表项 id/title/amount/fee/netAmount/status/accountType/accountName/bankName/maskedBankNumber/createdAt。\n- **POST `/wallet/withdrawals`**：contextId、quoteId、idempotencyKey 必填；返回 `{status:\"PENDING_REVIEW\",withdrawalId}` 或含 operationId 的等价回执。",
+    "notes": "- **POST `/wallet/withdrawals`**：points（amount 兼容）、idempotencyKey、contextId 必填；identity 可备用。返回 redemptionId/redemptionNo 与完整身份字段；redemptionNo 与 redemptionId 同值，供展示和人工对账。",
     "pathParams": [],
     "name": "postWalletWithdrawals"
   },
@@ -1405,10 +1405,10 @@ export const endpoints = [
     "path": "/agency/store-workspace",
     "description": "代理门店工作台",
     "parameters": "contextId, assignmentId, storeId?",
-    "response": "{store, staff[], approvals[], members[], owners[]}",
+    "response": "{store{id,entityId,...}, staff[], approvals[], members[], owners[]}",
     "source": "前端API接口清单（功能标注）(1).md",
     "serverOnly": false,
-    "notes": "- **GET `/agency/store-workspace`**：contextId、assignmentId 必填；单店身份 storeId 条件必填。返回 `{store,staff:[],approvals:[],members:[],owners:[],allowedActions:[]}`。",
+    "notes": "- **GET `/agency/store-workspace`**：contextId、assignmentId 必填；单店身份 storeId 条件必填。返回 `{store,staff:[],approvals:[],members:[],owners:[],allowedActions:[]}`。`store.id` 为店长用户 ID（兼容字段）；`store.entityId` 为门店实体标识，健脑官归属以此字段为准。",
     "pathParams": [],
     "name": "getAgencyStoreWorkspace"
   },
@@ -1454,6 +1454,21 @@ export const endpoints = [
       "id"
     ],
     "name": "patchStoresByStoreIdCoachesById"
+  },
+  {
+    "method": "DELETE",
+    "path": "/stores/{storeId}/coaches/{coachId}",
+    "description": "删除健脑官",
+    "parameters": "version, contextId?",
+    "response": "{removed:true, coachId}",
+    "source": "健脑官绑定门店改造-接口文档.md",
+    "serverOnly": false,
+    "notes": "- **DELETE `/stores/{storeId}/coaches/{coachId}`**：body `version` 必填，用于乐观锁；`contextId` 可选（管理员调用必填）。`storeId` 可传门店实体标识、店长用户 ID 或代理记录 ID，推荐传 `store.entityId`。成功后删除记录并作废该健脑官已登录会话。404 表示健脑官不存在或不属于该门店；409 表示版本冲突。权益未开通时服务端可能返回 `{locked:true,...}`。",
+    "pathParams": [
+      "storeId",
+      "coachId"
+    ],
+    "name": "deleteStoresByStoreIdCoachesByCoachId"
   },
   {
     "method": "POST",

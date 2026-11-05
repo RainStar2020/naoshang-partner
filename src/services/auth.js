@@ -1,5 +1,6 @@
 import { config } from '../config'
-import { request, clearBootstrapCache, getBootstrap } from './api'
+import { request, clearSessionCaches, getBootstrap, cacheMyInviteCode } from './api'
+import { loadMeContext } from './me-context'
 import { clearInvitation, getInvitation, parseParams } from './invitation'
 import { ensureRegionNames } from '../features/region'
 const codes = new Map()
@@ -27,9 +28,16 @@ function checkMockCode(phone, purpose, code) {
 async function saveSession(result) {
   const session = { ...result, accountType: result.accountType || 'parent' }
   if (session.user?.id) uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
-  clearBootstrapCache()
+  clearSessionCaches()
   uni.setStorageSync('naoshang-session', session)
-  if (!config.useMock && session.accountType === 'parent') await getBootstrap()
+  try { await cacheMyInviteCode(session) }
+  catch (error) { console.warn('[auth] 邀请码缓存失败，已跳过：', error?.message || error) }
+  try { await loadMeContext({ force: true }) }
+  catch (error) { console.warn('[auth] 个人中心预取失败，已跳过：', error?.message || error) }
+  if (!config.useMock && session.accountType === 'parent') {
+    try { await getBootstrap() }
+    catch (error) { console.warn('[auth] 首页数据预取失败，已跳过：', error?.message || error) }
+  }
   return session
 }
 export function getWechatBinding() {
@@ -102,8 +110,14 @@ export async function registerAccount(data) {
     checkMockCode(data.phone, 'register', data.code)
     result = { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长', region: regionNames, inviteCode: data.inviteCode } }
   } else result = await request('/auth/registrations', { method: 'POST', data: payload })
-  await saveSession(result); codes.delete(keyFor(data.phone, 'register')); wechatBinding = null; clearInvitation()
-  return result
+  // Registration normally returns a session. Some deployed API versions only
+  // acknowledge registration, so immediately create a password session as a
+  // fallback instead of navigating with the previous account still active.
+  const sessionResult=result?.token&&result?.user?.id
+    ?result
+    :await request('/auth/sessions',{method:'POST',data:{channel:'parent',phone:data.phone,password:data.password}})
+  await saveSession(sessionResult); codes.delete(keyFor(data.phone, 'register')); wechatBinding = null; clearInvitation()
+  return sessionResult
 }
 export async function verifyReset(phone, code) {
   if (!validPhone(phone)) throw new Error('请输入正确的手机号')

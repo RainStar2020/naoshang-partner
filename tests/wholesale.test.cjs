@@ -8,14 +8,14 @@ async function setup(storage=new Map(),remote=null){
 test('designed wholesale reports preserve empty benefits and separate purchase, transfer and experience filters',async()=>{
  const {business,operations}=await setup(),ctx=(await business.getBusinessContexts())[0],overview=await business.getBusinessOverview('wholesale',ctx.id)
  assert.ok(overview.benefits.every(x=>!x.content.nodes.length));assert.equal(overview.annualRemainingDays,99)
- const team=await business.getBusinessReport('wholesale','team',ctx.id),plans=(await operations.getBusinessOperationOptions('upgrade',ctx.id)).members
+ const team=await business.getBusinessReport('wholesale','team',ctx.id),upgradeInput={targetAccountId:'demo-person-1'},plans=(await operations.getBusinessOperationOptions('upgrade',ctx.id,'',upgradeInput)).members
  assert.equal(team.items[0].levelLabel,'普通用户');assert.equal(team.items.length,4);assert.equal(plans[0].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,3)
  assert.equal(plans[1].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,3);assert.equal(plans[1].upgradePlans[0].disabled,false)
  assert.equal(plans[2].levelLabel,'天使合伙人');assert.equal(plans[2].upgradePlans.find(x=>x.value==='DEMO-ANGEL').disabled,true);assert.equal(plans[2].upgradePlans[0].disabled,true)
  assert.equal(plans[3].levelLabel,'VIP合伙人');assert.equal(plans[3].upgradePlans[0].disabled,true);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,2);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').listPrice,2980000);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').paidAmount,998000)
  assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,23)
  assert.equal(plans[2].upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,21)
- assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id)).upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,24)
+ assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id,'',upgradeInput)).upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,24)
  const batch=(await business.getBusinessReport('wholesale','quota-batches',ctx.id)).items[0];assert.equal(batch.expiresAt,null);assert.equal(batch.validityLabel,'永久有效');assert.equal(batch.transferable,false)
  const q=await operations.previewBusinessOperation('quota-transfer',ctx.id,{targetAccountId:team.items[0].id,quantity:'2'});await operations.commitBusinessOperation('quota-transfer',ctx.id,q.id,'transfer')
  const ledger=await business.getBusinessReport('wholesale','quota-ledger',ctx.id);assert.ok(ledger.items.every(item=>item.quantity>0));assert.equal(ledger.items.some(item=>item.title==='划拨名额'),false)
@@ -57,10 +57,10 @@ test('activity upgrade reserves quota until payment and cancellation releases it
  const {business,operations,commerce}=await setup(),ctx=(await business.getBusinessContexts())[0],draft={targetAccountId:'demo-person-1',targetLevel:'DEMO-ANGEL',standardQuantity:1,activityQuantity:2}
  const q=await operations.previewBusinessOperation('upgrade',ctx.id,draft),r=await operations.commitBusinessOperation('upgrade',ctx.id,q.id,'upgrade')
  assert.equal(r.status,'PENDING_PAYMENT');assert.equal((await business.getBusinessReport('wholesale','team',ctx.id)).items[0].levelLabel,'普通用户')
- assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id)).activityRemaining,2)
+ assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id,'',{targetAccountId:draft.targetAccountId})).activityRemaining,2)
  const batch=(await business.getBusinessReport('wholesale','quota-batches',ctx.id)).items[0];assert.equal(batch.remaining,2);assert.equal(batch.reserved,2);assert.equal(batch.used,0);assert.equal((await business.getBusinessReport('wholesale','quota-ledger',ctx.id)).activityRemaining,2)
  const order=(await commerce.getCommerceOrder(r.orderId)).order;await commerce.changeOrder(order.id,'cancel',order.version,'cancel');await commerce.changeOrder(order.id,'cancel',order.version,'cancel')
- assert.equal((await business.getBusinessOverview('wholesale',ctx.id)).quota,20);assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id)).activityRemaining,4)
+ assert.equal((await business.getBusinessOverview('wholesale',ctx.id)).quota,20);assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id,'',{targetAccountId:draft.targetAccountId})).activityRemaining,4)
  const restored=(await business.getBusinessReport('wholesale','quota-batches',ctx.id)).items[0];assert.equal(restored.remaining,4);assert.equal(restored.reserved,0);assert.equal(restored.used,0);assert.equal(restored.grantedAt,batch.grantedAt)
 })
 test('paid upgrade grants the target once and cannot be downgraded or repeated with pending payment',async()=>{

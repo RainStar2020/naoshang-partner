@@ -82,6 +82,13 @@
       }
     },
     {
+      "path": "pages/profile/invite",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的邀请"
+      }
+    },
+    {
       "path": "pages/settings/index",
       "style": {
         "navigationStyle": "custom",

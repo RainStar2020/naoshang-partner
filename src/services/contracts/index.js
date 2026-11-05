@@ -1121,23 +1121,23 @@ export const postIncomeEntriesByIdAllocationQuotes = (input = {}) => callEndpoin
 export const postIncomeEntriesByIdAllocations = (input = {}) => callEndpoint("POST /income/entries/{id}/allocations", input)
 
 /**
- * 提现记录
+ * 积分兑换记录
  * GET /wallet/withdrawals
  * 参数：contextId, cursor?
- * 返回：提现列表(id,amount,fee,netAmount,status)
- * - **GET `/wallet/withdrawals`**：contextId 必填，分页可选；返回列表项 id/title/amount/fee/netAmount/status/accountType/accountName/bankName/maskedBankNumber/createdAt。
- * - **POST `/wallet/withdrawals`**：contextId、quoteId、idempotencyKey 必填；返回 `{status:"PENDING_REVIEW",withdrawalId}` 或含 operationId 的等价回执。
+ * 返回：兑换列表(redemptionNo,identity,identityLabel,points,status)
+ * - **GET `/wallet/withdrawals`**：contextId 必填，分页可选；每条返回 redemptionId/redemptionNo、points、status、identity/identityLabel/identityScopeLabel/identitySource/contextId。
+ * - **POST `/wallet/withdrawals`**：points、idempotencyKey、contextId 必填；identity 可作为无完整 contextId 时的备用。返回 `{status:"PENDING_REVIEW",redemptionId,redemptionNo,identity,identityLabel}`。redemptionNo 用于展示和对账，不能用 operationId 代替。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
 export const getWalletWithdrawals = (input = {}) => callEndpoint("GET /wallet/withdrawals", input)
 
 /**
- * 提现可选项（限额/手续费/账户）
+ * 积分兑换可选项（身份钱包余额/限额）
  * GET /wallet/withdrawal-options
  * 参数：contextId
- * 返回：{余额, 最低100/最高50000, 手续费0.6%(最低1元), 账户候选}
- * - **GET `/wallet/withdrawal-options`**：contextId 必填；返回余额、最低/最高提现金额、手续费说明、账户类型与收款账户候选、allowedActions。
+ * 返回：{availablePoints,identity,identityLabel,identityBalances,minPoints,maxPoints}
+ * - **GET `/wallet/withdrawal-options`**：contextId 必填；availablePoints/maxPoints 仅为当前身份钱包，另返回 identity、identityLabel、identityBalances、totalAvailable 及带身份的 pointRecords。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
@@ -1166,12 +1166,11 @@ export const postWalletPayees = (input = {}) => callEndpoint("POST /wallet/payee
 export const postWalletWithdrawalQuotes = (input = {}) => callEndpoint("POST /wallet/withdrawal-quotes", input)
 
 /**
- * 提交提现（冻结余额）
+ * 提交积分兑换申请（冻结当前身份积分）
  * POST /wallet/withdrawals
- * 参数：contextId, quoteId, idempotencyKey
- * 返回：{status:PENDING_REVIEW, withdrawalId}
- * - **GET `/wallet/withdrawals`**：contextId 必填，分页可选；返回列表项 id/title/amount/fee/netAmount/status/accountType/accountName/bankName/maskedBankNumber/createdAt。
- * - **POST `/wallet/withdrawals`**：contextId、quoteId、idempotencyKey 必填；返回 `{status:"PENDING_REVIEW",withdrawalId}` 或含 operationId 的等价回执。
+ * 参数：points, idempotencyKey, contextId, identity?
+ * 返回：{status:PENDING_REVIEW, redemptionId, redemptionNo, identity}
+ * - **POST `/wallet/withdrawals`**：points（amount 兼容）、idempotencyKey、contextId 必填；identity 可备用。返回 redemptionId/redemptionNo 与完整身份字段；redemptionNo 与 redemptionId 同值，供展示和人工对账。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
@@ -1269,8 +1268,8 @@ export const postAgencyApplications = (input = {}) => callEndpoint("POST /agency
  * 代理门店工作台
  * GET /agency/store-workspace
  * 参数：contextId, assignmentId, storeId?
- * 返回：{store, staff[], approvals[], members[], owners[]}
- * - **GET `/agency/store-workspace`**：contextId、assignmentId 必填；单店身份 storeId 条件必填。返回 `{store,staff:[],approvals:[],members:[],owners:[],allowedActions:[]}`。
+ * 返回：{store{id,entityId,...}, staff[], approvals[], members[], owners[]}
+ * - **GET `/agency/store-workspace`**：contextId、assignmentId 必填；单店身份 storeId 条件必填。返回 `{store,staff:[],approvals:[],members:[],owners:[],allowedActions:[]}`。`store.id` 为店长用户 ID（兼容字段）；`store.entityId` 为门店实体标识，健脑官归属以此字段为准。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
@@ -1308,6 +1307,17 @@ export const postStoresByStoreIdCoaches = (input = {}) => callEndpoint("POST /st
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
 export const patchStoresByStoreIdCoachesById = (input = {}) => callEndpoint("PATCH /stores/{storeId}/coaches/{id}", input)
+
+/**
+ * 删除健脑官
+ * DELETE /stores/{storeId}/coaches/{coachId}
+ * 参数：version, contextId?
+ * 返回：{removed:true, coachId}
+ * - **DELETE `/stores/{storeId}/coaches/{coachId}`**：body `version` 必填，用于乐观锁；`contextId` 可选（管理员调用必填）。`storeId` 可传门店实体标识、店长用户 ID 或代理记录 ID，推荐传 `store.entityId`。成功后删除记录并作废该健脑官已登录会话。404 表示健脑官不存在或不属于该门店；409 表示版本冲突。权益未开通时服务端可能返回 `{locked:true,...}`。
+ * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
+ * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
+ */
+export const deleteStoresByStoreIdCoachesByCoachId = (input = {}) => callEndpoint("DELETE /stores/{storeId}/coaches/{coachId}", input)
 
 /**
  * 审批转店/申请

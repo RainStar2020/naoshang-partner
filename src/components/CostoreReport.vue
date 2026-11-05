@@ -5,7 +5,7 @@
    <template v-if="status==='ready' && report">
     <template v-if="toolId==='income'">
      <view class="income-head">
-      <view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view>{{money(metric.value)}}积分</view></view>
+      <view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view>{{money(metric.value)}}</view></view>
      </view>
      <view class="income-actions">
       <button v-if="canWallet('read')" class="wh-secondary wh-pill" @click="wallet('withdrawals')">提现记录</button>
@@ -52,8 +52,8 @@ const monthTitle=computed(()=>{const index=Number(String(month.value).slice(5,7)
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('costore',props.pageQuery?.contextId);context.value=ctx;return getBusinessReport('costore',props.toolId,ctx.id,{month:month.value})},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 watch(report,value=>{items.value=value?.items||[]})
-const show=(value,kind)=>kind==='money'?`${money(value)}积分`:kind==='percent'?percent(value):(value??0)
-const plusAmount=value=>!Number.isFinite(Number(value))?'+0积分':`+${money(value).replace(/\.00$/,'')}积分`
+const show=(value,kind)=>kind==='money'?money(value):kind==='percent'?percent(value):(value??0)
+const plusAmount=value=>!Number.isFinite(Number(value))?'+0':`+${money(value).replace(/\.00$/,'')}`
 const canWallet=id=>businessPreview(config)||context.value?.capabilities?.includes(`wallet:${id}`)
 function wallet(page){uni.navigateTo({url:`/pages/wallet/${page}?contextId=${context.value.id}`})}
 function changeMonth(event){month.value=event.detail.value;load()}
@@ -64,7 +64,7 @@ defineExpose({refresh(){if(active)load()}})
 <style scoped>
 .income-head{display:grid;grid-template-columns:1fr 1fr;gap:.6em;margin:.4em 0 .8em;text-align:center}
 .income-head text{display:block;color:#989eb6;font-size:.82em}
-.income-head view>view{margin-top:.15em;font-size:1.25em;font-weight:700}
+.income-head view>view{margin-top:.15em;color:#fff;font-size:1.4em;font-weight:700}
 .income-actions{display:flex;justify-content:center;gap:.8em;margin-bottom:1em}
 .dividend-title{margin-top:.4em;font-weight:700}
 .wh-center{text-align:center}

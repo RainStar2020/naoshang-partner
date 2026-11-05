@@ -226,7 +226,8 @@ async function chooseAvatar() {
   try {
     const chosen = await new Promise(resolve => uni.chooseImage({ count: 1, sourceType: ['album'], success: resolve, fail: () => resolve(null) }))
     if (!chosen || !active || current !== editorEpoch) return
-    const result = await uploadProfileImage({ path: chosen.tempFilePaths[0], size: chosen.tempFiles[0].size }, 'member-avatar')
+    const file = chosen.tempFiles[0] || {}
+    const result = await uploadProfileImage({ path: file.path || chosen.tempFilePaths[0], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' }, 'member-avatar')
     if (active && current === editorEpoch) { draft.value.avatarAssetId = result.assetId; avatarPreview.value = result.previewUrl }
   } catch (reason) { if (active && current === editorEpoch) editorError.value = reason.message }
   finally { if (active && current === editorEpoch) uploading.value = false }

@@ -4,6 +4,7 @@ import {withBusinessContext} from './business'
 import {normalizeContent,isMediaUrl} from '../features/content/rich-content'
 import * as mock from './mock/training'
 import {isCoachAccount} from './account-channel'
+import {assetUrl} from './asset-url'
 const scoped=(contextId,operation)=>withBusinessContext(contextId,'agency:store-management',operation)
 function actions(value){
  if(value==null)return {allowedActions:[]}
@@ -11,7 +12,7 @@ function actions(value){
  if(!Array.isArray(value.allowedActions))throw new Error('操作权限数据异常')
  return value
 }
-export function normalizeTrainingFeedback(value,memberId,id){if(value?.id!==id||value.memberId!==memberId||typeof value.title!=='string')throw new Error('反馈会员或数据不匹配');return {...value,content:normalizeContent(value.content),images:(value.images||[]).filter(url=>config.useMock||isMediaUrl(url)),attachments:(value.attachments||[]).filter(item=>item&&typeof item.assetId==='string'&&['file','video'].includes(item.kind)&&(config.useMock||isMediaUrl(item.previewUrl)))}}
+export function normalizeTrainingFeedback(value,memberId,id){if(value?.id!==id||value.memberId!==memberId||typeof value.title!=='string')throw new Error('反馈会员或数据不匹配');const url=item=>assetUrl(typeof item==='string'?item:item?.previewUrl||'');return {...value,content:normalizeContent(value.content),images:(value.images||[]).map(url).filter(Boolean),attachments:(value.attachments||[]).filter(item=>item&&typeof item.assetId==='string'&&['file','video'].includes(item.kind)&&(config.useMock||isMediaUrl(item.previewUrl))).map(item=>({...item,previewUrl:url(item.previewUrl),posterUrl:assetUrl(item.posterUrl)}))}}
 export async function getCoachWorkspace(contextId){
   const session=getSession()
   if(isCoachAccount(session)){
@@ -20,9 +21,9 @@ export async function getCoachWorkspace(contextId){
     const result=await request('/coach/workspace')
     if(getSession()?.token!==session.token||getSession()?.user?.id!==session.user.id)throw new Error('登录账号已变化')
     if(!result?.store?.id||!result.contextId||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常')
-    return actions(result)
+    return actions({...result,childMembers:workspaceChildren(result).map(normalizeStoreMember)})
   }
-  return scoped(contextId,async(user,context)=>{const members=config.useMock?mock.mockCoachMembers(user):null;const result=config.useMock?{contextId:context.id,name:user.name||'健脑官',store:mock.mockCoachStore(user,context,members[0].id),members,allowedActions:['manage-members','read-orders','write-feedback']}:await request('/coach/workspace',{data:{contextId:context.id}});if(!result?.store?.id||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常');return actions(result)})
+  return scoped(contextId,async(user,context)=>{const members=config.useMock?mock.mockCoachMembers(user):null;const result=config.useMock?{contextId:context.id,name:user.name||'健脑官',store:mock.mockCoachStore(user,context,members[0].id),members,allowedActions:['manage-members','read-orders','write-feedback']}:await request('/coach/workspace',{data:{contextId:context.id}});if(!result?.store?.id||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常');return actions({...result,childMembers:workspaceChildren(result).map(normalizeStoreMember)})})
 }
 function selfStudyText(pack,fallback=''){
   if(typeof fallback==='string'&&fallback.trim())return fallback
@@ -47,6 +48,21 @@ function normalizeMemberActions(list){
   ]
   for(const [from,to] of aliases){if(actions.includes(from)&&!actions.includes(to))actions.push(to)}
   return actions
+}
+function looksLikeChildProfile(member){
+  if(!member||typeof member!=='object')return false
+  // Parent account rows nest children; child rows carry training fields or notes.
+  if(Array.isArray(member.children)&&member.children.length)return false
+  return !!(member.training||member.trainInfo||member.trainingTotal!=null||member.specialTotal!=null||member.admissionTotal!=null||member.selfStudyNote!=null||member.campNote!=null||member.remark!=null||member.gradeLabel||member.genderLabel||member.badge||member.memberLevelName)
+}
+function workspaceChildren(workspace){
+  const direct=Array.isArray(workspace?.childMembers)?workspace.childMembers:[]
+  const parents=Array.isArray(workspace?.members)?workspace.members:[]
+  const nested=parents.flatMap(parent=>Array.isArray(parent?.children)?parent.children:[])
+  const flatKids=parents.filter(looksLikeChildProfile)
+  const seen=new Set()
+  const source=direct.length?direct:(nested.length?nested:flatKids)
+  return source.filter(member=>member?.id&&!seen.has(String(member.id))&&seen.add(String(member.id)))
 }
 function normalizeStoreMember(member){
   if(!member||typeof member!=='object')return member
@@ -82,7 +98,17 @@ function normalizeStoreMember(member){
 function remainSafe(total,used){return Math.max(0,numberOrZero(total)-numberOrZero(used))}
 function numberOrZero(value){const n=Number(value);return Number.isFinite(n)?n:0}
 export function getStoreMember(contextId,id){return scoped(contextId,async user=>{const result=config.useMock?{member:mock.mockTrainingMember(user,id),allowedActions:['edit-training','write-feedback','transfer','read-orders','edit-consultant']}:await request(`/members/${encodeURIComponent(id)}/store-profile`,{data:{contextId}});if(result?.member?.id!==id)throw new Error('会员资料不匹配');return actions({...result,member:normalizeStoreMember(result.member)})})}
-export function getStoreMemberProfiles(contextId,accountId){return scoped(contextId,async(user,context)=>{
+export async function getStoreMemberProfiles(contextId,accountId){
+  const session=getSession()
+  if(isCoachAccount(session)){
+    if(config.useMock)throw new Error('请联系门店开通健脑官账号')
+    const workspace=await request('/coach/workspace')
+    if(getSession()?.token!==session.token||getSession()?.user?.id!==session.user.id)throw new Error('登录账号已变化')
+    const items=workspaceChildren(workspace).filter(member=>String(member.id)===String(accountId)).map(normalizeStoreMember)
+    if(!items.length)throw new Error('暂无会员')
+    return actions({items,allowedActions:normalizeMemberActions([].concat(...items.map(item=>item.allowedActions||[]),workspace?.allowedActions||[]))})
+  }
+  return scoped(contextId,async(user,context)=>{
   if(config.useMock){
     const items=mock.mockStoreProfilesForAccount(user,accountId).map(normalizeStoreMember)
     if(!items.length)throw new Error('暂无会员')
@@ -93,8 +119,8 @@ export function getStoreMemberProfiles(contextId,accountId){return scoped(contex
   const parents=Array.isArray(workspace?.members)?workspace.members:[]
   const parent=parents.find(item=>[item.id,item.accountId,item.userId].some(value=>String(value||'')===String(accountId)))
   let children=Array.isArray(parent?.children)?parent.children:[]
-  if(!children.length&&Array.isArray(workspace?.childMembers)){
-    const alone=workspace.childMembers.find(item=>String(item.id)===String(accountId))
+  if(!children.length){
+    const alone=workspaceChildren(workspace).find(item=>String(item.id)===String(accountId))
     if(alone)children=[alone]
   }
   if(!children.length)throw new Error('暂无会员')
@@ -106,7 +132,8 @@ export function getStoreMemberProfiles(contextId,accountId){return scoped(contex
   })
   const allowedActions=normalizeMemberActions([].concat(...items.map(item=>item.allowedActions||[]),parent?.allowedActions||[],['edit-consultant','read-orders']))
   return actions({items,allowedActions})
-})}
+})
+}
 export function updateStoreMember(contextId,id,draft){return scoped(contextId,async user=>config.useMock?mock.mockUpdateTraining(user,id,draft):request(`/members/${encodeURIComponent(id)}/training`,{method:'PATCH',data:{...draft,contextId}}))}
 export function updateMemberConsultant(contextId,memberId,draft){return scoped(contextId,async user=>{
   const name=String(draft.name||'').trim(),phone=String(draft.phone||'').trim()

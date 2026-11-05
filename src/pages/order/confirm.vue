@@ -43,17 +43,19 @@
               <view class="pick-action">请选择 <image src="/static/common/icon-chevron-right.png" mode="aspectFit" /></view>
             </view>
           </view>
-          <view v-if="store" class="shop-card store-card" @click="openStores">
+          <view v-if="store" class="shop-card store-card">
             <image :src="store.coverUrl || '/static/common/icon-store.png'" mode="aspectFill" />
             <view class="pick-copy">
               <view class="store-name-row">
                 <text class="store-name">{{ store.name }}</text>
                 <text v-if="store.number" class="store-no">{{ store.number }}</text>
-                <text v-if="storeChoices.length > 1" class="store-switch">切换</text>
               </view>
               <text class="store-manager">店长信息：{{ store.managerName }}<text v-if="store.phone">/{{ store.phone }}</text></text>
               <text class="store-address">{{ store.address }}</text>
             </view>
+          </view>
+          <view v-else class="shop-card store-unbound">
+            <text class="store-unbound-title">暂未绑定门店</text>
           </view>
           <view class="shop-card goods-card">
             <view class="goods-count">共{{ draft.quantity }}件商品</view>
@@ -90,7 +92,7 @@
     </view>
     <view v-if="data" class="shop-footer">
       <view class="confirm-total">合计：<text class="shop-price">{{ amountText(payableAmount) }}</text></view>
-      <button class="shop-primary" :disabled="busy" @click="submit">{{ submitLabel }}</button>
+      <button class="shop-primary" :disabled="submitDisabled" @click="submit">{{ submitLabel }}</button>
     </view>
     <view v-if="selectionType" class="shop-mask" @click="selectionType = ''">
       <view v-if="selectionType === 'members'" class="shop-sheet" role="dialog" aria-label="选择会员" @click.stop>
@@ -161,7 +163,7 @@ import { ref, computed } from 'vue'
 import { config } from '../../config'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
-import { getProduct, getCheckoutOptions, quoteCheckout, createCheckoutOrder, commerceRequestKey, getPendingCheckout, rememberPendingCheckout, clearPendingCheckout, isCheckoutRejection, parseCommerceTime } from '../../services/commerce'
+import { getProduct, getCheckoutOptions, quoteCheckout, createCheckoutOrder, commerceRequestKey, getPendingCheckout, rememberPendingCheckout, clearPendingCheckout, isCheckoutRejection, parseCommerceTime, STORE_BINDING_REQUIRED_MESSAGE } from '../../services/commerce'
 import { money } from '../../features/exclusive/format'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
@@ -185,14 +187,16 @@ let submitted = false
 const plainYuan = value => money(value).replace(/\.00$/, '')
 const selectionRows = computed(() => data.value?.options[selectionType.value] || [])
 const coupons = computed(() => data.value?.options.coupons || [])
-const storeChoices = computed(() => data.value?.options.stores || [])
 const address = computed(() => data.value?.options.addresses.find(item => item.id === draft.value.addressId))
 const member = computed(() => data.value?.options.members.find(item => item.id === draft.value.memberId))
 const store = computed(() => data.value?.options.stores.find(item => item.id === draft.value.storeId))
+const storeBound = computed(() => data.value?.options.storeBound !== false && !!store.value)
+const storeBindingMessage = computed(() => data.value?.options.storeBindingMessage || STORE_BINDING_REQUIRED_MESSAGE)
 const selectedSku = computed(() => data.value?.product.skus.find(item => item.id === draft.value.skuId) || null)
 const selectedCoupon = computed(() => coupons.value.find(item => item.id === draft.value.couponId) || null)
 const sheetTitle = computed(() => ({ addresses: '选择收货地址', stores: '选择所属门店' }[selectionType.value] || ''))
 const submitLabel = computed(() => busy.value ? '处理中…' : pendingCreation.value ? '重试原订单提交' : '确认订单')
+const submitDisabled = computed(() => busy.value || (!pendingCreation.value && !storeBound.value))
 const unitPrice = computed(() => {
   const quoted = Number(quote.value?.product?.unitPrice)
   if (Number.isFinite(quoted) && quoted >= 0) return quoted
@@ -292,12 +296,8 @@ function openSheet(type) {
   if (busy.value || pendingCreation.value) return
   selectionType.value = type
 }
-function openStores() {
-  if (busy.value || pendingCreation.value || data.value?.options.deliveryLocked || storeChoices.value.length < 2) return
-  selectionType.value = 'stores'
-}
 function chooseEntity(item) {
-  const field = { addresses: 'addressId', members: 'memberId', stores: 'storeId' }[selectionType.value]
+  const field = { addresses: 'addressId', members: 'memberId' }[selectionType.value]
   if (!field) return
   draft.value[field] = item.id
   selectionType.value = ''
@@ -323,10 +323,18 @@ async function load() {
     if (!active || current !== epoch) return
     options.addresses = options.addresses.map(item => ({ ...item, display: `${item.recipient} ${(item.regionNames || []).join('')}${item.detail}` }))
     data.value = { product, options }
-    if (!pendingCreation.value && (options.deliveryLocked || !options.stores.some(item=>item.id===draft.value.storeId))) draft.value.storeId = options.defaultStoreId || options.stores[0]?.id
+    if (!pendingCreation.value) {
+      draft.value.storeId = options.defaultStoreId || options.stores[0]?.id || null
+    } else if (!options.stores.some(item => item.id === draft.value.storeId)) {
+      draft.value.storeId = options.defaultStoreId || options.stores[0]?.id || null
+    }
     const selected = options.addresses.find(item => item.id === draft.value.addressId) || options.addresses.find(item => item.isDefault)
     draft.value.addressId = selected?.id
     status.value = 'ready'
+    if (options.storeBindingRequired || !draft.value.storeId) {
+      operationError.value = options.storeBindingMessage || STORE_BINDING_REQUIRED_MESSAGE
+      return
+    }
     if (!pendingCreation.value) {
       const pending = getPendingCheckout(draft.value)
       if (pending) {
@@ -350,11 +358,15 @@ async function load() {
 async function submit() {
   if (busy.value || submitted) return
   operationError.value = ''
+  if (!pendingCreation.value && !storeBound.value) {
+    operationError.value = storeBindingMessage.value
+    return
+  }
   if (!pendingCreation.value && !requirementsMet()) {
     const product = data.value?.product
     if (product?.requiresMember && !draft.value.memberId) operationError.value = '请选择服务会员'
     else if (product?.fulfillmentType === 'PHYSICAL' && !draft.value.addressId) operationError.value = '请选择收货地址'
-    else if (!draft.value.storeId) operationError.value = '请选择所属门店'
+    else if (!draft.value.storeId) operationError.value = storeBindingMessage.value
     else operationError.value = '请完善订单信息'
     return
   }
@@ -434,9 +446,10 @@ onUnload(() => { active = false; ++epoch; ++quoteEpoch })
 .store-card > image { width: 4.5em; height: 4.5em; border-radius: .4em; flex-shrink: 0; background: #464c6b; }
 .store-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: .35em; min-width: 0; }
 .store-name { font-weight: 600; line-height: 1.45; }
-.store-switch { margin-left: auto; color: #7eb6ff; font-size: .82em; }
 .store-manager { margin-top: .3em; }
 .store-address { margin-top: .15em; }
+.store-unbound { margin-bottom: .85em; }
+.store-unbound-title { font-weight: 600; line-height: 1.45; }
 .goods-card { margin-bottom: 0; }
 .goods-count { font-weight: 600; margin-bottom: .85em; }
 .confirm-product { display: flex; align-items: flex-start; gap: .7em; min-width: 0; }

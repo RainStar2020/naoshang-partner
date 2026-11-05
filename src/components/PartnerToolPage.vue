@@ -2,7 +2,7 @@
   <view class="partner-tool-page feature-page">
     <BusinessPageHeader v-if="title" :title="title" fallback="/pages/partners/index" />
     <PartnerPointsExchange v-if="kind === 'withdraw'" ref="page" :page-query="query" />
-    <PartnerStoreBinding v-else-if="kind === 'bind-store'" ref="page" />
+    <PartnerStoreBinding v-else-if="kind === 'bind-store'" ref="page" :page-query="query" />
     <BusinessWithdrawals v-else-if="kind === 'withdrawals'" ref="page" :page-query="query" />
     <BusinessReport v-else-if="toolId" ref="page" :page-query="query" module="wholesale" :tool-id="toolId" />
     <BusinessOperation v-else-if="kind" ref="page" :page-query="query" :kind="kind" />

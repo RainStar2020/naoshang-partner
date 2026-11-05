@@ -336,9 +336,9 @@
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| GET | `/agency/store-workspace` | 代理侧门店工作台 |
+| GET | `/agency/store-workspace` | 代理侧门店工作台；`store.id` 为店长用户 ID，`store.entityId` 为健脑官归属的门店实体 ID |
 | GET/PATCH | `/stores`、`/stores/{id}` | 门店信息 |
-| POST/PATCH | `/stores/{storeId}/coaches`、`.../coaches/{id}` | 健脑官任命/更新 |
+| POST/PATCH/DELETE | `/stores/{storeId}/coaches`、`.../coaches/{coachId}` | 健脑官任命/更新/删除；删除 body 必传 `version`，成功后作废该健脑官会话 |
 | POST | `/stores/{storeId}/orders/{orderNo}/verify` | 核销（本店授权、已付才可核；失败次数/锁定需可查询） |
 | GET | `/coach/workspace` | 健脑官工作台 |
 | GET/PATCH | `/members/{id}/store-profile`、`/members/{id}/training` | 学员门店档案与训练 |
@@ -346,7 +346,7 @@
 | GET/POST | `/store-transfer/options`、`/store-transfer/applications` | 转店 |
 | POST | `/applications/{id}/decisions` | 门店侧审批申请 |
 
-健脑官使用 `channel: coach` 登录，**不得**从家长角色前端推导任职。
+健脑官使用 `channel: coach` 登录，**不得**从家长角色前端推导任职。健脑官必须按门店实体绑定：客户端优先使用工作台下发的 `store.entityId` 调用健脑官接口；后端需兼容历史店长用户 ID / 代理记录 ID 并归一到门店实体。删除接口的 404 应视为记录已不存在，409 表示乐观锁版本冲突。
 
 ---
 

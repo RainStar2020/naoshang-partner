@@ -47,8 +47,7 @@ import { useAuth } from '../../composables/useAuth'
 import { useAppTabBar } from '../../composables/useAppTabBar'
 import { getSession } from '../../services/api'
 import { getMyProfile, getSupportConfig } from '../../services/profile'
-import { getExclusiveAccess } from '../../services/exclusive'
-import { exclusiveFeatures } from '../../features/exclusive/catalog'
+import { getExclusiveAccess, getVisibleExclusiveEntries } from '../../services/exclusive'
 import AppTabBar from '../../components/AppTabBar.vue'
 import ProfileIcon from '../../components/ProfileIcon.vue'
 useAuth(); useAppTabBar()
@@ -61,12 +60,20 @@ const menu = [{ label: '优惠券', icon: 'coupon', path: '/pages/coupon/list' }
 async function load() {
   if (!getSession()) return
   const current = ++epoch; status.value = 'loading'; data.value = null
-  try { const result = await getMyProfile(); const access = await getExclusiveAccess(result); if(current === epoch) { data.value = result; exclusiveEntries.value = exclusiveFeatures.filter(item => profileExclusiveIds.includes(item.id) && (item.id !== 'founder-awards' || access.capabilities.includes(item.capability))); status.value = 'ready' } }
+  try { const result = await getMyProfile({ force: true }); const access = await getExclusiveAccess(result); if(current === epoch) { data.value = result; exclusiveEntries.value = getVisibleExclusiveEntries(access).filter(item => profileExclusiveIds.includes(item.id)); status.value = 'ready' } }
   catch(reason) { if(current === epoch) { error.value = reason.message || '加载失败'; status.value = 'error' } }
 }
 function open(path) { uni.navigateTo({ url: path }) }
 function openOrders(status) { open(`/pages/order/list?status=${status}`) }
-function copyInvite() { uni.setClipboardData({ data: data.value.profile.inviteCode }) }
+function copyInvite() {
+  const code = String(data.value?.profile?.inviteCode || '').trim()
+  if (!code) return
+  uni.setClipboardData({
+    data: code,
+    success: () => uni.showToast({ title: '邀请码已复制', icon: 'success' }),
+    fail: () => uni.showToast({ title: '复制失败，请重试', icon: 'none' }),
+  })
+}
 async function contactSupport() {
   try {
     const support = await getSupportConfig()
@@ -84,11 +91,12 @@ onShow(load); onUnload(() => { ++epoch })
 .me-user-main { display: flex; align-items: center; gap: .75em; width: 100%; margin: 0; padding: 0; background: none; color: #fff; text-align: left; line-height: 1.4; }
 .me-avatar { width: 3.4em; height: 3.4em; border-radius: 50%; flex-shrink: 0; background: #2a4774; }
 .me-avatar.letter { display: flex; align-items: center; justify-content: center; font-size: 1.3em; }
-.me-user-info { flex: 1; min-width: 0; }
-.me-name { font-size: 1.15em; font-weight: 700; overflow-wrap: anywhere; }
-.me-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .15em .7em; margin-top: .25em; color: #9aa6c4; font-size: .82em; }
-.me-invite { display: inline-flex; align-items: center; gap: .25em; margin: 0; padding: 0; background: none; color: #9aa6c4; font-size: 1em; line-height: 1.4; }
-.me-invite image { width: 1em; height: 1em; }
+.me-user-info { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; }
+.me-name { font-size: 1.15em; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.me-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .15em .7em; margin-top: .25em; max-width: 100%; color: #9aa6c4; font-size: .82em; line-height: 1.4; }
+.me-meta > text { flex: none; white-space: nowrap; }
+.me-invite { display: inline-flex; align-items: center; gap: .25em; margin: 0; padding: 0; background: none; color: #9aa6c4; font-size: 1em; line-height: 1.4; flex: none; white-space: nowrap; }
+.me-invite image { width: 1em; height: 1em; flex-shrink: 0; }
 .me-chevron { width: 1em; height: 1em; flex-shrink: 0; }
 .me-card { border-radius: .85em; background: radial-gradient(ellipse 135% 115% at 100% 0%, rgba(42, 112, 206, .7), rgba(42, 112, 206, .24) 40%, transparent 72%), #353a59; padding: .95em 1em 1.05em; margin-bottom: .85em; }
 .me-section-title { margin-bottom: .85em; font-family: var(--font-module-title); font-size: 1em; font-weight: 700; }

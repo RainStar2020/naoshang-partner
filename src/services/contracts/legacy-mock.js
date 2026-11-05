@@ -41,6 +41,7 @@ export function legacyMock(key, p, d) {
     'PATCH /stores/{id}': () => store.saveBusinessStore(d.contextId, p.id, d),
     'POST /stores/{storeId}/coaches': () => store.saveBusinessCoach(d.contextId, p.storeId, '', d, d.idempotencyKey),
     'PATCH /stores/{storeId}/coaches/{id}': () => store.saveBusinessCoach(d.contextId, p.storeId, p.id, d, d.idempotencyKey),
+    'DELETE /stores/{storeId}/coaches/{coachId}': () => store.removeBusinessCoach(d.contextId, p.storeId, p.coachId, d.version),
     'POST /applications/{id}/decisions': () => store.decideBusinessApplication(d.contextId, d.storeId, p.id, d),
     'GET /income/entries/{id}': () => business.getBusinessIncomeDetail(d.contextId, p.id),
     'GET /agency/team/{id}': () => business.getBusinessTeamNode(d.contextId, p.id),

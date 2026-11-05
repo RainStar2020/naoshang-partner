@@ -24,6 +24,9 @@ import RegionPicker from '../../components/RegionPicker.vue'
 import { config } from '../../config'
 import { captureInvitation } from '../../services/invitation'
 import { registerAccount, getWechatBinding } from '../../services/auth'
+import { getSession } from '../../services/api'
+import { consumeLoginReturn } from '../../services/login-return'
+import { accountHome } from '../../services/account-channel'
 import { useSms, authToast } from '../../composables/useSms'
 import '../../styles/auth.css'
 const phone = ref(''), code = ref(''), password = ref(''), confirmation = ref(''), inviteCode = ref(''), region = ref([]), regionCodes = ref([]), source = ref(''), loading = ref(false)
@@ -38,9 +41,12 @@ async function submit() {
   if (loading.value) return
   loading.value = true
   try {
-    await registerAccount({ phone: phone.value, code: code.value, password: password.value, confirmation: confirmation.value, inviteCode: inviteCode.value.trim(), region: region.value, regionNames: region.value, regionCodes: regionCodes.value, source: source.value })
+    await registerAccount({ phone: phone.value, code: code.value, password: password.value, confirmation: confirmation.value, inviteCode: inviteCode.value.trim().toUpperCase(), region: region.value, regionNames: region.value, regionCodes: regionCodes.value, source: source.value })
     password.value = ''; confirmation.value = ''
-    uni.switchTab({ url: '/pages/member/index' })
+    const target = consumeLoginReturn()
+    const home = accountHome(getSession())
+    if (target) uni.redirectTo({ url: target, fail: () => uni.switchTab({ url: home }) })
+    else uni.switchTab({ url: home })
   } catch (e) { authToast(e) } finally { loading.value = false }
 }
 </script>

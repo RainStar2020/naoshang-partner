@@ -1,6 +1,7 @@
 // MOCK-ONLY / TODO(API): presentation fixtures for designs 17–53, never real pricing or commission rules.
 import { config } from '../../config'
 import { accountRank, partnerLevelPrice, partnerPromotion } from '../../features/business/account-rank'
+import { buildRegisterInviteUrl } from '../agency-promotion-link'
 const activityBatch={id:'activity-batch-1',title:'后台充值4个活动VIP名额',grantedAt:'2026-10-01T00:00:00+08:00',expiresAt:null,validityLabel:'永久有效',transferable:false,refundable:false,total:4}
 export function mockActivityQuota(state){const reserved=Object.values(state.activityReservations || {}).reduce((sum,value)=>sum+value,0),remaining=state.activityQuota ?? activityBatch.total;return {...activityBatch,reserved,remaining,used:Math.max(0,activityBatch.total-remaining-reserved)}}
 export function mockWholesaleOverview(state,user={}){const rank=accountRank(user.displayId||user.id),configured=rank ? (rank.partner ? 'ACTIVE' : 'NONE') : (user.partnerStatus ?? state.partnerStatus ?? config.mockWholesalePartnerStatus ?? 'ACTIVE'),partnerStatus=configured==='ANGEL_UNPAID'&&state.annualValidUntil?'ANGEL':configured,angel=partnerStatus==='ANGEL'||partnerStatus==='ANGEL_UNPAID',pristine=state.quota===20&&state.transferred===0;return {partnerStatus,levelName:rank?.levelName,annualRemainingDays:partnerStatus==='ANGEL_UNPAID'?null:state.annualValidUntil?Math.max(0,Math.ceil((Date.parse(state.annualValidUntil)-Date.now())/86400000)):partnerStatus==='NONE'?null:99,annualOpenLabel:partnerStatus==='ANGEL_UNPAID'?'支付¥200.00开通1年合伙权益':'',rankDescription:partnerStatus==='NONE'?'您当前不是合伙人，升级可享受合伙人权益':angel?'尊享x项权益，推广同级合伙人可快速升级':'尊享x项权益，您已是最高等级',experience:100,experienceTarget:9980,showcaseTeamCount:29,showcaseQuota:pristine?17:state.quota,showcaseTransferred:pristine?38:state.transferred}}
@@ -15,14 +16,18 @@ export function mockWholesaleReport(user,context,state,resource,params){
  if(resource.id==='team')return {...base,items:people.filter(x=>!params.keyword||`${x.name} ${x.displayId} ${x.phone}`.includes(params.keyword))}
  if(resource.id==='superior'){const status=mockWholesaleOverview(state,user).partnerStatus,sample=status==='ACTIVE'?{name:'李志远',phone:'19919988991',levelLabel:'私董合伙人',avatarUrl:'/static/agency/avatar-li-zhiyuan.png'}:null;return {...base,superior:state.superior||sample}}
  if(resource.id==='promotion'){const step=partnerPromotion(user.displayId||user.id);const paidAmount=partnerLevelPrice(step.beforeName),standardAmount=partnerLevelPrice(step.afterName);return {...base,promotion:{id:'demo-promotion-task',version:1,...step,paidAmount,standardAmount,differenceAmount:Number.isInteger(standardAmount)&&Number.isInteger(paidAmount)?standardAmount-paidAmount:null,startedAt:'2022-08-21T00:00:00+08:00',progress:1,target:3,canClaim:false,statusLabel:'进行中',validUntil:new Date(Date.now()+365*86400000).toISOString()}}}
- if(resource.id==='share'){const inviteCode=user.inviteCode||'LXYA023';return {...base,inviteCode,localPayload:`http://localhost:5173/#/pages/register/index?inviteCode=${encodeURIComponent(inviteCode)}`}}
+ if(resource.id==='share'){const inviteCode=user.inviteCode||'LXYA023';const localPayload=buildRegisterInviteUrl(inviteCode);return {...base,inviteCode,localPayload,shareUrl:localPayload}}
  const layoutAt='2022-08-21T13:34:12.000Z'
  const purchases=state.quotaLedger.filter(x=>x.quantity>0)
  if(resource.id==='quota-ledger')return {...base,standardRemaining:state.quota,activityRemaining:mockActivityQuota(state).remaining,items:purchases.length?purchases:[1,2].map(n=>({id:`layout-purchase-${n}`,title:'购入VIP名额',quantity:15,createdAt:layoutAt}))}
  if(resource.id==='quota-transfers'){
   const moved=state.quotaLedger.filter(x=>x.quantity<0 || x.activityQuantity<0).map(x=>({...x,quantity:x.quantity+(x.activityQuantity || 0),targetDisplayId:people.find(p=>p.name===x.targetName)?.displayId,targetLevel:people.find(p=>p.name===x.targetName)?.levelLabel}))
-  const samples=[{id:'layout-transfer-1',title:'划转VIP名额',quantity:-15,createdAt:layoutAt,targetDisplayId:'VIP9747575',targetLevel:'VIP合伙人'},{id:'layout-transfer-2',title:'划转VIP名额',quantity:-10,createdAt:layoutAt,targetDisplayId:'TS9747575',targetLevel:'天使合伙人',peerAward:199000}]
-  return {...base,items:moved.length?moved:samples}
+  const samples=[
+    {id:'layout-transfer-1',title:'划转VIP名额',quantity:-15,createdAt:'2022-08-21T21:34:12+08:00',targetDisplayId:'VIP9747575',targetLevel:'VIP合伙人'},
+    {id:'layout-transfer-2',title:'划转VIP名额',quantity:-10,createdAt:'2022-08-21T21:34:12+08:00',targetDisplayId:'TS9747575',targetLevel:'天使合伙人'},
+    {id:'layout-transfer-3',title:'划转VIP名额',quantity:-15,createdAt:'2022-08-21T21:34:12+08:00',targetDisplayId:'VIP9747575',targetLevel:'VIP合伙人'},
+  ]
+  return {...base,items:moved.length?moved:samples,summary:{totalSold:40,upgradeConsumed:0,inCirculation:40}}
  }
  if(resource.id==='quota-batches')return {...base,items:[mockActivityQuota(state)]}
  if(resource.id==='experience'){

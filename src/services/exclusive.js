@@ -5,6 +5,9 @@ import { isAngelOrAbove } from '../features/business/account-rank'
 import { emptyContent, normalizeContent, isMediaUrl } from '../features/content/rich-content'
 import { mockExclusiveState, saveMockExclusiveState, mockCostoreOptions, mockFounderAwards } from './mock/exclusive'
 import { mockCostorePaymentOrder } from './mock/commerce'
+import { buildAgencyApplicationUrl } from './agency-promotion-link'
+import { getCachedMeContext, loadMeContext } from './me-context'
+export { buildAgencyApplicationUrl } from './agency-promotion-link'
 const copy = value => JSON.parse(JSON.stringify(value))
 function coerceRichContent(value) {
   if (value == null) return emptyContent()
@@ -51,7 +54,12 @@ export function listResult(result) {
 }
 export async function getExclusiveAccess(profileResult) {
   const user = accountSnapshot()
-  const result = config.useMock ? { accountId: user.id, contextId: `account:${user.id}`, capabilities: [] } : (profileResult || await request('/me')).exclusiveAccess
+  let source = profileResult
+  if (!source) source = getCachedMeContext() || await loadMeContext().catch(() => null)
+  if (!source && !config.useMock) source = await request('/me')
+  const result = config.useMock
+    ? (source?.exclusiveAccess || { accountId: user.id, contextId: `account:${user.id}`, capabilities: ['agency-code:read', 'family-members:manage'] })
+    : source?.exclusiveAccess
   checkAccount(user)
   if (!result) return { accountId: user.id, contextId: null, capabilities: [] }
   if (result.accountId !== user.id || !Array.isArray(result.capabilities) || (result.capabilities.length && !result.contextId)) throw new Error('专属功能身份数据异常')
@@ -60,6 +68,8 @@ export async function getExclusiveAccess(profileResult) {
   if (!capabilities.includes('costore:apply') && isAngelOrAbove(user.displayId || user.id, rankHint)) {
     capabilities.push('costore:apply')
   }
+  // Product: every logged-in account can manage their own family members.
+  if (!capabilities.includes('family-members:manage')) capabilities.push('family-members:manage')
   return {
     ...result,
     capabilities,
@@ -158,11 +168,33 @@ export function getMyApplications(cursor = null) {
   return withExclusive('costore-application', async (user, access) => listResult(config.useMock ? { items: copy(mockExclusiveState(user).applications), hasMore: false, nextCursor: null } : await request('/applications', { data: { type: 'COSTORE', cursor, pageSize: 20, contextId: access.contextId } })))
 }
 export const agencyTypes = [{ id: 'STORE', label: '单店代理' }, { id: 'COUNTY', label: '区县代理' }, { id: 'CITY', label: '市代' }, { id: 'PROVINCE', label: '省代' }]
+const isHttpUrl = value => typeof value === 'string' && /^https?:\/\/[^\s<>"'\\]+$/i.test(value)
+function resolveAgencyScanUrl(result, type) {
+  const share = typeof result?.shareUrl === 'string' ? result.shareUrl.trim() : ''
+  if (isHttpUrl(share) && /application\/agency/i.test(share)) return share
+  if (result?.promotionId) return buildAgencyApplicationUrl(result.promotionId, type)
+  return ''
+}
 export function getAgencyPromotion(type) {
   if (!agencyTypes.some(item => item.id === type)) throw new Error('代理类型无效')
-  return withExclusive('agency-code', async (user, access) => {
-    const result = config.useMock ? { accountId: user.id, agencyType: type, promotionId: `local-${user.id}-${type}`, localPayload:`http://localhost:5173/#/pages/application/agency?promotionId=local-${encodeURIComponent(user.id)}-${type}&agencyType=${type}`, qrUrl: '', posterUrl: '', shareUrl: '', mockOnly: true } : await request('/promotion/agency-code', { data: { agencyType: type, contextId: access.contextId } })
-    if (result?.accountId !== user.id || result.agencyType !== type) throw new Error('推广码身份不匹配')
-    return { ...result, qrUrl: result.promotionId && isMediaUrl(result.qrUrl) ? result.qrUrl : '', posterUrl: result.promotionId && isMediaUrl(result.posterUrl) ? result.posterUrl : '', shareUrl: result.promotionId && isMediaUrl(result.shareUrl) ? result.shareUrl : '' }
+  return withExclusive('agency-code', async (user) => {
+    // Temporary: always build local promotion payloads; do not depend on backend fields/API yet.
+    const result = {
+      accountId: user.id,
+      agencyType: type,
+      promotionId: `local-${user.id}-${type}`,
+      qrUrl: '',
+      posterUrl: '',
+      shareUrl: '',
+      mockOnly: true,
+    }
+    const scanUrl = resolveAgencyScanUrl(result, type)
+    return {
+      ...result,
+      qrUrl: '',
+      posterUrl: '',
+      shareUrl: scanUrl,
+      localPayload: scanUrl,
+    }
   })
 }

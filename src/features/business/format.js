@@ -1,8 +1,14 @@
 // Current client/business review timezone: Asia/Shanghai. Persist ISO instants, format only for display.
 export function businessDateLabel(value){
-  const time=Date.parse(value)
+  if(value==null||value==='')return ''
+  let time
+  if(typeof value==='number'&&Number.isFinite(value))time=value<1e12?value*1000:value
+  else if(/^\d{10,13}$/.test(String(value).trim())){
+    const raw=Number(String(value).trim())
+    time=String(value).trim().length<=10?raw*1000:raw
+  }else time=Date.parse(value)
   if(!Number.isFinite(time))return ''
-  const local=new Date(time+8*60*60*1000),pad=value=>String(value).padStart(2,'0')
+  const local=new Date(time+8*60*60*1000),pad=part=>String(part).padStart(2,'0')
   return `${local.getUTCFullYear()}-${pad(local.getUTCMonth()+1)}-${pad(local.getUTCDate())} ${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`
 }
 

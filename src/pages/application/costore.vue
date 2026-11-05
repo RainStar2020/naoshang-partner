@@ -12,7 +12,7 @@
         />
         <template v-if="status === 'ready'">
           <view class="apply-card">
-            <view class="panel-heading"><text>选择门店</text><button class="switch-store" :disabled="submitting || !!pendingIntent" @click="storeOpen = true">切换<image src="/static/common/icon-switch-arrows.png" mode="aspectFit" /></button></view>
+            <view class="panel-heading"><text>选择门店</text><button class="switch-store" :disabled="submitting" @click="openStorePicker">切换<image src="/static/common/icon-switch-arrows.png" mode="aspectFit" /></button></view>
             <view v-if="selectedStore" class="store-body">
               <image :src="selectedStore.coverUrl || '/static/common/icon-store.png'" mode="aspectFill" />
               <view>
@@ -26,7 +26,7 @@
           <view class="apply-card">
             <view class="panel-heading">开通时长</view>
             <view class="duration-options">
-              <button v-for="option in data.durations" :key="option.id" :class="{ selected: durationId === option.id }" :disabled="submitting || !!pendingIntent" @click="selectDuration(option.id)">{{ option.label }}</button>
+              <button v-for="option in data.durations" :key="option.id" :class="{ selected: durationId === option.id }" :disabled="submitting" @click="selectDuration(option.id)">{{ option.label }}</button>
             </view>
             <view class="quote-total">合计价格：<text>{{ quoting ? '试算中…' : quote ? `¥${money(quote.payableAmount)}` : '¥0' }}</text></view>
             <text v-if="quoteError" class="apply-error">{{ quoteError }}</text>
@@ -117,8 +117,53 @@ async function refreshQuote() {
   catch (reason) { if (current === epoch && active) quoteError.value = reason.message }
   finally { if (current === epoch && active) quoting.value = false }
 }
-function selectStore(id) { if (submitting.value || pendingIntent.value) return; storeId.value = id; storeOpen.value = false; refreshQuote() }
-function selectDuration(id) { if (submitting.value || pendingIntent.value || durationId.value === id) return; durationId.value = id; refreshQuote() }
+function abandonPendingIntent() {
+  clearCostoreApplicationIntent()
+  pendingIntent.value = null
+  attemptKey = ''
+  submitError.value = ''
+}
+function openStorePicker() {
+  if (submitting.value) return
+  if (!pendingIntent.value) {
+    storeOpen.value = true
+    return
+  }
+  uni.showModal({
+    title: '切换门店',
+    content: '有待确认的合店申请，切换门店将放弃重试原申请，是否继续？',
+    success: (result) => {
+      if (!result.confirm || !active) return
+      abandonPendingIntent()
+      storeOpen.value = true
+    },
+  })
+}
+function selectStore(id) {
+  if (submitting.value) return
+  if (pendingIntent.value) abandonPendingIntent()
+  storeId.value = id
+  storeOpen.value = false
+  refreshQuote()
+}
+function selectDuration(id) {
+  if (submitting.value || durationId.value === id) return
+  if (pendingIntent.value) {
+    uni.showModal({
+      title: '更换开通时长',
+      content: '有待确认的合店申请，更换时长将放弃重试原申请，是否继续？',
+      success: (result) => {
+        if (!result.confirm || !active) return
+        abandonPendingIntent()
+        durationId.value = id
+        refreshQuote()
+      },
+    })
+    return
+  }
+  durationId.value = id
+  refreshQuote()
+}
 function openApplications() { uni.navigateTo({ url: '/pages/application/list' }) }
 async function submit() {
   if (submitting.value || quoting.value || !quote.value) return

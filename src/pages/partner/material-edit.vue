@@ -50,8 +50,8 @@ async function chooseQr() {
   try {
     const selected = await new Promise(resolve => uni.chooseImage({ count: 1, sourceType: ['album'], success: resolve, fail: () => resolve(null) }))
     if (!selected || current !== epoch) return
-    const file = selected.tempFiles[0]
-    const result = await uploadMaterialQr({ path: selected.tempFilePaths[0], size: file.size })
+    const file = selected.tempFiles[0] || {}
+    const result = await uploadMaterialQr({ path: file.path || selected.tempFilePaths[0], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' })
     if (current !== epoch) return
     qrAssetId.value = result.assetId; qrPreview.value = selected.tempFilePaths[0]; attemptKey = ''; jobId = ''; resultImage.value = ''; resultLink.value = ''; jobStatus.value = ''
   } catch(reason) { if(current === epoch) operationError.value = reason.message || '二维码上传失败' }

@@ -74,7 +74,7 @@ test('activation targets the selected member, rejects bad preview, and synchroni
 })
 test('promotion types never substitute registration invitations or static QR images for absent payloads',async()=>{
   const {exclusive}=await setup()
-  for(const type of exclusive.agencyTypes){const result=await exclusive.getAgencyPromotion(type.id);assert.ok(result.promotionId.startsWith('local-'));assert.ok(result.localPayload.includes('/pages/application/agency')); assert.equal(result.qrUrl,'');assert.equal(result.shareUrl,'')}
+  for(const type of exclusive.agencyTypes){const result=await exclusive.getAgencyPromotion(type.id);assert.ok(result.promotionId.startsWith('local-'));assert.ok(result.localPayload.includes('/pages/application/agency'));assert.equal(result.shareUrl,result.localPayload);assert.equal(result.qrUrl,'')}
   assert.throws(()=>exclusive.getAgencyPromotion('INVALID'),/类型/)
 })
 test('signed money and missing report values remain distinct; real failures never fall back to mock',async()=>{
@@ -89,8 +89,10 @@ test('late account-scoped reports are rejected after a switch; cross-account pro
   const {exclusive,session}=await setup({useMock:false,remote:async url=>url==='/me'?{exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:['founder-awards:read']}}:pending})
   const result=exclusive.getFounderAwards('2026-10');await new Promise(resolve=>setImmediate(resolve));session.user.id='B';finish({items:[],hasMore:false,nextCursor:null})
   await assert.rejects(result,/账号已变化/)
-  const forged=await setup({useMock:false,remote:async url=>url==='/me'?{exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:['agency-code:read']}}:{accountId:'B',agencyType:'STORE',promotionId:'bad',qrUrl:'https://example.com/qr.png'}})
-  await assert.rejects(forged.exclusive.getAgencyPromotion('STORE'),/身份不匹配/)
+  // Temporary local-only promotion payloads stay scoped to the signed-in account.
+  const localPromo=await setup({useMock:false,preview:false,remote:async()=>({exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:[]}})})
+  const promo=await localPromo.exclusive.getAgencyPromotion('STORE')
+  assert.equal(promo.accountId,'A');assert.ok(promo.promotionId.startsWith('local-A-'))
 })
 
 test('parent-created children persist, stay in the account and never inherit fixture entitlements',async()=>{

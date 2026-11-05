@@ -17,6 +17,35 @@ export function partnerContextId() {
   return `partner:${account().id}`
 }
 
+export function identityOfContextId(contextId) {
+  const prefix = String(contextId || '').split(':')[0]
+  return ({ wholesale: 'partner', partner: 'partner', agency: 'agent', costore: 'costore' }[prefix] || 'partner')
+}
+
+export function redemptionContextIdOf(explicit) {
+  const value = String(explicit || '').trim()
+  if (value) return value
+  const pages = globalThis.getCurrentPages?.()
+  const pageContextId = pages?.[pages.length - 1]?.options?.contextId
+  return String(pageContextId || '').trim() || partnerContextId()
+}
+
+export function withdrawalIdentityOf(item) {
+  const identity = ['partner', 'agent', 'costore'].includes(item?.identity)
+    ? item.identity
+    : identityOfContextId(item?.contextId || item?.applicantRole)
+  const labels = { partner: '合伙人', agent: '区域代理', costore: '合店老板' }
+  return {
+    identity,
+    identityLabel: String(item?.identityLabel || item?.applicantRoleLabel || labels[identity]),
+    identityScopeLabel: item?.identityScopeLabel ? String(item.identityScopeLabel) : '',
+  }
+}
+
+export function redemptionNoOf(item) {
+  return String(item?.redemptionNo || item?.redemptionId || item?.id || '')
+}
+
 function points(value) {
   const result = Number(value)
   return Number.isFinite(result) && result >= 0 ? result : null
@@ -37,13 +66,15 @@ function store(value) {
   }
 }
 
-export async function getPartnerPointsOptions() {
+export async function getPartnerPointsOptions(contextId) {
   const current = account()
-  const result = await request('/wallet/withdrawal-options')
+  const resolvedContextId = redemptionContextIdOf(contextId)
+  const result = await request('/wallet/withdrawal-options', { data: { contextId: resolvedContextId } })
   checkAccount(current)
-  if (!result || points(result.totalPoints) == null || points(result.availablePoints) == null || !Array.isArray(result.categories) || !Array.isArray(result.pointRecords) || !Array.isArray(result.allowedActions)) fail('积分数据格式异常')
+  if (!result || points(result.totalPoints ?? result.totalAvailable) == null || points(result.availablePoints) == null || !Array.isArray(result.categories) || !Array.isArray(result.pointRecords) || !Array.isArray(result.allowedActions)) fail('积分数据格式异常')
   return {
-    totalPoints: Number(result.totalPoints), availablePoints: Number(result.availablePoints), exchangeRate: Number(result.exchangeRate) || 1,
+    contextId: String(result.contextId || resolvedContextId), identity: String(result.identity || identityOfContextId(resolvedContextId)), identityLabel: String(result.identityLabel || withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel),
+    totalPoints: Number(result.totalPoints ?? result.totalAvailable), totalAvailable: points(result.totalAvailable) ?? Number(result.totalPoints ?? 0), availablePoints: Number(result.availablePoints), exchangeRate: Number(result.exchangeRate) || 1,
     rateNote: String(result.rateNote || ''), minPoints: points(result.minPoints), maxPoints: points(result.maxPoints),
     allowedActions: result.allowedActions,
     disabledReason: result.disabledReason ? String(result.disabledReason) : '',
@@ -51,19 +82,21 @@ export async function getPartnerPointsOptions() {
     pointRecords: result.pointRecords.map(item => ({
       id: String(item?.id || ''), category: String(item?.category || ''), source: String(item?.source || ''), points: points(item?.points) ?? 0,
       user: item?.user && typeof item.user === 'object' ? { id: String(item.user.id || ''), name: String(item.user.name || ''), phone: String(item.user.phone || '') } : null,
-      createdAt: item?.createdAt || null,
+      identity: String(item?.identity || identityOfContextId(resolvedContextId)), identityLabel: String(item?.identityLabel || withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel), createdAt: item?.createdAt || null,
     })),
+    identityBalances: Array.isArray(result.identityBalances) ? result.identityBalances : [],
   }
 }
 
-export async function exchangePartnerPoints(pointsInput, idempotencyKey) {
+export async function exchangePartnerPoints(pointsInput, idempotencyKey, contextId, identity) {
   const current = account()
+  const resolvedContextId = redemptionContextIdOf(contextId)
   const amount = Number(pointsInput)
   if (!Number.isFinite(amount) || amount <= 0) fail('请输入兑换积分')
   if (!idempotencyKey) fail('提交编号缺失，请重试')
   const result = await request('/wallet/withdrawals', {
     method: 'POST',
-    data: { points: amount, amount, idempotencyKey },
+    data: { points: amount, amount, idempotencyKey, contextId: resolvedContextId, identity: identity || identityOfContextId(resolvedContextId) },
   })
   checkAccount(current)
   if (!result || typeof result !== 'object') fail('兑换结果异常，请稍后查看记录')
@@ -71,9 +104,9 @@ export async function exchangePartnerPoints(pointsInput, idempotencyKey) {
   if (!['PENDING_REVIEW', 'PENDING_SETTLEMENT', 'SUCCEEDED', 'COMPLETED', 'APPLIED', 'DEMO_APPLIED'].includes(status)) {
     fail('兑换结果待确认，请稍后查看记录')
   }
-  const id = result.withdrawalId || result.operationId || result.id
+  const id = result.redemptionId || result.withdrawalId || result.id
   if (!id) fail('兑换回执不完整，请稍后查看记录')
-  return { ...result, status, withdrawalId: id }
+  return { ...result, status, redemptionId: String(id), redemptionNo: redemptionNoOf({ ...result, redemptionId: id }), withdrawalId: String(id), contextId: String(result.contextId || resolvedContextId), identity: String(result.identity || identityOfContextId(resolvedContextId)), identityLabel: String(result.identityLabel || withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel) }
 }
 
 export async function getPartnerStoreBindingOptions() {

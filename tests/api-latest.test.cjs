@@ -76,22 +76,55 @@ test('real training upload sends bytes before completions and accepts fileId-onl
   assert.equal(result.assetId,'ast-1')
 })
 
-test('agency application sends documented options, quote, consent and ready asset fields', async () => {
-  const calls=[]
-  const api=await loadService('agency-application',{overrides:{'/api':{
-    getSession:()=>({token:'t',user:{id:'A'}}),
-    request:async(path,options={})=>{calls.push({path,...options});if(path.startsWith('/promotion/'))return {agencyType:'STORE',promotionCode:'promo-A'};if(path.endsWith('options'))return {agencyTypeLabel:'单店代理',feeBreakdown:{total:80000}};if(path.endsWith('quotes'))return {id:'q1'};return {id:'a1'}}
-  }}})
-  const options=await api.getAgencyApplicationOptions('STORE','invite')
-  assert.equal(options.payableAmount,8000000)
-  await assert.rejects(api.submitAgencyApplication(options,{},'key'),/协议/)
-  await api.submitAgencyApplication(options,{agreementAccepted:true,storefrontAssetId:'asset1',regionCodes:['1','2','3']},'key')
-  const submit=calls.at(-1)
-  assert.equal(submit.path,'/agency/applications')
-  assert.equal(submit.data.quoteId,'q1')
-  assert.equal(submit.data.regionCode,'3')
-  assert.deepEqual(JSON.parse(JSON.stringify(submit.data.uploads)),[{key:'storefrontPhoto',fileId:'asset1'}])
-  assert.equal(submit.data.agreements[0].accepted,true)
+test('agency application uses local fee catalog and validates region depth by type', async () => {
+  const storage = new Map()
+  const api = await loadService('agency-application', {
+    overrides: {
+      '/api': {
+        getSession: () => ({ token: 't', user: { id: 'A' } }),
+        request: async () => { throw new Error('Unexpected network') },
+      },
+    },
+    extraUni: {
+      getStorageSync: key => storage.get(key),
+      setStorageSync: (key, value) => storage.set(key, value),
+      removeStorageSync: key => storage.delete(key),
+    },
+  })
+  const province = await api.getAgencyApplicationOptions('PROVINCE', 'invite')
+  assert.equal(province.payableWan, 260)
+  assert.equal(province.payableAmount, 2600000)
+  assert.equal(province.regionLevels, 1)
+  assert.equal(province.requiresStorefront, false)
+  assert.match(province.feeNote, /200万技术费/)
+  const city = await api.getAgencyApplicationOptions('CITY', 'invite', 'POP_LT_5M')
+  assert.equal(city.payableWan, 35)
+  assert.equal(city.regionLevels, 2)
+  const store = await api.getAgencyApplicationOptions('STORE', 'invite')
+  assert.equal(store.payableWan, 8)
+  assert.equal(store.requiresAddress, true)
+  assert.equal(store.requiresStorefront, true)
+  await assert.rejects(api.submitAgencyApplication(store, {}, 'key'), /协议/)
+  await assert.rejects(api.submitAgencyApplication(province, {
+    agreementAccepted: true,
+    name: '测试',
+    phone: '13800138000',
+    regionNames: ['河南省', '郑州市', '中原区'],
+    regionCodes: ['410000', '410100', '410102'],
+    address: '',
+    storefrontAssetId: '',
+  }, 'prov-deep'), /省份/)
+  const submitted = await api.submitAgencyApplication(province, {
+    agreementAccepted: true,
+    name: '测试',
+    phone: '13800138000',
+    regionNames: ['河南省'],
+    regionCodes: ['410000'],
+    address: '',
+    storefrontAssetId: '',
+  }, 'prov-ok')
+  assert.equal(submitted.application.agencyType, 'PROVINCE')
+  assert.equal(submitted.application.payableWan, 260)
 })
 
 test('v2 envelopes preserve null, string error codes, field errors and trace IDs', async () => {

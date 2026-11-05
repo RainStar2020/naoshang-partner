@@ -14,15 +14,29 @@ async function loadPartnerWallet(request) {
   return mod.namespace
 }
 
-test('partner points adapter consumes the documented points response', async () => {
-  const api = await loadPartnerWallet(async path => {
+test('partner points adapter sends context and consumes identity balances', async () => {
+  const api = await loadPartnerWallet(async (path, options) => {
     assert.equal(path, '/wallet/withdrawal-options')
-    return { totalPoints: 2880, availablePoints: 1880, exchangeRate: 1, rateNote: '积分与金额 1:1 兑换', minPoints: 100, maxPoints: 1880, allowedActions: ['exchange'], categories: [{ key: 'B', label: 'B端', points: 480 }], pointRecords: [{ id: 'c1', category: 'B端', source: '直推奖', points: 480, user: null, createdAt: '2026-10-30T10:00:00.000Z' }] }
+    assert.equal(options.data.contextId, 'agency:p1:ra_1')
+    return { totalAvailable: 2880, availablePoints: 1880, identity: 'agent', identityLabel: '区域代理', identityBalances: [], exchangeRate: 1, rateNote: '积分与金额 1:1 兑换', minPoints: 100, maxPoints: 1880, allowedActions: ['exchange'], categories: [{ key: 'B', label: 'B端', points: 480 }], pointRecords: [{ id: 'c1', category: 'B端', source: '直推奖', points: 480, identity: 'agent', identityLabel: '区域代理', user: null, createdAt: '2026-10-30T10:00:00.000Z' }] }
   })
-  const result = await api.getPartnerPointsOptions()
+  const result = await api.getPartnerPointsOptions('agency:p1:ra_1')
   assert.equal(result.availablePoints, 1880)
+  assert.equal(result.identityLabel, '区域代理')
   assert.equal(result.categories[0].label, 'B端')
   assert.equal(result.pointRecords[0].source, '直推奖')
+})
+
+test('points exchange sends identity context and returns the redemption number', async () => {
+  const api = await loadPartnerWallet(async (path, options) => {
+    assert.equal(path, '/wallet/withdrawals')
+    assert.deepEqual(JSON.parse(JSON.stringify(options.data)), { points: 100, amount: 100, idempotencyKey: 'idem-1', contextId: 'costore:p1:cs_1', identity: 'costore' })
+    return { status: 'PENDING_REVIEW', redemptionId: 'rdp_1', redemptionNo: 'rdp_1', identity: 'costore', identityLabel: '合店老板' }
+  })
+  const result = await api.exchangePartnerPoints(100, 'idem-1', 'costore:p1:cs_1')
+  assert.equal(result.redemptionNo, 'rdp_1')
+  assert.equal(api.redemptionNoOf({ id: 'rdp_old' }), 'rdp_old')
+  assert.equal(api.withdrawalIdentityOf({ contextId: 'agency:p1:ra_1' }).identityLabel, '区域代理')
 })
 
 test('store binding uses the documented context, direct endpoint, and DTO', async () => {

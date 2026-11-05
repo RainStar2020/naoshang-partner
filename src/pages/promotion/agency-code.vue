@@ -6,18 +6,18 @@
         <view class="promo-banner"><text>推广码</text><image src="/static/profile/icon-referral-code.png" mode="aspectFit" /></view>
         <view class="promo-body">
           <view class="promo-tabs">
-            <button v-for="type in agencyTypes" :key="type.id" :class="{ selected: selectedType === type.id }" :disabled="saving" @click="changeType(type.id)">{{ type.label }}</button>
+            <button v-for="type in agencyTypes" :key="type.id" :class="{ selected: selectedType === type.id }" :disabled="saving || status === 'loading'" @click="changeType(type.id)">{{ type.label }}</button>
           </view>
           <FeaturePageState :status="status" :error="error" @retry="load" />
           <template v-if="status === 'ready'">
-            <image v-if="data.qrUrl" class="promo-qr" :src="data.qrUrl" mode="aspectFit" @error="imageError = true" />
-            <view v-else-if="isMock && data.localPayload" class="promo-qr-wrap"><BusinessQrCode ref="localQr" :show-save="false" :value="data.localPayload" /></view>
+            <image v-if="showRemoteQr" class="promo-qr" :src="data.qrUrl" mode="aspectFit" @error="imageError = true" />
+            <view v-else-if="scanPayload" class="promo-qr-wrap"><BusinessQrCode ref="localQr" :show-save="false" :value="scanPayload" /></view>
             <EmptyState v-else text="暂无推广码" />
-            <text v-if="imageError" class="promo-error">二维码图片加载失败，请刷新重试。</text>
+            <text v-if="imageError && data.qrUrl" class="promo-error">二维码图片加载失败，已尝试本地生成。</text>
             <text v-if="operationError" class="promo-error">{{ operationError }}</text>
-            <button v-if="canSave || (isMock && data.localPayload)" class="promo-save" :disabled="saving" @click="canSave ? save() : saveLocal()">{{ saving ? '保存中…' : '保存图片' }}</button>
-            <button v-if="isMock && data.localPayload" class="promo-link" @click="openApplication">填写代理申请</button>
-            <button v-if="canCopy" class="promo-link" @click="copyLink">复制推广链接</button>
+            <button v-if="canSaveImage" class="promo-save" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存图片' }}</button>
+            <button v-if="scanPayload" class="promo-link" :disabled="saving" @click="copyLink">复制推广链接</button>
+            <button v-if="scanPayload" class="promo-link" :disabled="saving" @click="openApplication">预览申请页</button>
           </template>
         </view>
       </view>
@@ -27,7 +27,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onUnload } from '@dcloudio/uni-app'
-import { config } from '../../config'
 import { getSession } from '../../services/api'
 import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
@@ -36,39 +35,86 @@ import BusinessQrCode from '../../components/BusinessQrCode.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
-const isMock = config.useMock, selectedType = ref('STORE'), saving = ref(false), operationError = ref(''), imageError = ref(false), localQr = ref(null)
+const selectedType = ref('STORE'), saving = ref(false), operationError = ref(''), imageError = ref(false), localQr = ref(null)
 let active = true, receivedAt = 0
-const { data, status, error, load } = useAsyncPage(async () => { const result = await getAgencyPromotion(selectedType.value); receivedAt = Date.now(); imageError.value = false; return result })
-const canSave = computed(() => data.value?.posterUrl && data.value?.allowedActions?.includes('download'))
-const canCopy = computed(() => data.value?.shareUrl && data.value?.allowedActions?.includes('copy-link'))
-function changeType(type) { if (saving.value || selectedType.value === type) return; selectedType.value = type; operationError.value = ''; load() }
-function ensureCurrent(result) {
-  if (result.accountId !== getSession()?.user?.id) throw new Error('账号已变化，请刷新推广码')
-  if (!Number.isFinite(result.expiresAt) || !Number.isFinite(result.serverTime) || result.expiresAt <= result.serverTime + Date.now() - receivedAt) throw new Error('推广码已过期，请刷新后重试')
+const { data, status, error, load } = useAsyncPage(async () => {
+  const result = await getAgencyPromotion(selectedType.value)
+  receivedAt = Date.now()
+  imageError.value = false
+  return result
+})
+const scanPayload = computed(() => data.value?.localPayload || data.value?.shareUrl || '')
+const showRemoteQr = computed(() => Boolean(data.value?.qrUrl && !imageError.value))
+const canSaveImage = computed(() => Boolean(data.value?.posterUrl || showRemoteQr.value || scanPayload.value))
+function changeType(type) {
+  if (saving.value || selectedType.value === type) return
+  selectedType.value = type
+  operationError.value = ''
+  load()
 }
-function copyLink() { try { ensureCurrent(data.value); uni.setClipboardData({ data: data.value.shareUrl }) } catch (reason) { operationError.value = reason.message } }
-function openApplication() { uni.navigateTo({ url: `/pages/application/agency?promotionId=${encodeURIComponent(data.value.promotionId)}&agencyType=${selectedType.value}` }) }
-function back() { uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/index' }) }) }
-function saveLocal() { localQr.value?.save?.() }
+function ensureCurrent(result) {
+  if (!result?.promotionId) throw new Error('推广码无效，请刷新后重试')
+  if (result.accountId !== getSession()?.user?.id) throw new Error('账号已变化，请刷新推广码')
+  if (Number.isFinite(result.expiresAt) && Number.isFinite(result.serverTime) && result.expiresAt <= result.serverTime + Date.now() - receivedAt) {
+    throw new Error('推广码已过期，请刷新后重试')
+  }
+}
+function copyLink() {
+  try {
+    ensureCurrent(data.value)
+    if (!scanPayload.value) throw new Error('暂无推广链接')
+    uni.setClipboardData({ data: scanPayload.value })
+  } catch (reason) {
+    operationError.value = reason.message
+  }
+}
+function openApplication() {
+  try {
+    ensureCurrent(data.value)
+    uni.navigateTo({
+      url: `/pages/application/agency?promotionId=${encodeURIComponent(data.value.promotionId)}&agencyType=${encodeURIComponent(selectedType.value)}`,
+    })
+  } catch (reason) {
+    operationError.value = reason.message
+  }
+}
+function back() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/index' }) })
+}
+async function downloadImage(url) {
+  const response = await new Promise((resolve, reject) => uni.downloadFile({ url, success: resolve, fail: reject }))
+  if (response.statusCode && response.statusCode !== 200) throw new Error('图片下载失败')
+  // #ifdef H5
+  const link = document.createElement('a')
+  link.href = response.tempFilePath
+  link.download = `agency-${selectedType.value}.png`
+  link.click()
+  // #endif
+  // #ifndef H5
+  await new Promise((resolve, reject) => uni.saveImageToPhotosAlbum({ filePath: response.tempFilePath, success: resolve, fail: reject }))
+  // #endif
+}
 async function save() {
-  if (saving.value || !canSave.value) return
+  if (saving.value || !canSaveImage.value) return
   saving.value = true
   operationError.value = ''
   const result = data.value
   try {
     ensureCurrent(result)
-    const response = await new Promise((resolve, reject) => uni.downloadFile({ url: result.posterUrl, success: resolve, fail: reject }))
-    if (!active) return
-    ensureCurrent(result)
-    if (response.statusCode !== 200) throw new Error('图片下载失败')
-    // #ifdef H5
-    const link = document.createElement('a'); link.href = response.tempFilePath; link.download = `agency-${selectedType.value}.png`; link.click()
-    // #endif
-    // #ifndef H5
-    await new Promise((resolve, reject) => uni.saveImageToPhotosAlbum({ filePath: response.tempFilePath, success: resolve, fail: reject }))
-    // #endif
-  } catch (reason) { if (active) operationError.value = reason.message || '保存失败，请检查相册权限后重试' }
-  finally { if (active) saving.value = false }
+    if (result.posterUrl) await downloadImage(result.posterUrl)
+    else if (result.qrUrl && !imageError.value) await downloadImage(result.qrUrl)
+    else if (localQr.value?.save) localQr.value.save()
+    else throw new Error('暂无可保存的二维码')
+    if (active) uni.showToast({ title: '已保存', icon: 'success' })
+  } catch (reason) {
+    if (active) {
+      operationError.value = reason?.errMsg?.includes('auth')
+        ? '请开启相册权限后重试'
+        : (reason.message || '保存失败，请检查相册权限后重试')
+    }
+  } finally {
+    if (active) saving.value = false
+  }
 }
 onUnload(() => { active = false })
 </script>
@@ -87,6 +133,8 @@ onUnload(() => { active = false })
 .promo-tabs .selected { background: linear-gradient(100deg, #2f78ff, #009cff); color: #fff; }
 .promo-qr, .promo-qr-wrap { display: flex; justify-content: center; width: 12em; height: 12em; margin: 1.1em auto; }
 .promo-qr { object-fit: contain; background: #fff; }
+.promo-qr-wrap :deep(.qr-wrap) { width: 100%; height: 100%; margin: 0; max-width: none; }
+.promo-qr-wrap :deep(.qr-code) { width: 100%; height: 100%; padding: 0; aspect-ratio: auto; box-sizing: border-box; }
 .promo-save { display: block; width: min(14em, 100%); margin: .2em auto 0; border-radius: 3em; background: linear-gradient(100deg, #003eff, #009cff); color: #fff; }
 .promo-link { display: block; width: 100%; margin: .7em 0 0; padding: 0; background: none; color: #2f78ff; text-align: center; }
 .promo-error { display: block; margin-top: .5em; color: #b23250; text-align: center; font-size: .86em; }

@@ -85,14 +85,14 @@ watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 const view=computed(()=>{
   const entry=data.value
   if(entry?.presentation)return entry.presentation
-  const signed=entry?.amount==null?'+0积分':`${entry.amount>0?'+':''}${entry.amount<0?'-':''}${money(Math.abs(entry.amount||0))}积分`
+  const signed=entry?.amount==null?'+0':`${entry.amount>0?'+':''}${entry.amount<0?'-':''}${money(Math.abs(entry.amount||0))}`
   return {
     amount:signed,
     notice:entry?.pendingNote||'',
     facts:[
       {label:'业务类型',value:entry?.bizTypeLabel||entry?.paymentTypeLabel||entry?.channel||''},
       {label:'业务明细',value:entry?.bizDetail||''},
-      {label:'有效值',value:`${money(entry?.baseAmount)}积分`},
+      {label:'有效值',value:money(entry?.baseAmount)},
       {label:'计价方式',value:entry?.rateLabel||''},
     ],
     people:[entry?.recommendedBy||entry?.recommended,entry?.purchaser||entry?.buyer].filter(Boolean).map((item,index)=>({title:index?'购买人信息':'推荐人信息',name:item.name||'暂未提供',badge:displayLevel(item.levelLabel||item.roleLabel),avatarUrl:item.avatarUrl||'',lines:[item.phone?`联系方式：${item.phone}`:'联系方式待后台提供',item.address?`门店地址：${item.address}`:''].filter(Boolean)})),
@@ -103,7 +103,7 @@ const candidates=computed(()=>options.value?.fields?.find(field=>field.key==='ta
 const displayLevel=value=>wholesaleLevelDisplay(value)||''
 const sheetTitle=computed(()=>data.value?.allocationKind==='inspection'?'分配巡查提点':'分配销售提点')
 const canConfirm=computed(()=>targetId.value&&candidates.value.some(item=>item.value===targetId.value&&item.available!==false)&&(targetId.value!=='other'||/^[A-Za-z0-9_-]{2,32}$/.test(agentId.value.trim())))
-const format=detail=>detail.kind==='money'?`${money(detail.value)}积分`:detail.kind==='percent'?percent(detail.value):detail.value??0
+const format=detail=>detail.kind==='money'?money(detail.value):detail.kind==='percent'?percent(detail.value):detail.value??0
 function closeAllocation(){allocationOpen.value=false;quote.value=null;targetId.value='';agentId.value='';operationError.value='';attemptKey=''}
 function choose(value){if(value!==targetId.value){targetId.value=value;quote.value=null;attemptKey='';operationError.value=''}}
 watch(agentId,()=>{quote.value=null;attemptKey=''})
@@ -137,10 +137,10 @@ defineExpose({refresh:load})
 .income-hero{display:flex;justify-content:space-between;gap:.8em}
 .income-hero>view:first-child{min-width:0;flex:1}
 .income-kicker{display:block;color:#989eb6;font-size:.82em}
-.income-title{margin:.15em 0;font-size:1.05em;font-weight:600;overflow-wrap:anywhere}
+.income-title{margin:.15em 0;color:#fff;font-size:1.12em;font-weight:600;overflow-wrap:anywhere}
 .income-side{flex-shrink:0;text-align:right}
-.income-pill{display:inline-block;padding:.05em .7em;border-radius:2em;background:linear-gradient(95deg,#0340ff,#009bff);font-size:.75em}
-.income-amount{margin-top:.25em;color:#57adff;font-size:1.35em;font-weight:600}
+.income-pill{display:inline-block;padding:.05em .95em;border-radius:2em;background:linear-gradient(95deg,#0340ff,#009bff);font-size:.75em}
+.income-amount{margin-top:.25em;color:#fff;font-size:1.45em;font-weight:700}
 .income-rule{height:1px;margin:.8em 0 .4em;background:#464c6b}
 .income-fact{display:flex;justify-content:space-between;gap:1em;padding:.35em 0;font-size:.92em}
 .income-fact>text{color:#989eb6;flex-shrink:0}

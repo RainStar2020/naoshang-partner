@@ -4,7 +4,7 @@
       <image class="brand-logo" src="/static/logo.png" mode="aspectFit" />
     </template>
       <view class="login-form">
-        <GradientInput v-model="phone" icon="/static/login/icon-phone.png" :type="coachLogin ? 'text' : 'number'" :maxlength="coachLogin ? 32 : 11" :placeholder="coachLogin ? '请输入健脑官登录账号' : '请输入手机号'" />
+        <GradientInput v-model="phone" icon="/static/login/icon-phone.png" type="number" :maxlength="11" placeholder="请输入手机号" />
         <view class="password-field">
           <GradientInput v-model="password" icon="/static/login/icon-password.png" :password="true" :maxlength="32" placeholder="请输入密码" @confirm="!loading && submit()">
             <template #suffix><text class="forgot" @click="uni.navigateTo({ url: '/pages/forgot-password/index' })">忘记密码</text></template>
@@ -17,17 +17,16 @@
           <view>请阅读并同意 <text @click="showPolicy('用户协议')">《用户协议》</text> 和 <text @click="showPolicy('隐私政策')">《隐私政策》</text></view>
         </view>
         <button class="primary login-button" :loading="loading" :disabled="loading" @click="submit">登录</button>
-        <button v-if="!coachLogin" class="secondary register-button" @click="openRegister">新用户注册</button>
+        <button class="secondary register-button" @click="openRegister">新用户注册</button>
       </view>
     <template #footer>
-      <view v-if="!coachLogin" class="third-party">
+      <view class="third-party">
         <view class="divider"><view /><text>使用第三方账号登录</text><view /></view>
         <view class="wechat-login" @click="wechatLogin">
           <image src="/static/common/icon-weixin.png" mode="aspectFit" />
           <text>微信</text>
         </view>
       </view>
-      <button class="channel-switch" @click="switchChannel">{{ coachLogin ? '返回家长登录' : '健脑官登录' }}</button>
     </template>
   </AuthLayout>
 </template>
@@ -41,8 +40,6 @@ import { login } from '../../services/api'
 import { accountHome, isCoachAccount } from '../../services/account-channel'
 import { captureInvitation } from '../../services/invitation'
 import { beginWechat, finishWechatCallback } from '../../services/auth'
-const coachLogin=ref(false)
-function switchChannel(){coachLogin.value=!coachLogin.value;phone.value='';password.value=''}
 const phone = ref(''), password = ref(''), agreed = ref(false), loading = ref(false)
 const toast = title => uni.showToast({ title, icon: 'none' })
 const authorizing = ref(false)
@@ -58,12 +55,13 @@ onLoad(async options => {
 })
 function showPolicy(title) { uni.showModal({ title, content: '协议内容暂未发布，请稍后查看。', showCancel: false }) }
 async function submit() {
-  if (coachLogin.value ? !/^[a-zA-Z0-9_-]{4,32}$/.test(phone.value) : !/^1\d{10}$/.test(phone.value)) return toast(coachLogin.value ? '请输入4—32位登录账号' : '请输入正确的手机号')
+  if (!/^1\d{10}$/.test(phone.value)) return toast('请输入正确的手机号')
   if (password.value.length < 6) return toast('请输入至少 6 位密码')
   if (!agreed.value) return toast('请先阅读并同意协议')
   loading.value = true
   try {
-    const session = await login({ ...(coachLogin.value ? { loginAccount: phone.value } : { phone: phone.value }), password: password.value, channel: coachLogin.value ? 'coach' : 'parent' })
+    // Single login entry; backend accountType decides home pages after auth.
+    const session = await login({ phone: phone.value, password: password.value })
     const target = consumeLoginReturn()
     if (isCoachAccount(session)) uni.reLaunch({ url: accountHome(session) })
     else if (target) uni.redirectTo({ url: target, fail: () => uni.switchTab({ url: accountHome(session) }) })
@@ -72,7 +70,6 @@ async function submit() {
 }
 </script>
 <style scoped>
-.channel-switch { width: auto; margin: 8rpx auto 0; padding: 8rpx 12rpx; background: none; color: #8ea6cc; font-size: 24rpx; line-height: 1.6; }
 .brand-logo { display: block; width: 236rpx; height: 300rpx; max-height: 24vh; margin: 0 auto; }
 .password-field { margin-top: clamp(18rpx, 2vh, 32rpx); }
 .forgot { display: block; padding-left: 12rpx; color: #e8eef8; font-size: 26rpx; line-height: 40rpx; }

@@ -1,8 +1,11 @@
 import { config } from '../config'
+import { clearMeContext, loadMeContext } from './me-context'
 const SESSION_KEY = 'naoshang-session'
+export const INVITE_CODE_CACHE_KEY = 'naoshang-personal-invite-code'
 // One shared result (including concurrent callers) per authenticated session.
 let bootstrapCache = null
 export function clearBootstrapCache() { bootstrapCache = null }
+export function clearSessionCaches() { clearBootstrapCache(); clearMeContext() }
 export function getBootstrap() { return request('/me/bootstrap') }
 
 export const getSession = () => {
@@ -17,12 +20,35 @@ export const logout = async ({ revoke = true } = {}) => {
     catch (error) { if (error.statusCode !== 401) { uni.showToast?.({ title: '退出未完成，请稍后重试', icon: 'none' }); return false } }
     if (getSession()?.token && getSession()?.token !== session.token) return false
   }
-  clearBootstrapCache()
+  clearSessionCaches()
   const accountId = getSession()?.user?.id
   if (accountId) uni.removeStorageSync(`naoshang-learning-identity:${accountId}`)
+  uni.removeStorageSync(INVITE_CODE_CACHE_KEY)
   uni.removeStorageSync(SESSION_KEY)
   uni.reLaunch({ url: '/pages/login/index' })
   return true
+}
+function normalizePersonalInviteCode(result) {
+  const inviteCode = String(result?.inviteCode || '').trim().toUpperCase()
+  if (!/^[0-9A-HJKMNP-Z]{6}$/.test(inviteCode)) throw new Error('个人邀请码数据异常')
+  const qrContent = String(result?.qrContent || result?.inviteLink || '').trim()
+  if (!qrContent) throw new Error('邀请码链接数据异常')
+  return { ...result, inviteCode, qrContent, inviteLink: String(result.inviteLink || qrContent) }
+}
+export async function cacheMyInviteCode(session = getSession()) {
+  if (!session?.user?.id) throw new Error('请先登录')
+  const result = config.useMock
+    ? { inviteCode: '3RNV3F', inviteLink: 'http://localhost:5173/#/pages/register/index?invite=3RNV3F', h5BaseUrl: 'http://localhost:5173' }
+    : await request('/me/invite-code')
+  if (getSession()?.token !== session.token || getSession()?.user?.id !== session.user.id) throw new Error('登录账号已变化')
+  const invite = normalizePersonalInviteCode(result)
+  uni.setStorageSync(INVITE_CODE_CACHE_KEY, { accountId: session.user.id, ...invite })
+  return invite
+}
+export function getCachedMyInviteCode() {
+  const session = getSession(), cached = uni.getStorageSync(INVITE_CODE_CACHE_KEY)
+  if (!session?.user?.id || cached?.accountId !== session.user.id) return null
+  return cached
 }
 export function request(path, options = {}) {
   if (path !== '/me/bootstrap' || (options.method || 'GET') !== 'GET') return sendRequest(path, options)
@@ -72,7 +98,9 @@ function sendRequest(path, options = {}) {
           rejectResponse(body.message || body.error || '请求未完成，请稍后重试')
           return
         }
-        if (res.data?.locked === true && res.data?.entitlementState) {
+        // Bootstrap carries entitlement gates as normal account state. Rejecting
+        // it here turns a successful login into a login failure for new users.
+        if (path !== '/me/bootstrap' && res.data?.locked === true && res.data?.entitlementState) {
           reject(Object.assign(new Error(res.data.message || res.data.error || '当前账号尚未开通此项权益，请先完成开通'), {
             statusCode: res.statusCode, code: 'ENTITLEMENT_REQUIRED',
             entitlementState: res.data.entitlementState, entitlement: res.data.entitlement
@@ -95,9 +123,18 @@ export async function login(data) {
   if (result.accountType && !['parent', 'coach'].includes(result.accountType)) throw new Error('当前账号暂不支持登录，请联系平台客服')
   const session = { ...result, accountType: result.accountType || 'parent' }
   uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
-  clearBootstrapCache()
+  clearSessionCaches()
   uni.setStorageSync(SESSION_KEY, session)
-  if (!config.useMock && session.accountType === 'parent') await getBootstrap()
+  // These requests enrich the session only. A gate or transient network error
+  // must not turn an authenticated login into a failed login.
+  try { await cacheMyInviteCode(session) }
+  catch (error) { console.warn('[login] 邀请码缓存失败，已跳过：', error?.message || error) }
+  try { await loadMeContext({ force: true }) }
+  catch (error) { console.warn('[login] 个人中心预取失败，已跳过：', error?.message || error) }
+  if (!config.useMock && session.accountType === 'parent') {
+    try { await getBootstrap() }
+    catch (error) { console.warn('[login] 首页数据预取失败，已跳过：', error?.message || error) }
+  }
   return session
 }
 export const getLevels = () => config.useMock ? Promise.resolve(['超级记忆','实用记忆','语文系统','外语系统','百科系统','导图大师','速读大师','记忆大师','潜能开发','未来领袖'].map((name, i) => ({ id: i + 1, name, unlocked: false }))) : request('/member/levels')

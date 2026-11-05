@@ -11,26 +11,20 @@
       <text class="shop-muted">脑商门店健脑官端</text>
      </view>
      <view class="coach-actions">
-      <button v-for="action in actions" :key="action.label" @click="action.run"><image :src="action.icon" mode="aspectFit"/><text>{{action.label}}</text></button>
+      <button v-for="action in actions" :key="action.label" class="coach-action" @click="action.run"><image :src="action.icon" mode="aspectFit"/><text>{{action.label}}</text></button>
      </view>
     </view>
-    <view class="coach-section">门店用户</view>
-    <view v-if="!data.members.length" class="shop-muted">暂无门店用户</view>
-    <view v-for="member in data.members" :key="member.id" class="shop-card coach-card">
-     <view class="coach-member">
-      <image v-if="member.avatarUrl" :src="member.avatarUrl" mode="aspectFill" class="coach-avatar"/>
-      <view v-else class="coach-avatar avatar-initial">{{member.name?.slice(0,1)}}</view>
-      <view class="coach-member-info">
-       <view class="shop-title">{{member.name}}</view>
-       <view class="shop-muted">用户ID：{{member.displayId || member.id}}<text v-if="member.phone">　手机号：{{member.phone}}</text></view>
-       <view v-if="Number.isInteger(member.storeConsumptionAmount)" class="shop-muted">门店消费积分：{{money(member.storeConsumptionAmount)}}积分</view>
-      </view>
-     </view>
-     <view class="coach-member-actions">
-      <button v-if="data.allowedActions.includes('manage-members')" class="shop-primary" @click="detail(member)">查看会员</button>
-      <button v-if="data.allowedActions.includes('read-orders')" class="shop-primary" @click="orders(member.memberId||member.id)">查看订单</button>
-     </view>
-    </view>
+    <view class="coach-section">会员列表</view>
+    <view v-if="!children.length" class="shop-muted">暂无会员</view>
+    <StoreMemberProfileCard
+     v-for="(member,index) in children"
+     :key="member.id"
+     :member="member"
+     :context-id="contextId"
+     :index="index"
+     :page-allowed-actions="coachActions"
+     @updated="load"
+    />
    </template>
   </view>
   <view v-if="storeOpen && data?.store" class="coach-mask" @click="storeOpen=false">
@@ -50,46 +44,44 @@
 </template>
 <script setup>
 import {onLoad,onShow} from '@dcloudio/uni-app'
-import {ref} from 'vue'
+import {computed,ref} from 'vue'
 import {useAuth} from '../../composables/useAuth'
 import {useAsyncPage} from '../../composables/useAsyncPage'
 import {getBusinessContexts} from '../../services/business'
 import {getCoachWorkspace} from '../../services/training'
 import {logout,getSession} from '../../services/api'
 import {isCoachAccount} from '../../services/account-channel'
-import {money} from '../../features/exclusive/format'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
+import StoreMemberProfileCard from '../../components/StoreMemberProfileCard.vue'
 useAuth()
 const isStaff=isCoachAccount(getSession()),storeOpen=ref(false)
-let contextId=''
-const {data,status,error,load}=useAsyncPage(async()=>{if(!contextId&&!isStaff){const contexts=await getBusinessContexts();contextId=contexts.find(x=>x.module==='agency'&&x.agencyType==='STORE')?.id;if(!contextId)throw new Error('当前账号没有健脑官工作台权限')}const result=await getCoachWorkspace(contextId);contextId=result.contextId||contextId;return result},false)
+const contextId=ref('')
+const {data,status,error,load}=useAsyncPage(async()=>{if(!contextId.value&&!isStaff){const contexts=await getBusinessContexts();contextId.value=contexts.find(x=>x.module==='agency'&&x.agencyType==='STORE')?.id||'';if(!contextId.value)throw new Error('当前账号没有健脑官工作台权限')}const result=await getCoachWorkspace(contextId.value);contextId.value=result.contextId||contextId.value;return result},false)
+const children=computed(()=>data.value?.childMembers||[])
+const coachActions=computed(()=>{
+ const allowed=[...(data.value?.allowedActions||[])]
+ if(allowed.includes('manage-members')){
+  if(!allowed.includes('edit-training'))allowed.push('edit-training')
+  if(!allowed.includes('write-feedback'))allowed.push('write-feedback')
+ }
+ return allowed
+})
 const actions=[{label:'门店信息',icon:'/static/common/icon-store.png',run:()=>{storeOpen.value=true}},{label:'修改密码',icon:'/static/common/icon-lock.png',run:password},{label:'登出',icon:'/static/common/icon-logout.png',run:leave}]
-function detail(member){const id=member?.accountId||member?.userId||member?.memberId||member?.id;if(!id)return;uni.navigateTo({url:`/pages/members/detail?contextId=${encodeURIComponent(contextId)}&memberId=${encodeURIComponent(id)}&from=store`})}
-function orders(id){if(!id)return;uni.navigateTo({url:`/pages/order/list?memberId=${encodeURIComponent(id)}&contextId=${encodeURIComponent(contextId)}`})}
 function password(){uni.navigateTo({url:'/pages/settings/change-password?audience=coach'})}
 function leave(){uni.showModal({title:'退出登录',content:'您确定要退出登录吗？',success:result=>{if(result.confirm)logout()}})}
-onLoad(query=>{contextId=query.contextId||''});onShow(load)
+onLoad(query=>{contextId.value=query.contextId||''});onShow(load)
 </script>
 <style>@import '../../styles/commerce.css';</style>
 <style scoped>
 .coach-page{max-width:750px;margin:0 auto;background:radial-gradient(ellipse at 100% 0,#20578555,transparent 46%),#121c3b}
-.coach-page button{margin:0;padding:0;background:none;line-height:inherit}
-.coach-page button::after{border:0}
 .coach-header{padding:calc(1em + var(--status-bar-height,0px)) 1em .4em;font-size:1.15em;font-weight:700}
 .coach-welcome{display:flex;align-items:center;justify-content:space-between;gap:1em;margin:.4em 0 1.4em}
 .coach-actions{display:flex;gap:.85em;flex:none}
-.coach-actions button{display:flex;flex-direction:column;align-items:center;gap:.2em;color:#d5e4f8;font-size:.75em;line-height:1.3}
-.coach-actions image{width:1.7em;height:1.7em}
+.coach-action{display:flex;flex-direction:column;align-items:center;gap:.2em;margin:0;padding:0;background:none;color:#d5e4f8;font-size:.75em;line-height:1.3}
+.coach-action::after{border:0}
+.coach-action image{width:1.7em;height:1.7em}
 .coach-section{margin:0 0 .8em;padding-left:.45em;border-left:.22em solid #00acff;font-size:1.05em;font-weight:700}
-.coach-card{border-radius:.9em}
-.coach-member{display:flex;gap:.75em;align-items:flex-start}
-.coach-avatar{width:3.4em;height:3.4em;border-radius:50%;flex:none;background:#1b4d80}
-.avatar-initial{display:flex;align-items:center;justify-content:center}
-.coach-member-info{min-width:0;flex:1}
-.coach-member-info .shop-muted{display:block;font-size:.78em;line-height:1.55}
-.coach-member-actions{display:flex;justify-content:center;gap:.8em;margin-top:.9em}
-.coach-member-actions button{min-width:7.2em;padding:0 1em;line-height:2.35;border-radius:2em;background:linear-gradient(100deg,#00baff,#3154ff);color:#fff;font-size:.92em}
 .coach-mask{position:fixed;z-index:120;inset:0;display:flex;align-items:center;justify-content:center;padding:1.4em;background:rgba(0,0,0,.82);box-sizing:border-box}
 .coach-store-wrap{width:100%;max-width:26em}
 .coach-store-dialog{display:flex;gap:.7em;padding:.8em;border-radius:.85em;background:#3a415f}
@@ -98,7 +90,8 @@ onLoad(query=>{contextId=query.contextId||''});onShow(load)
 .coach-store-name{display:flex;align-items:center;gap:.4em;font-weight:700;line-height:1.4}
 .coach-store-name text{padding:0 .45em;border-radius:1em;background:linear-gradient(100deg,#00b7ff,#3157ff);font-size:.68em;line-height:1.7}
 .coach-store-dialog text{display:block;margin-top:.25em;color:#c5cce0;font-size:.75em;line-height:1.45;overflow-wrap:anywhere}
-.coach-store-close{display:flex;margin:1.1em auto 0;background:none}
+.coach-store-close{display:flex;margin:1.1em auto 0;padding:0;background:none}
+.coach-store-close::after{border:0}
 .coach-store-close image{width:2.1em;height:2.1em}
-@media(max-width:340px){.coach-welcome{align-items:flex-start;flex-direction:column}.coach-actions{align-self:flex-end}.coach-member-actions{flex-wrap:wrap}}
+@media(max-width:340px){.coach-welcome{align-items:flex-start;flex-direction:column}.coach-actions{align-self:flex-end}}
 </style>

@@ -105,7 +105,7 @@ export function removeBusinessCoach(contextId,storeId,id,version){return withBus
   if(!id)throw new Error('未找到该健脑官，请刷新后重试')
   if(!config.useMock){
     try{return await request(`/stores/${encodeURIComponent(storeId)}/coaches/${encodeURIComponent(id)}`,{method:'DELETE',data:{version,contextId:context.id}})}
-    catch(reason){if(reason?.status===404||/404|not\s*found|不支持/i.test(String(reason?.message||'')))throw new Error('当前暂不支持删除健脑官，请联系平台客服协助处理');throw reason}
+    catch(reason){if(reason?.statusCode===404||reason?.status===404)throw new Error('该健脑官已不存在，请刷新后重试');throw reason}
   }
   const state=mockBusinessState(account,context);if(storeId!==state.store.id)throw new Error('您无权管理此门店')
   const index=state.staff.findIndex(item=>item.id===id)

@@ -1,9 +1,11 @@
-import { normalizeUploadIntent, isUploadReady } from './upload-contract'
+import { resolveImageKind } from './upload-contract'
+import {uploadAsset} from './asset-upload'
 import { config } from '../config'
 import { getSession, request } from './api'
 import { normalizeContent, isMediaUrl } from '../features/content/rich-content'
+import {assetUrl} from './asset-url'
 import { mockMaterialCategories, mockMaterials, mockMaterialDetail } from './mock/partner'
-const keepPreviewUrl = value => isMediaUrl(value) || (config.useMock && typeof value === 'string' && (value.startsWith('/static/') || /^https?:\/\//.test(value))) ? value : ''
+const keepPreviewUrl = value => isMediaUrl(value) || (config.useMock && typeof value === 'string' && (value.startsWith('/static/') || /^https?:\/\//.test(value))) ? assetUrl(value) : ''
 export const materialTypes = [ { id: 'image', label: '图片素材' }, { id: 'article', label: '图文素材' }, { id: 'video', label: '视频素材' } ]
 const checkType = type => { if (!materialTypes.some(item => item.id === type)) throw new Error('不支持的素材类型') }
 async function scoped(operation) {
@@ -66,16 +68,15 @@ export function uploadMaterialQr(file) {
       return { assetId: 'mock-material-qr' }
     }
     if (!file?.path || !Number.isFinite(file.size) || file.size <= 0) throw new Error('未获取到有效图片，请重新选择')
-    const info = await new Promise((resolve,reject) => uni.getImageInfo({ src: file.path, success: resolve, fail: reject }))
-    if (!['png','jpg','jpeg'].includes(info.type)) throw new Error('请选择PNG或JPG二维码图片')
-    const mimeType = info.type === 'png' ? 'image/png' : 'image/jpeg'
-    const intent = normalizeUploadIntent(await request('/assets/upload-intents', { method: 'POST', data: { purpose: 'material-qr', fileName: `qr.${info.type === 'png' ? 'png' : 'jpg'}`, mimeType, size: file.size } }))
-    // Contract proposal: explicitly signed multipart POST, not an assumed S3 PUT.
-    if (!intent?.assetId || !isMediaUrl(intent.uploadUrl) || intent.mode !== 'multipart') throw new Error('暂不支持此上传方式，请联系服务人员')
-    if (intent.limits?.maxSize && file.size > intent.limits.maxSize) throw new Error('图片超过上传大小限制')
-    await new Promise((resolve,reject) => uni.uploadFile({ url: intent.uploadUrl, filePath: file.path, name: intent.fileField || 'file', header: intent.headers || {}, formData: intent.fields || {}, success: response => response.statusCode >= 200 && response.statusCode < 300 ? resolve() : reject(new Error('图片上传失败，请重试')), fail: reject }))
-    const result = await request(`/assets/${encodeURIComponent(intent.assetId)}/completions`, { method: 'POST' })
-    if (!isUploadReady(result)) throw new Error('图片尚未处理完成，请稍后重试')
-    return { assetId: intent.assetId, fileId: intent.fileId }
+    let info = {}
+    try {
+      info = await new Promise((resolve, reject) => uni.getImageInfo({ src: file.path, success: resolve, fail: reject }))
+    } catch {
+      info = {}
+    }
+    const kind = resolveImageKind(file, info)
+    if (!kind) throw new Error('请选择PNG或JPG二维码图片')
+    const result=await uploadAsset(file,{purpose:'material-qr',fileName:`qr.${kind.ext}`,mimeType:kind.mimeType})
+    return {assetId:result.assetId,fileId:result.fileId}
   })
 }

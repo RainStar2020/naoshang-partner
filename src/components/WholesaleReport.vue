@@ -102,24 +102,19 @@
                   mode="aspectFit"
                 /></button></view
             ><view class="wh-share-body"
-              ><image
-                v-if="report.qrUrl"
-                :src="report.qrUrl"
-                mode="aspectFit"
-                class="wh-share-qr"
-              /><BusinessQrCode
-                v-else-if="isMock && report.localPayload"
+              ><BusinessQrCode
+                v-if="shareScanPayload"
                 ref="qr"
-                :value="report.localPayload"
+                :value="shareScanPayload"
                 :show-save="false"
                 :poster-title="report.inviteCode"
               /><EmptyState v-else text="暂无分享码" /><text
-                >扫码或注册填写分享码即可成功绑定</text
+                >扫码进入注册页，或注册时填写分享码即可绑定</text
               ></view
             ></view
           >
           <button
-            v-if="report.qrUrl || report.localPayload"
+            v-if="shareScanPayload"
             class="wh-primary wh-pill wh-share-save"
             @click="saveShare"
           >
@@ -341,7 +336,7 @@
               ></view
             >
             <view
-              v-if="person.performance?.length"
+              v-if="person.storeId && person.performance?.length"
               class="wh-stats-grid wh-team-stats"
               ><view class="wh-row wh-team-stats-head"
                 ><text>业绩统计</text
@@ -415,6 +410,14 @@
                 ><text>剩余活动VIP名额</text
                 ><view>{{ report.activityRemaining ?? 0 }}个</view></view
               ></view
+            ><view class="wh-split"
+              ><view
+                ><text>你接收的名额个数</text
+                ><view>{{ report.receivedTotal ?? report.summary?.receivedTotal ?? 0 }}个</view></view
+              ><view
+                ><text>接收笔数</text
+                ><view>{{ report.receivedCount ?? report.summary?.receivedCount ?? 0 }}笔</view></view
+              ></view
             ><view class="wh-row wh-stock-buttons"
               ><button
                 class="wh-secondary wh-pill"
@@ -435,7 +438,7 @@
             :key="item.id"
             :title="item.title"
             :caption="`时间：${date(item.createdAt)}`"
-            :amount="`+${item.quantity}`"
+            :amount="`+${Number(item.quantity) || 0}`"
             accent
           />
         </template>
@@ -651,8 +654,7 @@
     moreError = ref(""),
     filter = ref("promotion"),
     promotionTab = ref("difference"),
-    qr = ref(null),
-    isMock = config.useMock;
+    qr = ref(null);
   const titles = {
       superior: "运营商信息",
       promotion: "升级批发商",
@@ -698,16 +700,16 @@
       hasMore.value = value.hasMore;
     }
   });
+  const shareScanPayload = computed(
+    () => report.value?.localPayload || report.value?.shareUrl || "",
+  );
   const format = (value, kind) =>
     kind === "money"
       ? money(value)
       : kind === "percent"
         ? percent(value)
         : value ?? 0;
-  const show = (value, kind) =>
-    kind === "money"
-      ? `${money(value)}积分`
-      : format(value, kind);
+  const show = (value, kind) => format(value, kind);
   const monthNames = [
     "",
     "一",
@@ -960,32 +962,10 @@
     }
   }
   async function saveShare() {
-    if (isMock && report.value.localPayload) {
-      qr.value?.save();
-      return;
-    }
+    if (!shareScanPayload.value) return;
     try {
-      const url = report.value.posterUrl || report.value.qrUrl;
-      if (!url) return;
-      const response = await new Promise((resolve, reject) =>
-        uni.downloadFile({ url, success: resolve, fail: reject }),
-      );
-      if (response.statusCode !== 200) throw new Error("图片下载失败");
-      // #ifdef H5
-      const anchor = document.createElement("a");
-      anchor.href = response.tempFilePath;
-      anchor.download = "share-code.png";
-      anchor.click();
-      // #endif
-      // #ifndef H5
-      await new Promise((resolve, reject) =>
-        uni.saveImageToPhotosAlbum({
-          filePath: response.tempFilePath,
-          success: resolve,
-          fail: reject,
-        }),
-      );
-      // #endif
+      if (!qr.value?.save) throw new Error("二维码尚未生成");
+      qr.value.save();
     } catch (e) {
       uni.showToast({
         title: e.message || "保存失败，请检查相册权限",
@@ -1311,8 +1291,10 @@
     font-size: 0.78em;
   }
   .income-channels view > view {
-    font-size: 1em;
-    font-weight: 600;
+    margin-top: 0.15em;
+    color: #fff;
+    font-size: 1.22em;
+    font-weight: 700;
     overflow-wrap: anywhere;
   }
   .income-heading {
@@ -1370,8 +1352,9 @@
     line-height: 1.55;
   }
   .income-card-copy > view {
-    margin: 0.15em 0;
-    font-size: 0.95em;
+    margin: 0.2em 0;
+    color: #fff;
+    font-size: 1.08em;
     line-height: 1.45;
     overflow-wrap: anywhere;
   }
@@ -1384,23 +1367,23 @@
   }
   .income-channel {
     display: inline-block;
-    padding: 0 0.55em;
+    padding: 0 0.95em;
     border-radius: 1em;
     background: linear-gradient(100deg, #00b7ff, #3157ff);
     font-size: 0.7em;
     line-height: 1.7;
   }
   .income-card-side > view {
-    margin: 0.25em 0;
-    color: #57adff;
-    font-size: 1.05em;
+    margin: 0.3em 0;
+    color: #fff;
+    font-size: 1.22em;
     font-weight: 700;
     white-space: nowrap;
   }
   .income-card-side > text:last-child {
     display: block;
-    color: #989eb6;
-    font-size: 0.75em;
+    color: #4eb6ff;
+    font-size: 0.88em;
   }
   .wh-share-card {
     border-radius: 1.1em;

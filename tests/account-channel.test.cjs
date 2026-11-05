@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm')
 async function setup(useMock=true,response=null){
-  const storage=new Map(),context=vm.createContext({uni:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k),request:options=>options.success({statusCode:200,data:response})}}),cache=new Map()
+  const storage=new Map(),context=vm.createContext({console,uni:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k),request:options=>options.success({statusCode:200,data:response})}}),cache=new Map()
   async function load(file){
     if(cache.has(file))return cache.get(file)
     const m=new vm.SourceTextModule(file.endsWith('/config')?`export const config={useMock:${useMock},baseURL:'https://api.example.com'}`:fs.readFileSync(file+'.js','utf8'),{context,identifier:file})
@@ -27,4 +27,11 @@ test('only the server account type selects the restricted coach channel',async()
   assert.equal(channel.canOpenAccountPage(session,'pages/coach/index'),true)
   assert.equal(channel.canOpenAccountPage(session,'pages/settings/change-password'),true)
   assert.equal(channel.accountHome({user:{role:'健脑官'}}),'/pages/member/index')
+})
+test('login keeps a valid session when post-login enhancements fail',async()=>{
+  const response={token:'user-token',accountType:'parent',user:{id:'new-user',name:'新用户'}}
+  const {api,storage}=await setup(false,response)
+  const session=await api.login({phone:'13700000001',password:'password'})
+  assert.equal(session.token,'user-token')
+  assert.equal(storage.get('naoshang-session').user.id,'new-user')
 })
