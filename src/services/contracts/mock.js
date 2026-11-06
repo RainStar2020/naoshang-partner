@@ -59,7 +59,7 @@ async function fixture(e, p, d, user, state) {
   const tierActivation = e.path.startsWith('/activations') && ['fs', 'jy', 'cj', 'xn', 'ys'].includes(d.targetType)
   const legacy = tierActivation ? NO_LEGACY_MOCK : legacyMock(key, p, d)
   if (legacy !== NO_LEGACY_MOCK) return legacy
-  const entitlement = { state: state.entitlementState, amount: 20000, frozen: false, canExportBills: true }
+  const entitlement = () => ({ state: state.entitlementState, entitlementOpened: state.entitlementState === 'active' ? 1 : 0, amount: 200, canOpen: true, displayOnly: false, minTier: 'vip', minTierLabel: 'VIP（小批发商）', code: null, reason: null, frozen: false, canExportBills: true })
   const id = p.id || p.memberId || nextId('fixture')
   const identity = { id: d.contextId, memberId: d.memberId || p.memberId, mode: d.memberId || p.memberId ? 'child' : 'parent', accountId: user.id }
   switch (key) {
@@ -77,8 +77,8 @@ async function fixture(e, p, d, user, state) {
     case 'GET /partner/allocation-scheme': return { mode: 'self_assign', modeLabel: '可自行分配（演示）', kinds: [{ key: 'inspection', ownerAssignable: true }, { key: 'sales', ownerAssignable: true }], mock: true }
     case 'POST /orders/{id}/payment': return commerce.mockPay(user, p.id, d.channel, d.idempotencyKey)
     case 'GET /columns': return page(commerce.mockCatalog().items.filter(item => item.categoryId === 'column').map(item => ({ id: item.id, title: item.title, summary: item.summary, coverUrl: item.coverUrl, price: item.skus[0]?.amount == null ? null : item.skus[0].amount, unlocked: false, chapterCount: commerce.mockColumn(user, item.id).chapters.length })))
-    case 'POST /auth/sessions':
-    case 'POST /auth/registrations': return { token: 'contract-demo-token', user: { ...user, displayId: 'LC0001', role: '家长' }, accountType: d.channel || 'parent', entitlement }
+    case 'POST /auth/sessions': return { token: 'contract-demo-token', user: { ...user, displayId: 'LC0001', role: '家长' }, accountType: d.channel || 'parent', entitlement: entitlement() }
+    case 'POST /auth/registrations': return { token: 'contract-demo-token', user: { ...user, displayId: 'QZ0001', role: '家长' }, accountType: d.channel || 'parent', canOpenEntitlement: 0, entitlement: { ...entitlement(), state: 'never_paid', entitlementOpened: 0, canOpen: false, displayOnly: true, code: 'ENTITLEMENT_VIP_REQUIRED', reason: '普通用户暂不能开通 200 元权益收益费，请先由上级设置等级为 VIP（小批发商）及以上' } }
     case 'POST /auth/sms-challenges': return { retryAfter: 60, devCode: '123456' }
     case 'POST /auth/password-reset-verifications': return { resetTicket: 'contract-reset-ticket' }
     case 'POST /auth/password-resets':
@@ -86,7 +86,7 @@ async function fixture(e, p, d, user, state) {
     case 'POST /me/password-changes': return { changed: true }
     case 'POST /auth/wechat/authorizations': return { url: '', state: 'contract-demo-state', mock: true, message: '本地 Mock 不跳转微信；使用手机号演示登录' }
     case 'POST /auth/wechat/exchanges': return { registrationTicket: 'contract-wechat-ticket' }
-    case 'GET /me/bootstrap': return { ...mockMeBootstrap(user), contexts: mockIdentities(user), businessContexts: mockBusinessContexts(user), entitlement }
+    case 'GET /me/bootstrap': return { ...mockMeBootstrap(user), contexts: mockIdentities(user), businessContexts: mockBusinessContexts(user), entitlement: entitlement(), identity: { isPartner: true, isVipPlus: 1, canOpenEntitlement: 1, entitlementState: state.entitlementState, entitlementOpened: entitlement().entitlementOpened, childModuleAccess: { open: true, allowedModules: ['member','training','learning','feedback','course-levels','edit'], lockedModules: [], reason: null } } }
     case 'GET /members/options': return memberDictionaries
     case 'GET /members': return page(mockFamily(user).members)
     case 'GET /catalog': return commerce.mockCatalog()
@@ -131,10 +131,10 @@ async function fixture(e, p, d, user, state) {
       if (!(quota ? ['unionpay'] : ['wechat', 'alipay', 'bank_card']).includes(channel)) fail('该业务不支持此支付渠道')
       if (!d.idempotencyKey) fail('缺少 idempotencyKey')
       const annual = e.path === '/partner/entitlement-orders'
-      const payment = { id: nextId('payment'), bizName: e.description, amount: quota ? null : annual ? 198000 : 20000, channelName: channel, status: 'SUCCEEDED', paidAt: new Date().toISOString() }
+      const payment = { id: nextId('payment'), bizName: e.description, amount: quota ? null : annual ? 1980 : 200, channelName: channel, status: 'SUCCEEDED', paidAt: new Date().toISOString() }
       state.payments.push(payment)
       if (e.path === '/me/entitlement-orders') state.entitlementState = 'active'
-      return { status: 'SUCCEEDED', paymentId: payment.id, orderId: payment.id, displayId: 'LC0001', entitlement, paymentMode: 'sandbox', mock: true, note: quota ? '名额价格未冻结，amount=null；仅演示支付回执，不变更现有名额台账' : annual ? '1980 元为文档暂行演示值，不变更现有年度权益台账' : '本地演示，不扣款' }
+      return { status: 'SUCCEEDED', paymentId: payment.id, orderId: payment.id, displayId: 'LC0001', entitlement: entitlement(), paymentMode: 'sandbox', mock: true, note: quota ? '名额价格未冻结，amount=null；仅演示支付回执，不变更现有名额台账' : annual ? '1980 元为文档暂行演示值，不变更现有年度权益台账' : '本地演示，不扣款' }
     }
     case 'GET /me/payments': return { ...page(state.payments), paymentMode: 'sandbox' }
     case 'GET /me/payments/{id}': {

@@ -7,6 +7,7 @@ import { mockFamily, persistMockFamily, memberDictionaries } from './mock/family
 import { mockProfileState } from './mock/profile'
 import { mockLevels, mockPreviewActivation, mockActivate, mockMemberBadge } from './mock/learning'
 import { normalizeContent } from '../features/content/rich-content'
+import { requireChildModule } from './me-context'
 const copy = value => JSON.parse(JSON.stringify(value))
 async function scoped(operation) {
   const user = { ...getSession()?.user }
@@ -74,6 +75,7 @@ export function getFamilyMembers(cursor = null) {
 }
 export function updateMemberTraining(id, draft) {
   return scoped(async user => {
+    await requireChildModule('training')
     const current = config.useMock ? mockTrainingMember(user, id) : null
     const pick = (value, fallback) => Number.isInteger(value) ? value : fallback
     const payload = {
@@ -93,6 +95,7 @@ export function updateMemberTraining(id, draft) {
 }
 export function saveFamilyMember(id, draft) {
   return scoped(async user => {
+    if (id) await requireChildModule('edit')
     const name = String(draft.name || '').trim()
     if (!name || Array.from(name).length > 24) throw new Error('请输入1–24字会员姓名')
     if (!draft.gradeCode || !draft.genderCode) throw new Error('请选择年级和性别')
@@ -139,12 +142,14 @@ export function activateFamilyMember(memberId, preview, idempotencyKey) {
 export function getMemberRecords(memberId, kind, cursor = null) {
   if (!['orders','training','admission','self-study','camp'].includes(kind)) throw new Error('记录类型无效')
   return scoped(async user => {
+    if (kind !== 'orders') await requireChildModule('feedback')
     if (config.useMock) { ownedMember(user,memberId); return kind==='orders'?mockOrders(user,{memberId}):mockFeedbackList(user,memberId,kind) }
     return listResult(await request(kind === 'orders' ? `/members/${encodeURIComponent(memberId)}/orders` : `/members/${encodeURIComponent(memberId)}/training-feedback`, { data: { kind: kind === 'orders' ? undefined : kind, cursor, pageSize: 20 } }))
   })
 }
 export function getMemberFeedback(memberId, feedbackId) {
   return scoped(async user => {
+    await requireChildModule('feedback')
     if (config.useMock) { ownedMember(user,memberId); return mockFeedback(user,memberId,feedbackId) }
     const result = await request(`/training-feedback/${encodeURIComponent(feedbackId)}`, { data: { memberId } })
     if (result?.memberId !== memberId) throw new Error('反馈会员身份不匹配')

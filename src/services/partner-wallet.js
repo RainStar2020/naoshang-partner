@@ -46,9 +46,9 @@ export function redemptionNoOf(item) {
   return String(item?.redemptionNo || item?.redemptionId || item?.id || '')
 }
 
-function points(value) {
+function points(value, { allowNegative = false } = {}) {
   const result = Number(value)
-  return Number.isFinite(result) && result >= 0 ? result : null
+  return Number.isFinite(result) && (allowNegative || result >= 0) ? result : null
 }
 
 function store(value) {
@@ -71,17 +71,20 @@ export async function getPartnerPointsOptions(contextId) {
   const resolvedContextId = redemptionContextIdOf(contextId)
   const result = await request('/wallet/withdrawal-options', { data: { contextId: resolvedContextId } })
   checkAccount(current)
-  if (!result || points(result.totalPoints ?? result.totalAvailable) == null || points(result.availablePoints) == null || !Array.isArray(result.categories) || !Array.isArray(result.pointRecords) || !Array.isArray(result.allowedActions)) fail('积分数据格式异常')
+  if (!result || points(result.totalPoints ?? result.totalAvailable, { allowNegative: true }) == null || points(result.availablePoints, { allowNegative: true }) == null || !Array.isArray(result.categories) || !Array.isArray(result.pointRecords) || !Array.isArray(result.allowedActions)) fail('积分数据格式异常')
   return {
     contextId: String(result.contextId || resolvedContextId), identity: String(result.identity || identityOfContextId(resolvedContextId)), identityLabel: String(result.identityLabel || withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel),
-    totalPoints: Number(result.totalPoints ?? result.totalAvailable), totalAvailable: points(result.totalAvailable) ?? Number(result.totalPoints ?? 0), availablePoints: Number(result.availablePoints), exchangeRate: Number(result.exchangeRate) || 1,
+    totalPoints: Number(result.totalPoints ?? result.totalAvailable), totalAvailable: points(result.totalAvailable, { allowNegative: true }) ?? Number(result.totalPoints ?? 0), availablePoints: Number(result.availablePoints), exchangeRate: Number(result.exchangeRate) || 1,
     rateNote: String(result.rateNote || ''), minPoints: points(result.minPoints), maxPoints: points(result.maxPoints),
     allowedActions: result.allowedActions,
     disabledReason: result.disabledReason ? String(result.disabledReason) : '',
-    categories: result.categories.map(item => ({ key: String(item?.key || ''), label: String(item?.label || ''), points: points(item?.points) ?? 0 })),
+    hasNegativeBalance: result.hasNegativeBalance === true || Number(result.availablePoints) < 0,
+    negativeBalanceHint: result.negativeBalanceHint ? String(result.negativeBalanceHint) : '',
+    categories: result.categories.map(item => ({ key: String(item?.key || ''), label: String(item?.label || ''), points: points(item?.points, { allowNegative: true }) ?? 0 })),
     pointRecords: result.pointRecords.map(item => ({
-      id: String(item?.id || ''), category: String(item?.category || ''), source: String(item?.source || ''), points: points(item?.points) ?? 0,
-      user: item?.user && typeof item.user === 'object' ? { id: String(item.user.id || ''), name: String(item.user.name || ''), phone: String(item.user.phone || '') } : null,
+      id: String(item?.id || ''), category: String(item?.category || ''), source: String(item?.source || ''), points: points(item?.points, { allowNegative: true }) ?? 0,
+      pointsLabel: String(item?.pointsLabel || ''), isNegative: item?.isNegative === true || Number(item?.points) < 0, direction: String(item?.direction || ''),
+      user: item?.user && typeof item.user === 'object' ? { displayId: String(item.user.displayId || ''), name: String(item.user.name || ''), phone: String(item.user.phone || '') } : null,
       identity: String(item?.identity || identityOfContextId(resolvedContextId)), identityLabel: String(item?.identityLabel || withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel), createdAt: item?.createdAt || null,
     })),
     identityBalances: Array.isArray(result.identityBalances) ? result.identityBalances : [],

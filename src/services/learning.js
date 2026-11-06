@@ -4,6 +4,7 @@ import { normalizeContent, isMediaUrl } from '../features/content/rich-content'
 import { mockIdentities, mockLevels, mockLevelDetail, mockPreviewActivation, mockActivate, mockAnnouncements } from './mock/learning'
 import { mockSaveChapterProgress } from './mock/learning-progress'
 import { getColumn } from './commerce'
+import { requireChildModule } from './me-context'
 
 const selectionKey = userId => `naoshang-learning-identity:${userId}`
 function user() {
@@ -53,7 +54,7 @@ export async function getLearningIdentities() {
     accountId: current.id,
     mode: 'parent',
     name: current.name || bootstrap?.name || '家长',
-    displayId: bootstrap?.displayId || current.displayId || current.id,
+    displayId: bootstrap?.displayId || current.displayId || '',
     grade: '',
     badge: '家长',
   }
@@ -63,6 +64,7 @@ export async function getLearningIdentities() {
 // TODO(API): progress is scoped to the authenticated parent's child, level and
 // chapter. The API must independently validate ownership and course entitlement.
 export async function saveLearningProgress(query, update) {
+  if (!query?.columnId) await requireChildModule('learning')
   const session = user()
   if (!query?.chapterId || (query.columnId ? query.levelId || query.contextId : !query.contextId || !query.levelId)) throw new Error('缺少或混用了课程身份信息')
   const isColumn = Boolean(query.columnId)
@@ -101,6 +103,7 @@ async function identity(id) {
 export async function getLearningLevels(context) {
   const session = user()
   const current = await identity(context.id)
+  if (current.mode === 'child') await requireChildModule('course-levels')
   const result = config.useMock ? mockLevels(current) : await request(current.mode === 'child' ? `/members/${encodeURIComponent(current.memberId)}/levels` : '/learning/levels')
   const levels = config.useMock ? result : result.levels
   if (getSession()?.user?.id !== current.accountId || getSession()?.token !== session.sessionToken) throw new Error('登录账号已变化，请刷新后重试')
@@ -110,6 +113,7 @@ export async function getLearningLevels(context) {
 export async function getLearningLevelDetail(contextId, levelId) {
   const session = user()
   const current = await identity(contextId)
+  if (current.mode === 'child') await requireChildModule('course-levels')
   const result = config.useMock ? mockLevelDetail(current, levelId) : await request(`/learning/levels/${encodeURIComponent(levelId)}`, { data: { memberId: current.memberId } })
   if (getSession()?.user?.id !== current.accountId || getSession()?.token !== session.sessionToken) throw new Error('登录账号已变化，请刷新后重试')
   if (!result?.id || typeof (result.membershipUnlocked ?? result.unlocked) !== 'boolean' || !Array.isArray(result.chapters)) throw new Error('等级详情格式异常')

@@ -11,7 +11,7 @@
     <view class="detail-person-copy">
      <view>{{data.node.name}}</view>
      <view class="detail-id-row">
-      <view class="detail-meta-pill"><text class="detail-meta-label">ID</text><text class="detail-meta-value">{{data.node.displayId || data.node.id}}</text></view>
+      <view v-if="data.node.displayId" class="detail-meta-pill"><text class="detail-meta-label">ID</text><text class="detail-meta-value">{{data.node.displayId}}</text></view>
       <view v-if="data.node.phone" class="detail-meta-pill"><text class="detail-meta-label">手机号</text><text class="detail-meta-value">{{data.node.phone}}</text></view>
      </view>
     </view>
@@ -50,7 +50,7 @@
       <button>查看详情 ›</button>
      </view>
      <view class="detail-team-fields">
-      <view><text>用户ID</text><strong>{{child.displayId || child.id}}</strong></view>
+      <view v-if="child.displayId"><text>用户ID</text><strong>{{child.displayId}}</strong></view>
       <view><text>手机号</text><strong>{{child.phone || ''}}</strong></view>
       <view><text>门店数量</text><strong>{{storeCount(child)}}</strong></view>
       <view><text>合店老板数量</text><strong>{{ownerCount(child)}}</strong></view>

@@ -13,8 +13,6 @@
       <text class="quota-meta-item">时间：{{time(item.at)}}</text>
       <text class="quota-meta-item">下级ID：{{item.downlineId || '—'}}</text>
       <text class="quota-meta-item">下级等级：{{tier(item.downlineTier)}}</text>
-      <text v-if="item.category==='upgrade' || item.quotaConsumed" class="quota-meta-item">名额已消耗 · 接收方未获得名额</text>
-      <text v-else-if="item.receiverGainsQuota" class="quota-meta-item">接收方获得名额：{{item.receiverGained}}</text>
      </view>
     </view>
     <EmptyState v-if="!items.length" text="暂无划转记录"/>

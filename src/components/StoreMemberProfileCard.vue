@@ -8,7 +8,7 @@
    <view class="member-information">
     <view class="member-name">{{member.name}}<text v-if="member.badge" class="member-badge">{{member.badge}}</text><text v-else class="member-badge muted">未激活会员</text></view>
     <view class="member-meta">
-     <text>ID：{{member.displayId || member.id}}</text>
+     <text v-if="member.displayId">ID：{{member.displayId}}</text>
      <text>年级：{{member.gradeLabel || ''}}</text>
      <text>性别：{{member.genderLabel || ''}}</text>
     </view>

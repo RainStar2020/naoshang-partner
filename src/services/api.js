@@ -2,15 +2,39 @@ import { config } from '../config'
 import { clearMeContext, loadMeContext } from './me-context'
 const SESSION_KEY = 'naoshang-session'
 export const INVITE_CODE_CACHE_KEY = 'naoshang-personal-invite-code'
+const ENTITLEMENT_GATE_EXEMPT_PATHS = new Set([
+  '/partner/superior',
+  '/partner/superior-bindings',
+  '/partner/superior-bindings/unbind',
+])
+const skipsEntitlementGate = path => ENTITLEMENT_GATE_EXEMPT_PATHS.has(String(path).split('?')[0])
 // One shared result (including concurrent callers) per authenticated session.
 let bootstrapCache = null
 export function clearBootstrapCache() { bootstrapCache = null }
 export function clearSessionCaches() { clearBootstrapCache(); clearMeContext() }
 export function getBootstrap() { return request('/me/bootstrap') }
+export function normalizeEntitlementOpened(value, state) {
+  if (value === 0 || value === '0') return 0
+  if (value === 1 || value === '1') return 1
+  if (['never_paid', 'active', 'expired'].includes(state)) return state === 'active' ? 1 : 0
+  // Legacy accounts without entitlement_state are active by the server contract.
+  return 1
+}
+export function normalizeEntitlement(entitlement) {
+  const source = entitlement && typeof entitlement === 'object' ? entitlement : {}
+  return {
+    ...source,
+    amount: Number.isFinite(Number(source.amount)) ? Number(source.amount) : 200,
+    entitlementOpened: normalizeEntitlementOpened(source.entitlementOpened, source.state),
+    canOpen: source.canOpen === true || source.canOpen === 1 || source.canOpen === '1',
+    displayOnly: source.displayOnly === true || source.displayOnly === 1 || source.displayOnly === '1',
+  }
+}
 
 export const getSession = () => {
   const session = uni.getStorageSync(SESSION_KEY) || null
   if (config.useMock && session?.user?.id === 'LC0001') session.user = { ...session.user, id: 'VIP0001', displayId: 'VIP0001' }
+  if (session) session.entitlement = normalizeEntitlement(session.entitlement)
   return session
 }
 export const logout = async ({ revoke = true } = {}) => {
@@ -71,7 +95,7 @@ export function request(path, options = {}) {
 function sendRequest(path, options = {}) {
   if (!config.baseURL) return Promise.reject(new Error('服务暂不可用，请稍后重试'))
   return new Promise((resolve, reject) => uni.request({
-    url: config.baseURL + path, method: options.method || 'GET', data: options.data,
+    url: /^https?:\/\//i.test(path) ? path : config.baseURL + path, method: options.method || 'GET', data: options.data,
     timeout: config.timeout, header: { ...(getSession()?.token ? { Authorization: `Bearer ${getSession().token}` } : {}), ...options.header },
     success: res => {
       const body = res.data || {}
@@ -82,7 +106,8 @@ function sendRequest(path, options = {}) {
           statusCode: res.statusCode, code: body.code, requestId: body.requestId,
           traceId, errors: body.errors, fieldErrors: body.errors ?? body.fieldErrors,
           verifyFailCount: body.verifyFailCount, verifyLocked: body.verifyLocked,
-          serverMessage: body.message || body.error, ...extra
+          serverMessage: body.message || body.error, data: body,
+          offlinePayHint: body.offlinePayHint, ...extra
         })
         console.error('API request failed', { path, statusCode: res.statusCode, code: body.code, traceId })
         reject(error)
@@ -100,10 +125,17 @@ function sendRequest(path, options = {}) {
         }
         // Bootstrap carries entitlement gates as normal account state. Rejecting
         // it here turns a successful login into a login failure for new users.
-        if (path !== '/me/bootstrap' && res.data?.locked === true && res.data?.entitlementState) {
+        if (res.data?.locked === true && res.data?.code === 'MEMBER_MODULE_ONLY') {
+          reject(Object.assign(new Error(res.data.message || '当前账号仅可使用会员功能'), {
+            statusCode: res.statusCode, code: 'MEMBER_MODULE_ONLY', data: res.data,
+            childModuleAccess: { allowedModules: res.data.allowedModules || ['member'], lockedModules: res.data.lockedModules || [], open: false, reason: res.data.message || '' },
+          }))
+          return
+        }
+        if (path !== '/me/bootstrap' && !skipsEntitlementGate(path) && res.data?.locked === true && res.data?.entitlementState) {
           reject(Object.assign(new Error(res.data.message || res.data.error || '当前账号尚未开通此项权益，请先完成开通'), {
             statusCode: res.statusCode, code: 'ENTITLEMENT_REQUIRED',
-            entitlementState: res.data.entitlementState, entitlement: res.data.entitlement
+            entitlementState: res.data.entitlementState, entitlement: normalizeEntitlement(res.data.entitlement)
           }))
           return
         }
@@ -121,7 +153,7 @@ export async function login(data) {
   const result = config.useMock ? { token: 'demo-local-token', user: { name: '脑商体验官', id: 'VIP0001', displayId: 'VIP0001', role: '家长' } } : await request('/auth/sessions', { method: 'POST', data })
   if (!result?.token || !result?.user?.id) throw new Error('登录未完成，请稍后重试')
   if (result.accountType && !['parent', 'coach'].includes(result.accountType)) throw new Error('当前账号暂不支持登录，请联系平台客服')
-  const session = { ...result, accountType: result.accountType || 'parent' }
+  const session = { ...result, entitlement: normalizeEntitlement(result.entitlement), accountType: result.accountType || 'parent' }
   uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
   clearSessionCaches()
   uni.setStorageSync(SESSION_KEY, session)

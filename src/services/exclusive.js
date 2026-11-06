@@ -1,7 +1,6 @@
 import { config } from '../config'
 import { request, getSession } from './api'
 import { visibleExclusiveFeatures } from '../features/exclusive/catalog'
-import { isAngelOrAbove } from '../features/business/account-rank'
 import { emptyContent, normalizeContent, isMediaUrl } from '../features/content/rich-content'
 import { mockExclusiveState, saveMockExclusiveState, mockCostoreOptions, mockFounderAwards } from './mock/exclusive'
 import { mockCostorePaymentOrder } from './mock/commerce'
@@ -64,10 +63,6 @@ export async function getExclusiveAccess(profileResult) {
   if (!result) return { accountId: user.id, contextId: null, capabilities: [] }
   if (result.accountId !== user.id || !Array.isArray(result.capabilities) || (result.capabilities.length && !result.contextId)) throw new Error('专属功能身份数据异常')
   const capabilities = [...result.capabilities]
-  const rankHint = user.levelName || user.partnerStatus || user.partnerLevel || user.rankLabel || ''
-  if (!capabilities.includes('costore:apply') && isAngelOrAbove(user.displayId || user.id, rankHint)) {
-    capabilities.push('costore:apply')
-  }
   // Product: every logged-in account can manage their own family members.
   if (!capabilities.includes('family-members:manage')) capabilities.push('family-members:manage')
   return {

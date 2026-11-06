@@ -23,6 +23,7 @@
           />
           <text class="exchange-available">{{ options.identityLabel }}可兑换积分 {{ availableLabel }}</text>
         </view>
+        <text v-if="options.hasNegativeBalance && options.negativeBalanceHint" class="exchange-negative">{{ options.negativeBalanceHint }}</text>
         <text v-if="options.rateNote" class="exchange-note">{{ options.rateNote }}</text>
         <text v-if="operationError" class="exchange-error" role="alert">{{ operationError }}</text>
         <button
@@ -196,6 +197,7 @@ defineExpose({ refresh })
   line-height: 1.5;
   text-align: center;
 }
+.exchange-negative { display: block; margin: -0.4em 0 0.85em; color: #ff9ab1; font-size: 0.82em; line-height: 1.5; text-align: center; }
 .exchange-error {
   display: block;
   margin: 0 0 0.85em;

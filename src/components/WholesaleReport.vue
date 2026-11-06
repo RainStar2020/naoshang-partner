@@ -1717,7 +1717,7 @@
     font-weight: 700;
     line-height: 1.15;
   }
-  .wh-superior-card > .wh-dialog-head {
+  .wh-dialog-superior > .wh-dialog-head {
     display: none;
   }
   .wh-superior-card {

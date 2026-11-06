@@ -11,7 +11,7 @@ export interface Gate {
 }
 export interface Bootstrap {
   user: { id: string; name: string; displayId: string }
-  entitlement: { state: 'never_paid' | 'active' | 'expired'; amount: Yuan }
+  entitlement: { state: 'never_paid' | 'active' | 'expired'; entitlementOpened: 0 | 1; amount: Yuan; canOpen?: boolean; displayOnly?: boolean; minTierLabel?: string; reason?: string | null }
   gate: Gate | null
   /** Complete authorization fields are still missing from the new document. */
   businessContexts: Array<{ id: string; accountId: string; module: 'partner' | 'agency' | 'costore'; label: string; capabilities?: string[] }>

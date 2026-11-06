@@ -12,7 +12,7 @@
       <view class="agency-person-copy">
        <view>{{item.name}}</view>
        <view class="agency-id-row">
-        <view class="agency-meta-pill"><text class="agency-meta-label">ID</text><text class="agency-meta-value">{{item.displayId || item.id}}</text></view>
+        <view v-if="item.displayId" class="agency-meta-pill"><text class="agency-meta-label">ID</text><text class="agency-meta-value">{{item.displayId}}</text></view>
         <view v-if="item.phone" class="agency-meta-pill"><text class="agency-meta-label">手机号</text><text class="agency-meta-value">{{item.phone}}</text></view>
        </view>
       </view>

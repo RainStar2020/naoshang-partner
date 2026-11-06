@@ -5,6 +5,15 @@ import { ensureRegionNames } from '../features/region'
 
 // Session-scoped cache for GET /me (profile + bound store + exclusiveAccess).
 let meCache = null
+const ALL_CHILD_MODULES = ['member', 'training', 'learning', 'feedback', 'course-levels', 'edit']
+
+export function normalizeChildModuleAccess(value) {
+  const source = value && typeof value === 'object' ? value : null
+  if (!source) return { open: true, allowedModules: ALL_CHILD_MODULES, lockedModules: [], reason: '' }
+  const allowedModules = Array.isArray(source.allowedModules) ? source.allowedModules.map(String) : []
+  const lockedModules = Array.isArray(source.lockedModules) ? source.lockedModules.map(String) : ALL_CHILD_MODULES.filter(item => !allowedModules.includes(item))
+  return { ...source, open: source.open === true, allowedModules, lockedModules, reason: String(source.reason || '') }
+}
 
 export function clearMeContext() {
   meCache = null
@@ -25,6 +34,7 @@ function normalizeProfile(profile, user = api.getSession()?.user) {
   const inviteCode = resolveInviteCode(profile, user)
   return {
     ...profile,
+    displayId: String(profile?.displayId || user?.displayId || ''),
     regionCodes,
     regionNames: ensureRegionNames(regionCodes, profile?.regionNames),
     ...(inviteCode ? { inviteCode } : {}),
@@ -47,12 +57,15 @@ function normalizeMeStore(store) {
 }
 
 function normalizeMePayload(result, user) {
-  if (!result || typeof result !== 'object' || result.profile?.id !== user.id) {
+  const identity = result?.identity && typeof result.identity === 'object' ? result.identity : {}
+  const rawProfile = result?.profile && typeof result.profile === 'object' ? result.profile : { ...identity, id: identity.id || user.id }
+  if (!result || typeof result !== 'object' || rawProfile.id !== user.id) {
     throw new Error('个人资料格式异常')
   }
   return {
     ...result,
-    profile: normalizeProfile(result.profile, user),
+    profile: normalizeProfile(rawProfile, user),
+    identity: { ...identity, childModuleAccess: normalizeChildModuleAccess(identity.childModuleAccess) },
     store: normalizeMeStore(result.store),
   }
 }
@@ -68,6 +81,7 @@ function mockMePayload(user) {
       contextId: `account:${user.id}`,
       capabilities: ['agency-code:read', 'family-members:manage'],
     },
+    identity: { isVipPlus: 1, canOpenEntitlement: 1, childModuleAccess: normalizeChildModuleAccess(null) },
   }
 }
 
@@ -80,6 +94,15 @@ export function getCachedMeContext() {
 
 export function getCachedBoundStore() {
   return getCachedMeContext()?.store || null
+}
+
+export async function requireChildModule(moduleId) {
+  const access = normalizeChildModuleAccess((await loadMeContext()).identity?.childModuleAccess)
+  if (access.open || access.allowedModules.includes(moduleId)) return access
+  const error = new Error(access.reason || '普通用户仅可使用「会员」功能；升级为 VIP 及以上后开放其它功能')
+  error.code = 'MEMBER_MODULE_ONLY'
+  error.childModuleAccess = access
+  throw error
 }
 
 /** Fetch GET /me once per session (shared by concurrent callers). Pass force to refresh. */

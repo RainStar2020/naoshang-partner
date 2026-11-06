@@ -162,7 +162,10 @@ function normalizeBusinessOperationOptions(kind,result){
   const allowedActions=Array.isArray(result.allowedActions)
     ?result.allowedActions
     :['quote','submit']
-  const activityUnitAmount=Number(result.activityUnitAmount??result.serviceFeeRule?.perActivityQuota??result.serviceFeePerActivity)
+  // Activity VIP upgrade fee: ¥2000 per quota when the API omits a positive unit price.
+  const ACTIVITY_UPGRADE_UNIT=2000
+  let activityUnitAmount=Number(result.activityUnitAmount??result.serviceFeeRule?.perActivityQuota??result.serviceFeePerActivity)
+  if(kind==='upgrade'&&!(Number.isFinite(activityUnitAmount)&&activityUnitAmount>0))activityUnitAmount=ACTIVITY_UPGRADE_UNIT
   const sellerStandardRemaining=pickRemaining(result.sellerBalances?.standard,standardRemaining)
   const sellerActivityRemaining=pickRemaining(result.sellerBalances?.activity,activityRemaining)
   return {
@@ -175,7 +178,7 @@ function normalizeBusinessOperationOptions(kind,result){
     ...(activityRemaining!=null?{activityRemaining}:{}),
     ...(sellerStandardRemaining!=null?{sellerStandardRemaining}:{}),
     ...(sellerActivityRemaining!=null?{sellerActivityRemaining}:{}),
-    ...(Number.isFinite(activityUnitAmount)?{activityUnitAmount}:{}),
+    ...(Number.isFinite(activityUnitAmount)&&activityUnitAmount>0?{activityUnitAmount}:{}),
   }
 }
 export function getBusinessOperationOptions(kind,contextId,entryId='',input={}){

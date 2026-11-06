@@ -30,7 +30,7 @@ function normalizeStoreUser(user){
     ...user,
     accountId:user.accountId||user.userId||user.id,
     memberId:user.memberId||children[0]?.id||'',
-    displayId:user.displayId||user.id||'',
+    displayId:user.displayId||'',
     phone:user.phone||'',
     storeConsumptionAmount:Number(user.storeConsumptionAmount??user.storeConsumption??0)||0,
     children,

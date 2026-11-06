@@ -1,5 +1,5 @@
 <template>
-  <view class="member-page">
+    <view class="member-page" :class="{ 'member-module-limited': courseLocked }">
     <image class="member-background" src="/static/member/bg-learning-journey.png" mode="scaleToFill" aria-hidden="true" />
     <view class="member-brand"><image src="/static/logo.png" mode="aspectFit" /><text>脑商AI</text></view>
     <view v-if="status === 'loading'" class="page-state">正在加载会员信息…</view>
@@ -52,6 +52,7 @@ import { computed, ref } from 'vue'
 import { onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { getSession } from '../../services/api'
+import { loadMeContext, normalizeChildModuleAccess } from '../../services/me-context'
 import { config } from '../../config'
 import { isJourneyLevelUnlocked } from '../../features/learning/journey'
 import { getLearningIdentities, getSelectedIdentity, selectLearningIdentity, getLearningLevels } from '../../services/learning'
@@ -69,10 +70,11 @@ const levels = computed(() => levelNames.map((name, index) => {
   const tier = number === 1 ? 1 : number <= 5 ? 2 : 3
   return { id, number, name, tier, unlocked: isJourneyLevelUnlocked({ number, tier }, levelEntitlements.value) }
 }))
-const identities = ref([]), selected = ref(null), pickerOpen = ref(false)
+const identities = ref([]), selected = ref(null), pickerOpen = ref(false), childAccess = ref(normalizeChildModuleAccess(null))
 const status = ref('loading'), error = ref('')
 const reversedLevels = computed(() => [...levels.value].sort((a, b) => b.number - a.number))
 const membershipActive = computed(() => levels.value.some(level => level.unlocked))
+const courseLocked = computed(() => !childAccess.value.open && !childAccess.value.allowedModules.includes('course-levels'))
 // Home identity card only: 幼儿园小班/中班/大班 → 小班/中班/大班
 function homeGrade(grade){
   const text=String(grade||'').trim()
@@ -86,6 +88,9 @@ async function load() {
   try {
     const rows = await getLearningIdentities()
     if (epoch !== loadEpoch) return
+    const me = await loadMeContext()
+    if (epoch !== loadEpoch) return
+    childAccess.value = normalizeChildModuleAccess(me.identity?.childModuleAccess)
     identities.value = rows; selected.value = getSelectedIdentity(rows); status.value = 'ready'
     if (selected.value) await loadLevels()
   } catch (reason) { if (epoch === loadEpoch) { status.value = 'error'; error.value = reason.message || '会员信息加载失败' } }
@@ -105,10 +110,15 @@ function switchIdentity(id) {
 }
 function openLevel(level) {
   if (!selected.value || selected.value.mode !== 'child' || !level?.id) return
+  if (courseLocked.value) {
+    uni.showToast({ title: childAccess.value.reason || '升级为 VIP 及以上后开放课程功能', icon: 'none' })
+    return
+  }
   uni.navigateTo({ url: `/pages/learning/level-detail?levelId=${encodeURIComponent(level.id)}&contextId=${encodeURIComponent(selected.value.id)}&tab=catalog` })
 }
 // Fan / tier membership entry buttons share one destination and the same detail payload.
 function openMembership() {
+  if (courseLocked.value) { uni.navigateTo({ url: '/pages/members/list' }); return }
   const level = levels.value.find(item => item.number === 1) || levels.value[0]
   if (level) openLevel(level)
 }
@@ -127,6 +137,7 @@ onUnload(() => { ++loadEpoch; ++levelEpoch })
 .position-10,.position-6{padding-left:56%}.position-9,.position-7{padding-left:39%}.position-8{padding-left:22%}.position-5{padding-left:64%}.position-4{padding-left:47%}.position-3{padding-left:30%}.position-2{padding-left:13%}.position-1{padding-left:2%}.position-1 .level-node{width:27vw}.level-row{box-sizing:content-box}.level-node{width:34vw;max-width:255px}.journey-extra{display:flex;align-items:center;gap:.35em;margin-left:.35em;min-width:0}.tier-chip{position:relative;display:flex;align-items:center;justify-content:center;height:1.4em;margin:0;padding:0 .7em;flex-shrink:0;background:transparent;color:#fff;font-weight:600;line-height:1;white-space:nowrap}.tier-chip image{position:absolute;inset:0;width:100%;height:100%}.tier-chip text{position:relative;font-size:clamp(11px,3.5vw,17px);font-weight:600}.tier-marker{position:absolute;z-index:1;right:0;top:44%;width:15%;height:18%;max-height:3.6em;min-height:2.5em;font-size:.8em;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;line-height:1.3}.tier-marker image{position:absolute;inset:0;width:100%;height:100%;z-index:-1}.tier-2 .tier-marker{left:0;right:auto;top:12%}.tier-1 .tier-marker{top:20%;height:65%;min-height:0}
 .announcement-link{position:absolute;z-index:2;left:.7em;top:.7em;padding:0;margin:0;display:flex;flex-direction:column;align-items:center;background:none;color:#FFD000;font-size:.72em;line-height:1.2}.announcement-link image{width:2.8em;height:2.8em}.announcement-link text{position:relative;z-index:1;margin-top:calc(2.5px - 1.011em);padding:0 .28em;color:#FFD000;background:#031637;box-shadow:inset 4rpx 0rpx 10rpx 0rpx #FFD000;border-radius:0rpx 6rpx 0rpx 6rpx;border:2rpx solid #FFD000;line-height:1.35}
 .tier-marker{margin:0;padding:0;background:transparent;color:inherit;border-radius:0}.tier-marker::after,.tier-chip::after{border:0}
+.member-module-limited .level-node,.member-module-limited .tier-marker,.member-module-limited .tier-chip{opacity:.45}
 @media(max-height:650px){.identity-card{margin-top:1em;padding-top:1.2em;padding-bottom:.5em}.member-brand{padding-top:calc(.3em + var(--status-bar-height,0px));padding-bottom:.3em}.member-avatar{width:2.3em;height:2.3em}}
 @media(orientation:landscape) and (max-height:500px){.member-brand{display:none}.identity-card{margin:.4em .8em}.member-avatar{width:2em;height:2em}.identity-row{padding-top:9%;padding-bottom:1.6%}.tier-3,.tier-2{flex:1!important}.journey{flex-direction:row;gap:.5em}.tier-band{flex:1!important;border-top:1rpx solid #18d6e488}.level-row{padding-left:15%}.level-node{width:80%;height:90%}.tier-marker{display:none}.announcement-link{display:none}.journey-extra{display:none}}
 </style>

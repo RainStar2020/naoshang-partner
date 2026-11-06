@@ -12,7 +12,7 @@
           <view class="me-user-info">
             <view class="me-name">{{ data.profile.nickname }}</view>
             <view class="me-meta">
-              <text>ID：{{ data.profile.id }}</text>
+              <text v-if="data.profile.displayId">ID：{{ data.profile.displayId }}</text>
               <button v-if="data.profile.inviteCode" class="me-invite" @click.stop="copyInvite">邀请码：{{ data.profile.inviteCode }}<image src="/static/common/icon-copy.png" mode="aspectFit" /></button>
             </view>
           </view>
@@ -32,10 +32,11 @@
         <text v-else class="unbound-store">暂未绑定门店</text>
       </view>
       <view class="me-card"><view class="me-section-title">我的订单</view><view class="me-shortcuts"><button v-for="item in orderEntries" :key="item.status" @click="openOrders(item.status)"><ProfileIcon :name="item.icon" /><text>{{ item.label }}</text></button></view></view>
-      <view class="me-card"><view class="me-section-title">专属功能</view><view class="me-shortcuts exclusive-grid"><button v-for="item in exclusiveEntries" :key="item.id" @click="open(item.path)"><ProfileIcon :name="item.icon" disc /><text>{{ item.label }}</text></button></view><text v-if="!exclusiveEntries.length" class="unbound-store">当前身份暂无专属功能</text></view>
+      <view class="me-card"><view class="me-section-title">专属功能</view><view class="me-shortcuts exclusive-grid"><button v-for="item in exclusiveEntries" :key="item.id" @click="openExclusive(item)"><ProfileIcon :name="item.icon" disc /><text>{{ item.label }}</text></button></view><text v-if="!exclusiveEntries.length" class="unbound-store">当前身份暂无专属功能</text></view>
       <view class="me-card me-menu"><button v-for="item in menu" :key="item.label" @click="item.path ? open(item.path) : contactSupport()"><ProfileIcon :name="item.icon" /><text>{{ item.label }}</text><image class="me-chevron" src="/static/common/icon-chevron-right.png" mode="aspectFit" /></button></view>
     </template>
     </view>
+    <AgencyPromotionCode v-if="agencyCodeOpen" @close="agencyCodeOpen = false" />
     <AppTabBar active="profile" />
   </view>
 </template>
@@ -50,8 +51,10 @@ import { getMyProfile, getSupportConfig } from '../../services/profile'
 import { getExclusiveAccess, getVisibleExclusiveEntries } from '../../services/exclusive'
 import AppTabBar from '../../components/AppTabBar.vue'
 import ProfileIcon from '../../components/ProfileIcon.vue'
+import AgencyPromotionCode from '../../components/AgencyPromotionCode.vue'
 useAuth(); useAppTabBar()
 const isMock = config.useMock, status = ref('loading'), error = ref(''), data = ref(null)
+const agencyCodeOpen = ref(false)
 let epoch = 0
 const orderEntries = [{ label: '待支付', status: 'pending-payment', icon: 'payment' }, { label: '待发货', status: 'waiting-shipment', icon: 'shipping' }, { label: '待收货', status: 'waiting-receipt', icon: 'receiving' }, { label: '已完成', status: 'completed', icon: 'completed' }]
 const profileExclusiveIds = ['founder-awards', 'costore-application', 'agency-code', 'members']
@@ -64,6 +67,13 @@ async function load() {
   catch(reason) { if(current === epoch) { error.value = reason.message || '加载失败'; status.value = 'error' } }
 }
 function open(path) { uni.navigateTo({ url: path }) }
+function openExclusive(item) {
+  if (item.id === 'agency-code') {
+    agencyCodeOpen.value = true
+    return
+  }
+  open(item.path)
+}
 function openOrders(status) { open(`/pages/order/list?status=${status}`) }
 function copyInvite() {
   const code = String(data.value?.profile?.inviteCode || '').trim()

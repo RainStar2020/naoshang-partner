@@ -20,6 +20,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/backend-api/, ""),
       },
+      "/hq-api": {
+        // Direct backend HQ API; same host as backend-api, not the HQ admin Vite proxy.
+        target: "http://192.168.0.44:3001",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/hq-api/, "/api/hq"),
+      },
     },
   },
 });

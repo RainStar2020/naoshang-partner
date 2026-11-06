@@ -35,6 +35,14 @@ test('HTTP 200 entitlement gates surface the server message instead of malformed
   await assert.rejects(api.request('/me'), error => error.message === '请开通权益后查看' && error.code === 'ENTITLEMENT_REQUIRED' && error.entitlementState === 'never_paid')
 })
 
+test('entitlementOpened is normalized from the explicit field, state, or legacy default', async () => {
+  const api = await loadService('api')
+  assert.equal(api.normalizeEntitlement({ state: 'never_paid', entitlementOpened: 1 }).entitlementOpened, 1)
+  assert.equal(api.normalizeEntitlement({ state: 'expired' }).entitlementOpened, 0)
+  assert.equal(api.normalizeEntitlement({ state: 'active' }).entitlementOpened, 1)
+  assert.equal(api.normalizeEntitlement({}).entitlementOpened, 1)
+})
+
 test('timestamp, gate, allocation and payment adapters cover newly documented branches', async () => {
   const api = await loadService('contracts/v3')
   assert.equal(api.apiTimestamp(1793000000000),1793000000000)

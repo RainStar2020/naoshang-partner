@@ -12,20 +12,18 @@ export function accountRank(id = '') {
   return ACCOUNT_RANKS.find(item => value.startsWith(item.code)) || null
 }
 
-export function isOrdinaryAccount(id, partnerStatus) {
-  const rank = accountRank(id)
-  if (rank) return !rank.partner
+export function isOrdinaryAccount(_displayId, partnerStatus, isPartner) {
+  if (typeof isPartner === 'boolean') return !isPartner
   return partnerStatus === 'NONE'
 }
 
 // Angel+ wholesale ranks (中批发商 / 大批发商 / 总批发商). Used for costore apply eligibility.
 export function isAngelOrAbove(id, hint) {
-  const rank = accountRank(id)
-  if (rank) return ['TS', 'SD', 'LC'].includes(rank.code)
   const text = String(hint || '').trim()
-  if (!text) return false
   if (['ANGEL', 'ANGEL_PAID', 'PRIVATE', 'BOARD', 'COFOUNDER', 'FOUNDER'].includes(text.toUpperCase())) return true
-  return /天使|私董|联创|中批发|大批发|总批发/.test(text)
+  if (/天使|私董|联创|中批发|大批发|总批发/.test(text)) return true
+  const rank = accountRank(id)
+  return ['TS', 'SD', 'LC'].includes(rank?.code)
 }
 
 export function partnerLevelPrice(levelName) {

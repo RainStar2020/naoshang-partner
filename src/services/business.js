@@ -1,9 +1,9 @@
 import { config } from '../config'
-import { getSession,request,getCachedMyInviteCode } from './api'
+import { getSession,request,getCachedMyInviteCode,normalizeEntitlement } from './api'
 import { businessModules,findBusinessTool,businessPreview,visibleBusinessTools } from '../features/business/catalog'
 import { wholesaleLevelDisplay } from '../features/business/account-rank'
 import { normalizeContent,isMediaUrl } from '../features/content/rich-content'
-import { mockMeBootstrap,mockBusinessOverview,mockBusinessReport,mockBusinessState,mockAgencyTree,mockClone } from './mock/business'
+import { mockMeBootstrap,mockBusinessOverview,mockBusinessReport,mockBusinessState,mockAgencyTree,mockClone,saveMockBusinessState } from './mock/business'
 import { incomePresentation } from './mock/income-detail'
 import { buildRegisterInviteUrl } from './agency-promotion-link'
 import { normalizeAgencyTeamItem, normalizeAgencyStore, fillAgencyTeamMetrics } from '../features/agency/team-display'
@@ -94,8 +94,18 @@ async function fetchPartnerPromotionTasks(account,context){
   promotionCache.set(context.id,report)
   return report
 }
+function isEmptySuperior(person){
+  if(!person||typeof person!=='object')return true
+  const name=String(person.name||'').trim()
+  const phone=String(person.phone||'').trim()
+  const id=String(person.id||person.accountId||person.displayId||'').trim()
+  // Live API may return a placeholder object instead of null when unbound.
+  if(['暂无上级','无上级','暂无'].includes(name))return true
+  if(!name&&!phone&&!id)return true
+  return false
+}
 function normalizeBootstrapPartner(person){
-  if(!person||typeof person!=='object')return null
+  if(isEmptySuperior(person))return null
   // Prefer cleartext phone; do not fall back to masked display values.
   const levelLabel=person.levelLabel||person.tierLabel||''
   const partnerLevelLabel=wholesaleLevelDisplay(levelLabel)
@@ -118,6 +128,8 @@ function pickCount(...values){
 }
 function wholesaleBootstrapExtras(bootstrap){
   if(!bootstrap||typeof bootstrap!=='object')return {}
+  const identity=bootstrap.identity&&typeof bootstrap.identity==='object'?bootstrap.identity:{}
+  const entitlement=normalizeEntitlement({...bootstrap.entitlement,state:identity.entitlementState??bootstrap.entitlement?.state,entitlementOpened:identity.entitlementOpened??bootstrap.entitlement?.entitlementOpened,canOpen:identity.canOpenEntitlement??bootstrap.entitlement?.canOpen})
   const team=bootstrap.team&&typeof bootstrap.team==='object'?{summary:bootstrap.team.summary||null,members:filterBootstrapMembers(bootstrap.team.members)}:null
   const vipDetails=bootstrap.vipDetails&&typeof bootstrap.vipDetails==='object'?{...bootstrap.vipDetails,teamVipMembers:filterBootstrapMembers(bootstrap.vipDetails.teamVipMembers)}:null
   const memberCount=team?.summary?.memberCount
@@ -125,11 +137,16 @@ function wholesaleBootstrapExtras(bootstrap){
   const transferred=pickCount(vipDetails?.transferredCount,vipDetails?.transferred,vipDetails?.transferredVip,vipDetails?.quotaTransferred)
   return {
     displayId:bootstrap.displayId||undefined,
-    entitlement:bootstrap.entitlement||undefined,
+    entitlement,
+    entitlementOpened:entitlement.entitlementOpened,
+    entitlementState:identity.entitlementState??entitlement.state,
+    isPartner:identity.isPartner,
+    isVipPlus:identity.isVipPlus,
+    canOpenEntitlement:identity.canOpenEntitlement??entitlement.canOpen,
     storeBinding:bootstrap.storeBinding||undefined,
     storeBound:bootstrap.storeBound,
     storeBindingRequired:bootstrap.storeBindingRequired,
-    frozen:bootstrap.entitlement?.frozen,
+    frozen:entitlement.frozen,
     globalAwardEligibility:bootstrap.globalAwardEligibility??null,
     superior:normalizeBootstrapPartner(bootstrap.superior),
     team,
@@ -178,16 +195,14 @@ async function loadWholesaleToolPayload(account,context,toolId,params={}){
     return null
   }
 }
-/** Prefer transfer-ledger summary fields used by 划转明细 (totalSold / inCirculation). */
+/** Prefer 划转明细 summary.totalSold (outbound transfers + upgrade consumption). */
 function transferredFromTransfersReport(transfers){
   if(!transfers||typeof transfers!=='object')return undefined
   const fromSummary=pickCount(
-    transfers.summary?.inCirculation,
     transfers.summary?.totalSold,
+    transfers.totalSold,
     transfers.summary?.transferredCount,
     transfers.summary?.transferred,
-    transfers.inCirculation,
-    transfers.totalSold,
     transfers.transferredCount,
     transfers.transferred,
   )
@@ -199,9 +214,9 @@ function transferredFromTransfersReport(transfers){
     const category=String(item.category||item.kind||'').toLowerCase()
     const qty=Number(item.qty??item.quantity??item.amount)
     if(!Number.isFinite(qty)||qty===0)return total
-    // Count outbound transfers; ignore inbound receipts and non-transfer rows when marked.
+    // Count outbound transfers and upgrade consumption; ignore inbound receipts.
     if(direction==='in'||direction==='inbound'||direction==='receive')return total
-    if(category&&category!=='transfer'&&!direction)return total
+    if(category&&category!=='transfer'&&category!=='upgrade'&&!direction)return total
     return total+Math.abs(qty)
   },0)
   return sum
@@ -211,7 +226,7 @@ async function fetchWholesaleDashboardStats(account,context){
   const [team,ledger,transfers]=await Promise.all([
     loadWholesaleToolPayload(account,context,'team'),
     loadWholesaleToolPayload(account,context,'quota-ledger'),
-    // Match 划转明细 payload (summary.totalSold / inCirculation); do not require direction=out.
+    // Match 划转明细 payload summary.totalSold; do not require direction=out.
     loadWholesaleToolPayload(account,context,'quota-transfers'),
   ])
   const teamCount=pickCount(
@@ -503,7 +518,7 @@ function normalizeQuotaTransferItem(item,index=0){
       senderId:String(item.senderId||'—'),
       senderName:String(item.senderName||'—'),
       senderTier:String(item.senderTier||''),
-      downlineId:String(item.targetDisplayId||item.downlineId||item.receiverId||'—'),
+      downlineId:String(item.targetDisplayId||item.downlineDisplayId||item.receiverDisplayId||'—'),
       downlineName:String(item.targetName||item.downlineName||item.receiverName||'—'),
       downlineTier:String(item.targetLevel||item.downlineTier||item.receiverTier||''),
       senderRemaining:null,
@@ -522,7 +537,7 @@ function normalizeQuotaTransferItem(item,index=0){
     id:String(item.id),qty,at,
     actionLabel:String(item.actionLabel|| (item.category==='upgrade'?'消耗名额升级':item.direction==='out'?'划转VIP名额':'收到划转名额')),
     senderId:String(item.senderId||'—'),senderName:String(item.senderName||'—'),senderTier:String(item.senderTier||''),
-    downlineId:String(item.downlineId||item.receiverId||item.targetDisplayId||'—'),downlineName:String(item.downlineName||item.receiverName||'—'),downlineTier:String(item.downlineTier||item.receiverTier||item.targetLevel||''),
+    downlineId:String(item.targetDisplayId||item.downlineDisplayId||item.receiverDisplayId||'—'),downlineName:String(item.downlineName||item.receiverName||'—'),downlineTier:String(item.downlineTier||item.receiverTier||item.targetLevel||''),
     senderRemaining:Number.isFinite(senderRemaining)?senderRemaining:null,
     receiverRemaining:item.category==='transfer'&&Number.isFinite(receiverRemaining)?receiverRemaining:null,
   }
@@ -540,9 +555,6 @@ function presentAwardCopy(report){
 function reportFromBootstrap(resource,bootstrap,params){
   if(resource.id==='team'&&Array.isArray(bootstrap?.team?.members)){
     return {items:filterBootstrapMembers(bootstrap.team.members,params.keyword),summary:bootstrap.team.summary||null,hasMore:false,nextCursor:null}
-  }
-  if(resource.id==='superior'&&bootstrap?.superior){
-    return {items:[],superior:normalizeBootstrapPartner(bootstrap.superior),hasMore:false,nextCursor:null}
   }
   // Prefer bootstrap activity batches only when the server already provided rows.
   if(resource.id==='quota-batches'&&Array.isArray(bootstrap?.vipDetails?.activityBatches)&&bootstrap.vipDetails.activityBatches.length){
@@ -620,7 +632,13 @@ export function getBusinessReport(module,id,contextId,params={}){
     }
     if(module==='wholesale'&&resource.id==='quota-transfers')normalized=normalizeQuotaTransferReport(normalized)
     if(module==='wholesale'&&['quota-ledger','quota-batches'].includes(resource.id))normalized=mergeVipDetails(normalized,bootstrap)
-    if(module==='wholesale'&&resource.id==='superior'&&!normalized.superior&&bootstrap?.superior)normalized={...normalized,superior:normalizeBootstrapPartner(bootstrap.superior)}
+    if(module==='wholesale'&&resource.id==='superior'){
+      const superior=normalizeBootstrapPartner(normalized.superior)
+      // Binding an upline is outside the entitlement gate. The explicit server
+      // flags take precedence, while the endpoint contract remains free for
+      // older deployments that have not returned them yet.
+      normalized={...normalized,superior,requiresEntitlement:false,bindFree:true}
+    }
     if(module==='wholesale'&&resource.id==='team'&&!normalized.items.length&&Array.isArray(bootstrap?.team?.members)){
       normalized={...normalized,items:filterBootstrapMembers(bootstrap.team.members,params.keyword),summary:bootstrap.team.summary||null}
     }
@@ -689,10 +707,15 @@ export async function bindBusinessSuperior(contextId,inviteCode){return withBusi
   const code=String(inviteCode||'').trim()
   if(!/^[a-zA-Z0-9_-]{1,64}$/.test(code))throw new Error('请输入正确的运营商邀请码')
   if(context.module!=='wholesale')throw new Error('当前身份不能绑定运营商')
-  // Superior binding is headquarters-owned in mock fixtures; live API still accepts the request for HQ-operated accounts.
-  if(config.useMock)throw new Error('仅总部可设置运营商关系')
   if(code===(account.inviteCode||''))throw new Error('不能绑定自己为运营商')
-  return request('/partner/superior-bindings',{method:'POST',data:{contextId:context.id,inviteCode:code}})
+  if(config.useMock){
+    const state=mockBusinessState(account,context)
+    state.superior={id:`mock-superior-${code}`,name:'运营商',phone:'',levelLabel:'运营商'}
+    saveMockBusinessState(account,context)
+    return {superior:state.superior,requiresEntitlement:false,bindFree:true}
+  }
+  const result=await request('/partner/superior-bindings',{method:'POST',data:{contextId:context.id,inviteCode:code}})
+  return {...result,requiresEntitlement:false,bindFree:true}
 })}
 // Proposed API: eligibility, VIP-equivalent progress and the resulting rank are server decisions.
 export function claimBusinessPromotion(contextId,task,idempotencyKey){return withBusinessContext(contextId,'wholesale:promotion',async(account,context)=>{

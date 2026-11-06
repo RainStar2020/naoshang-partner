@@ -1,5 +1,5 @@
 import { config } from '../config'
-import { request, clearSessionCaches, getBootstrap, cacheMyInviteCode } from './api'
+import { request, clearSessionCaches, getBootstrap, cacheMyInviteCode, normalizeEntitlement } from './api'
 import { loadMeContext } from './me-context'
 import { clearInvitation, getInvitation, parseParams } from './invitation'
 import { ensureRegionNames } from '../features/region'
@@ -26,7 +26,7 @@ function checkMockCode(phone, purpose, code) {
   if (code !== '123456') throw new Error('验证码不正确')
 }
 async function saveSession(result) {
-  const session = { ...result, accountType: result.accountType || 'parent' }
+  const session = { ...result, entitlement: normalizeEntitlement(result.entitlement), accountType: result.accountType || 'parent' }
   if (session.user?.id) uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
   clearSessionCaches()
   uni.setStorageSync('naoshang-session', session)

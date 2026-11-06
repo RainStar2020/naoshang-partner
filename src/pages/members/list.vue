@@ -9,13 +9,13 @@
             <image src="/static/common/empty-content.png" mode="aspectFit" />
           </view>
           <view v-for="member in items" :key="member.id" class="member-card">
-            <button class="consultant-entry" aria-label="服务顾问" @click="openConsultant(member)"><text>服务</text><text>顾问</text></button>
+            <button class="consultant-entry" :class="{locked:!canUse('edit')}" aria-label="服务顾问" @click="openConsultant(member)"><text>服务</text><text>顾问</text></button>
             <view class="member-heading">
               <image class="member-avatar" :src="member.avatarUrl || '/static/partner/avatar-member.png'" mode="aspectFill" />
               <view class="member-information">
                 <view class="member-name">{{ member.name }}<text v-if="member.badge" class="member-badge">{{ member.badge }}</text></view>
                 <view class="member-meta">
-                  <text>ID：{{ member.displayId || member.id }}</text>
+                  <text v-if="member.displayId">ID：{{ member.displayId }}</text>
                   <text>年级：{{ member.gradeLabel || '' }}</text>
                   <text>性别：{{ member.genderLabel || '' }}</text>
                 </view>
@@ -27,8 +27,8 @@
                 <view>训练：共<text class="hour">{{ hour(member.training?.total ?? member.trainingTotal) }}</text>时，已消耗<text class="hour">{{ hour(member.training?.used ?? member.trainingUsed) }}</text>时，剩余<text class="hour">{{ hour(member.training?.remaining ?? remain(member.training?.total ?? member.trainingTotal, member.training?.used ?? member.trainingUsed)) }}</text>时</view>
                 <view>特制：共<text class="hour">{{ hour(member.customHours?.total ?? member.specialTotal) }}</text>时，已消耗<text class="hour">{{ hour(member.customHours?.used ?? member.specialUsed) }}</text>时，剩余<text class="hour">{{ hour(member.customHours?.remaining ?? remain(member.customHours?.total ?? member.specialTotal, member.customHours?.used ?? member.specialUsed)) }}</text>时</view>
               </view>
-              <button class="benefit-feedback" @click="records(member, 'training')">陪练反馈</button>
-              <button class="benefit-edit" @click="openHours(member)">编辑</button>
+              <button class="benefit-feedback" :class="{locked:!canUse('feedback')}" @click="records(member, 'training')">陪练反馈</button>
+              <button class="benefit-edit" :class="{locked:!canUse('training')}" @click="openHours(member)">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">升学卡</text>
@@ -36,28 +36,28 @@
                 <view>训练：共<text class="hour">{{ hour(admissionHours(member).total) }}</text>时，已消耗<text class="hour">{{ hour(admissionHours(member).used) }}</text>时，剩余<text class="hour">{{ hour(admissionHours(member).remaining) }}</text>时</view>
                 <view v-if="member.admissionNote">{{ member.admissionNote }}</view>
               </view>
-              <button class="benefit-feedback" @click="records(member, 'admission')">升学反馈</button>
-              <button class="benefit-edit" @click="openNote(member, 'admissionNote', '编辑升学卡')">编辑</button>
+              <button class="benefit-feedback" :class="{locked:!canUse('feedback')}" @click="records(member, 'admission')">升学反馈</button>
+              <button class="benefit-edit" :class="{locked:!canUse('training')}" @click="openNote(member, 'admissionNote', '编辑升学卡')">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">智习室</text>
               <view class="benefit-body">{{ member.selfStudyNote || '暂无记录' }}</view>
-              <button class="benefit-feedback" @click="records(member, 'self-study')">智习反馈</button>
-              <button class="benefit-edit" @click="openNote(member, 'selfStudyNote', '编辑智习室')">编辑</button>
+              <button class="benefit-feedback" :class="{locked:!canUse('feedback')}" @click="records(member, 'self-study')">智习反馈</button>
+              <button class="benefit-edit" :class="{locked:!canUse('training')}" @click="openNote(member, 'selfStudyNote', '编辑智习室')">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">集训营</text>
               <view class="benefit-body">{{ member.campNote || '暂无记录' }}</view>
-              <button class="benefit-feedback" @click="records(member, 'camp')">集训反馈</button>
-              <button class="benefit-edit" @click="openNote(member, 'campNote', '编辑集训营')">编辑</button>
+              <button class="benefit-feedback" :class="{locked:!canUse('feedback')}" @click="records(member, 'camp')">集训反馈</button>
+              <button class="benefit-edit" :class="{locked:!canUse('training')}" @click="openNote(member, 'campNote', '编辑集训营')">编辑</button>
             </view>
             <view class="member-benefit">
               <text class="benefit-title">备注</text>
               <view class="benefit-body">{{ member.remark || '暂无备注' }}</view>
-              <button class="benefit-edit" @click="openNote(member, 'remark', '编辑备注')">编辑</button>
+              <button class="benefit-edit" :class="{locked:!canUse('training')}" @click="openNote(member, 'remark', '编辑备注')">编辑</button>
             </view>
             <view class="member-actions">
-              <button @click="openEditor(member)"><image src="/static/common/icon-edit.png" mode="aspectFit" />编辑</button>
+              <button :class="{locked:!canUse('edit')}" @click="openEditor(member)"><image src="/static/common/icon-edit.png" mode="aspectFit" />编辑</button>
               <button @click="openActivation(member)"><image src="/static/common/icon-activate.png" mode="aspectFit" />激活</button>
               <view class="action-spacer"></view>
               <button class="orders-link" @click="records(member, 'orders')">查看订单</button>
@@ -176,10 +176,12 @@ import { uploadProfileImage } from '../../services/profile'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import BusinessQrCode from '../../components/BusinessQrCode.vue'
+import { loadMeContext, normalizeChildModuleAccess } from '../../services/me-context'
 useAuth()
 const items = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref(''), dictionaries = ref({ grades: [], genders: [] }), editorOpen = ref(false), editingId = ref(''), draft = ref({}), avatarPreview = ref(''), editorError = ref(''), saving = ref(false), uploading = ref(false), activationMember = ref(null), activationCode = ref(''), activationPreview = ref(null), activationError = ref(''), activating = ref(false), successText = ref('')
 const trainingEditor = ref(''), trainingBusy = ref(false), trainingDraft = ref({}), trainingError = ref(''), noteTitle = ref(''), noteKey = ref(''), trainingMember = ref(null)
 const consultant = ref(null), consultantQr = ref(null), savingQr = ref(false)
+const childAccess = ref(normalizeChildModuleAccess(null))
 const hour = value => {
   const number = Number(value)
   return Number.isFinite(number) ? (Number.isInteger(number) ? number : Math.trunc(number)) : 0
@@ -197,17 +199,18 @@ const admissionHours = member => {
 const hourGroups = [{ id: 'training', label: '训练', total: 'trainingTotal', used: 'trainingUsed' }, { id: 'special', label: '特制', total: 'specialTotal', used: 'specialUsed' }]
 let cursor = null, epoch = 0, editorEpoch = 0, activationEpoch = 0, trainingEpoch = 0, active = true, activationKey = '', memberSaveKey = '', memberSavePayload = ''
 const { data, status, error, load } = useAsyncPage(async () => {
-  const [result, options] = await Promise.all([getFamilyMembers(), getMemberDictionaries()])
+  const [result, options, me] = await Promise.all([getFamilyMembers(), getMemberDictionaries(), loadMeContext()])
   if (!Array.isArray(options?.grades) || !Array.isArray(options.genders)) throw new Error('会员字典配置异常')
-  return { ...result, dictionaries: options }
+  return { ...result, dictionaries: options, childAccess: normalizeChildModuleAccess(me.identity?.childModuleAccess) }
 })
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
-watch(data, result => { if (result) { items.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor; dictionaries.value = result.dictionaries } })
+watch(data, result => { if (result) { items.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor; dictionaries.value = result.dictionaries; childAccess.value = result.childAccess } })
 const gradeIndex = computed(() => Math.max(0, dictionaries.value.grades.findIndex(item => item.code === draft.value.gradeCode)))
 const genderIndex = computed(() => Math.max(0, dictionaries.value.genders.findIndex(item => item.code === draft.value.genderCode)))
 const gradeLabel = computed(() => dictionaries.value.grades.find(item => item.code === draft.value.gradeCode)?.label)
 const genderLabel = computed(() => dictionaries.value.genders.find(item => item.code === draft.value.genderCode)?.label)
 function openEditor(member) {
+  if (member && !allow('edit')) return
   ++editorEpoch
   memberSaveKey = ''
   memberSavePayload = ''
@@ -268,6 +271,7 @@ async function activate() {
   finally { if (active) activating.value = false }
 }
 function records(member, kind) {
+  if (kind !== 'orders' && !allow('feedback')) return
   const context = member.contextId ? `&contextId=${encodeURIComponent(member.contextId)}` : ''
   uni.navigateTo({ url: `/pages/members/records?memberId=${encodeURIComponent(member.id)}&kind=${kind}${context}` })
 }
@@ -279,7 +283,7 @@ function consultantOf(member) {
   const qrPayload = source.qrPayload || member?.consultantQrPayload || qrUrl || phone || name
   return { name, phone, qrUrl, qrPayload }
 }
-function openConsultant(member) { consultant.value = consultantOf(member) }
+function openConsultant(member) { if (allow('edit')) consultant.value = consultantOf(member) }
 function closeConsultant() { if (!savingQr.value) consultant.value = null }
 function callConsultant() { const phone = consultant.value?.phone; if (phone) uni.makePhoneCall({ phoneNumber: String(phone), fail: () => {} }) }
 async function saveConsultant() {
@@ -329,6 +333,7 @@ function trainingPayload(member, patch) {
   }
 }
 function openHours(member) {
+  if (!allow('training')) return
   ++trainingEpoch
   trainingMember.value = member
   trainingError.value = ''
@@ -341,6 +346,7 @@ function openHours(member) {
   trainingEditor.value = 'hours'
 }
 function openNote(member, key, title) {
+  if (!allow('training')) return
   ++trainingEpoch
   trainingMember.value = member
   noteKey.value = key
@@ -350,6 +356,13 @@ function openNote(member, key, title) {
   trainingEditor.value = 'note'
 }
 function closeTrainingEditor() { if (!trainingBusy.value) { ++trainingEpoch; trainingEditor.value = '' } }
+function allow(moduleId) {
+  if (canUse(moduleId)) return true
+  const access = childAccess.value
+  uni.showToast({ title: access.reason || '升级为 VIP 及以上后开放此功能', icon: 'none' })
+  return false
+}
+function canUse(moduleId) { const access = childAccess.value; return access.open || access.allowedModules.includes(moduleId) }
 function readHours(source) {
   const value = {}
   for (const group of hourGroups) {
@@ -409,6 +422,7 @@ onUnload(() => { active = false; ++epoch; ++editorEpoch; ++activationEpoch; ++tr
 .member-empty image { width: 7.2em; height: 7.2em; opacity: .72; }
 .member-card { position: relative; margin-bottom: .85em; padding: 1em .9em .85em; overflow: hidden; border-radius: .85em; background: #353a59; }
 .consultant-entry { position: absolute; top: .9em; right: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12em; min-width: 2.6em; min-height: 3.2em; margin: 0; padding: .4em .35em; border-radius: .55em 0 0 .55em; background: linear-gradient(180deg, #1aa7ff, #245bff); color: #fff; font-size: .78em; line-height: 1.15; writing-mode: horizontal-tb; }
+.member-page .locked { opacity: .42; filter: grayscale(1); }
 .consultant-entry text { display: block; white-space: nowrap; writing-mode: horizontal-tb; }
 .member-heading { display: flex; align-items: center; gap: .7em; margin-bottom: .8em; min-width: 0; padding-right: 2.6em; }
 .member-avatar { width: 3.2em; height: 3.2em; border-radius: 50%; flex-shrink: 0; background: #375682; }

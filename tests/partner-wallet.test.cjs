@@ -27,6 +27,16 @@ test('partner points adapter sends context and consumes identity balances', asyn
   assert.equal(result.pointRecords[0].source, '直推奖')
 })
 
+test('partner points adapter preserves negative balances and deduction details', async () => {
+  const api = await loadPartnerWallet(async () => ({ totalAvailable: -390, availablePoints: -390, identity: 'partner', identityBalances: [], minPoints: 100, maxPoints: 0, allowedActions: [], hasNegativeBalance: true, negativeBalanceHint: '当前积分为 -390，需先补齐欠款', categories: [], pointRecords: [{ id: 'c2', source: '平级奖扣回', points: -390, pointsLabel: '减去 390 积分', isNegative: true, direction: 'out' }] }))
+  const result = await api.getPartnerPointsOptions('partner:p1')
+  assert.equal(result.availablePoints, -390)
+  assert.equal(result.hasNegativeBalance, true)
+  assert.equal(result.pointRecords[0].points, -390)
+  assert.equal(result.pointRecords[0].pointsLabel, '减去 390 积分')
+  assert.equal(result.pointRecords[0].direction, 'out')
+})
+
 test('points exchange sends identity context and returns the redemption number', async () => {
   const api = await loadPartnerWallet(async (path, options) => {
     assert.equal(path, '/wallet/withdrawals')
