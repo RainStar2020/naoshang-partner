@@ -2,13 +2,14 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 async function setup({useMock=true,preview=true,remote=()=>{throw new Error('Unexpected network')},storage=new Map()}={}){
   const session={token:'demo',user:{id:'A',name:'测试家长'}},context=vm.createContext({console,uni:{getStorageSync:key=>storage.get(key),setStorageSync:(key,value)=>storage.set(key,value),removeStorageSync:key=>storage.delete(key)}}),cache=new Map()
   async function load(file){if(cache.has(file))return cache.get(file);let module
-    if(file.endsWith('/config'))module=new vm.SyntheticModule(['config'],function(){this.setExport('config',{useMock,previewAllExclusiveFeatures:preview})},{context})
-    else if(file.endsWith('/api'))module=new vm.SyntheticModule(['getSession','request'],function(){this.setExport('getSession',()=>session);this.setExport('request',remote)},{context})
+    if(file==='china-area-data')module=new vm.SyntheticModule(['default'],function(){this.setExport('default',{'86':{}})},{context})
+    else if(file.endsWith('/config'))module=new vm.SyntheticModule(['config'],function(){this.setExport('config',{useMock,previewAllExclusiveFeatures:preview})},{context})
+    else if(file.endsWith('/api'))module=new vm.SyntheticModule(['getSession','request','getCachedMyInviteCode','normalizeEntitlement'],function(){this.setExport('getSession',()=>session);this.setExport('request',remote);this.setExport('getCachedMyInviteCode',()=>null);this.setExport('normalizeEntitlement',value=>value||{})},{context})
     else module=new vm.SourceTextModule(fs.readFileSync(file+'.js','utf8'),{context,identifier:file})
     cache.set(file,module);return module
   }
   const root=path.resolve(__dirname,'../src').replaceAll('\\','/')
-  async function get(relative){const module=await load(root+'/'+relative);if(module.status==='unlinked')await module.link((specifier,parent)=>load(path.resolve(path.dirname(parent.identifier),specifier).replaceAll('\\','/')));if(module.status!=='evaluated')await module.evaluate();return module.namespace}
+  async function get(relative){const module=await load(root+'/'+relative);if(module.status==='unlinked')await module.link((specifier,parent)=>specifier==='china-area-data'?load('china-area-data'):load(path.resolve(path.dirname(parent.identifier),specifier).replaceAll('\\','/')));if(module.status!=='evaluated')await module.evaluate();return module.namespace}
   return {storage,exclusive:await get('services/exclusive'),members:await get('services/members'),learning:await get('services/learning'),catalog:await get('features/exclusive/catalog'),format:await get('features/exclusive/format'),session}
 }
 test('exclusive entries use capabilities, while child-member management is available to every signed-in user',async()=>{
@@ -16,6 +17,8 @@ test('exclusive entries use capabilities, while child-member management is avail
   assert.equal(catalog.visibleExclusiveFeatures({capabilities:[],role:'省代'},{useMock:false,previewAllExclusiveFeatures:true}).length,0)
   const rows=catalog.visibleExclusiveFeatures({capabilities:['family-members:manage']},{useMock:false,previewAllExclusiveFeatures:true})
   assert.equal(rows.length,1);assert.equal(rows[0].id,'members')
+  const vipFallback=await setup({useMock:false,preview:false,remote:async()=>({identity:{isVipPlus:1},exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:[]}})})
+  assert.ok(vipFallback.exclusive.getVisibleExclusiveEntries(await vipFallback.exclusive.getExclusiveAccess()).some(item=>item.id==='costore-application'))
   const restricted=await setup({preview:false});assert.ok((await restricted.members.getFamilyMembers()).items.length)
   const calls=[];const remote=async(url,options={})=>{calls.push({url,options});if(url==='/members/options')return {grades:[],genders:[]};return {member:{id:'child-1'}}}
   const real=await setup({useMock:false,preview:false,remote})
@@ -74,7 +77,15 @@ test('activation targets the selected member, rejects bad preview, and synchroni
 })
 test('promotion types never substitute registration invitations or static QR images for absent payloads',async()=>{
   const {exclusive}=await setup()
-  for(const type of exclusive.agencyTypes){const result=await exclusive.getAgencyPromotion(type.id);assert.ok(result.promotionId.startsWith('local-'));assert.ok(result.localPayload.includes('/pages/application/agency'));assert.equal(result.shareUrl,result.localPayload);assert.equal(result.qrUrl,'')}
+  for(const type of exclusive.agencyTypes){
+    const result=await exclusive.getAgencyPromotion(type.id)
+    assert.equal(result.promotionId,'A7K3M9P2Q')
+    assert.equal(result.agencyPromotionCode,'A7K3M9P2Q')
+    assert.ok(result.localPayload.includes('/pages/application/agency'))
+    assert.ok(result.localPayload.includes('promotionId=A7K3M9P2Q'))
+    assert.equal(result.shareUrl,result.localPayload)
+    assert.equal(result.qrUrl,'')
+  }
   assert.throws(()=>exclusive.getAgencyPromotion('INVALID'),/类型/)
 })
 test('signed money and missing report values remain distinct; real failures never fall back to mock',async()=>{
@@ -89,10 +100,23 @@ test('late account-scoped reports are rejected after a switch; cross-account pro
   const {exclusive,session}=await setup({useMock:false,remote:async url=>url==='/me'?{exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:['founder-awards:read']}}:pending})
   const result=exclusive.getFounderAwards('2026-10');await new Promise(resolve=>setImmediate(resolve));session.user.id='B';finish({items:[],hasMore:false,nextCursor:null})
   await assert.rejects(result,/账号已变化/)
-  // Temporary local-only promotion payloads stay scoped to the signed-in account.
-  const localPromo=await setup({useMock:false,preview:false,remote:async()=>({exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:[]}})})
-  const promo=await localPromo.exclusive.getAgencyPromotion('STORE')
-  assert.equal(promo.accountId,'A');assert.ok(promo.promotionId.startsWith('local-A-'))
+  const calls=[]
+  const promoRemote=async url=>{
+    calls.push(url)
+    if(url==='/me')return {profile:{id:'A',nickname:'测试'},agencyPromotionCode:'A7K3M9P2Q',identity:{agencyPromotionCode:'A7K3M9P2Q'},exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:['agency-code:read']}}
+    throw new Error('unexpected '+url)
+  }
+  const promoSetup=await setup({useMock:false,preview:false,remote:promoRemote})
+  const promo=await promoSetup.exclusive.getAgencyPromotion('STORE')
+  assert.equal(promo.accountId,'A')
+  assert.equal(promo.promotionId,'A7K3M9P2Q')
+  assert.ok(promo.localPayload.includes('promotionId=A7K3M9P2Q'))
+  assert.deepEqual(calls,['/me'])
+  const empty=await setup({useMock:false,preview:false,remote:async url=>{
+    if(url==='/me')return {profile:{id:'A',nickname:'测试',inviteCode:'PC96FN'},agencyPromotionCode:null,identity:{agencyPromotionCode:null},exclusiveAccess:{accountId:'A',contextId:'partner:A',capabilities:['agency-code:read']}}
+    throw new Error('unexpected '+url)
+  }})
+  await assert.rejects(empty.exclusive.getAgencyPromotion('STORE'),/暂无代理推广码/)
 })
 
 test('parent-created children persist, stay in the account and never inherit fixture entitlements',async()=>{

@@ -23,7 +23,7 @@ export interface Entitlement { state: EntitlementState; entitlementOpened: 0 | 1
 export type LoginRequest = { channel: 'parent'; phone: string; password: string } | { channel: 'coach'; loginAccount: string; password: string } | { channel: 'admin'; password: string }
 export interface Session { token: string; user: { id: string; name: string; role: string; displayId: string }; accountType: 'parent' | 'coach' | 'admin'; entitlement: Entitlement; expiresAt?: string }
 export interface Context { id: string; accountId: string; mode: 'parent' | 'child'; name: string; memberId?: string; displayId?: string; grade?: string; badge?: string }
-export interface BusinessContext { id: string; accountId: string; module: 'wholesale' | 'costore' | 'agency'; label: string; capabilities: string[]; assignmentId?: string; contractId?: string; storeId?: string; agencyType?: 'STORE' | 'COUNTY' | 'CITY' | 'PROVINCE'; levelName?: string; detail?: string; regionLabel?: string; scopeLabel?: string; validUntil?: string | null; store?: Store | null }
+export interface BusinessContext { id: string; accountId: string; module: 'wholesale' | 'costore' | 'agency'; label: string; capabilities: string[]; assignmentId?: string; scope?: string; contractId?: string; storeId?: string; agencyType?: 'STORE' | 'COUNTY' | 'CITY' | 'PROVINCE'; regionType?: string; regionCode?: string; levelName?: string; detail?: string; regionLabel?: string; scopeLabel?: string; validUntil?: string | null; store?: Store | null }
 export interface GlobalAwardEligibility {
   eligible: boolean
   tierEligible?: boolean
@@ -69,7 +69,7 @@ export interface BootstrapVipDetails {
 export interface Bootstrap {
   displayId: string
   entitlement: Entitlement
-  identity?: { isPartner?: boolean; isVipPlus?: 0 | 1; canOpenEntitlement?: 0 | 1; entitlementState?: EntitlementState; entitlementOpened: 0 | 1; childModuleAccess?: { open: boolean; allowedModules: string[]; lockedModules: string[]; reason?: string | null } }
+  identity?: { isPartner?: boolean; isVipPlus?: 0 | 1; canOpenEntitlement?: 0 | 1; entitlementState?: EntitlementState; entitlementOpened: 0 | 1; agencyPromotionCode?: string | null; childModuleAccess?: { open: boolean; allowedModules: string[]; lockedModules: string[]; reason?: string | null } }
   contexts: Context[]
   businessContexts: BusinessContext[]
   globalAwardEligibility?: GlobalAwardEligibility | null

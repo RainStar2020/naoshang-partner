@@ -2,6 +2,7 @@
 import { mockExclusiveState } from './exclusive'
 import { mockProfileState } from './profile'
 import { buildAgencyApplicationUrl } from '../agency-promotion-link'
+import { MOCK_PARTNER_AGENCY_PROMOTION_CODE } from '../agency-promotion-code'
 import {
   agencyPricing,
   feeBreakdownNote,
@@ -9,7 +10,7 @@ import {
   wanToYuan,
 } from '../../features/agency/pricing'
 
-export const promotionPayload = (type = 'STORE', id = 'local-invitation') =>
+export const promotionPayload = (type = 'STORE', id = MOCK_PARTNER_AGENCY_PROMOTION_CODE) =>
   buildAgencyApplicationUrl(id, type) || `#/pages/application/agency?promotionId=${encodeURIComponent(id)}&agencyType=${encodeURIComponent(type)}`
 
 export function mockAgencyApplicationOptions(type, promotionId, cityTierId = null) {
@@ -55,10 +56,26 @@ export function mockAgencyApplicationOptions(type, promotionId, cityTierId = nul
   }
 }
 
+/** Demo codes treated as already occupied; keeps mock occupancy check exercisable offline. */
+const MOCK_OCCUPIED_REGION_CODES = new Set(['110000', '110100', '110101'])
+
+export function mockCheckAgencyRegion(regionType, regionCode) {
+  const type = String(regionType || '').toLowerCase()
+  const code = String(regionCode || '').trim()
+  if (!type || !code) throw new Error('请选择代理地区')
+  return {
+    regionType: type,
+    regionCode: code,
+    available: !MOCK_OCCUPIED_REGION_CODES.has(code),
+  }
+}
+
 export function mockSubmitAgency(user, options, draft, key) {
   const name = String(draft.name || '').trim()
   const phone = String(draft.phone || '').trim()
   const address = String(draft.address || '').trim()
+  const storeName = String(draft.storeName || '').trim()
+  const agencyTypeKey = String(options.agencyType || 'STORE').toUpperCase()
   const levels = Number(options.regionLevels) || 3
   if (!name || name.length > 30 || !/^1\d{10}$/.test(phone)) {
     throw new Error('请完整填写姓名和手机号')
@@ -66,15 +83,23 @@ export function mockSubmitAgency(user, options, draft, key) {
   if (!Array.isArray(draft.regionNames) || draft.regionNames.length !== levels || !Array.isArray(draft.regionCodes) || draft.regionCodes.length !== levels) {
     throw new Error(levels === 1 ? '请选择省份' : levels === 2 ? '请选择省市' : '请选择完整地区')
   }
+  const regionCode = draft.regionCodes[draft.regionCodes.length - 1]
+  const regionType = ({ STORE: 'store', COUNTY: 'district', CITY: 'city', PROVINCE: 'province' })[agencyTypeKey] || 'store'
+  if (!mockCheckAgencyRegion(regionType, regionCode).available) throw new Error('该区域已有有效代理')
   if (options.agencyType === 'CITY') {
     const tierOk = (options.cityTiers || []).some(item => item.id === draft.cityTierId)
     if (!tierOk) throw new Error('请选择城市人口档位')
+  }
+  if (agencyTypeKey === 'STORE') {
+    if (!storeName) throw new Error('请填写门店名称')
+    if (storeName.length > 255) throw new Error('门店名称不能超过 255 个字')
   }
   if (options.requiresAddress) {
     if (!address || address.length > 200) throw new Error('请填写门店详细地址')
   }
   if (options.requiresStorefront) {
-    if (mockProfileState(user).assets.get(draft.storefrontAssetId)?.purpose !== 'storefront') {
+    const storefrontFileId = draft.storefrontFileId || draft.storefrontAssetId
+    if (mockProfileState(user).assets.get(storefrontFileId)?.purpose !== 'storefront') {
       throw new Error('请上传门头照')
     }
   }
@@ -96,7 +121,7 @@ export function mockSubmitAgency(user, options, draft, key) {
     payableAmount: options.payableAmount,
     payableWan: options.payableWan,
     createdAt: new Date().toISOString(),
-    store: { name, address: options.requiresAddress ? address : draft.regionNames.join('') },
+    store: { name: agencyTypeKey === 'STORE' ? storeName : name, address: options.requiresAddress ? address : draft.regionNames.join('') },
     agencyType: options.agencyType,
     cityTierId: draft.cityTierId || null,
     regionCodes: [...draft.regionCodes],

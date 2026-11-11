@@ -1,4 +1,4 @@
-<template><AgencyDashboard v-if="status==='ready' && context?.module==='agency'" ref="agencyRef" @left="leaveAgency"/><CostoreDashboard v-else-if="status==='ready' && context?.module==='costore'" ref="costoreRef" @left="leaveAgency"/><view v-else class="business-page feature-page" :class="{'wholesale-dashboard':context?.module==='wholesale','ordinary-dashboard':isOrdinary}"><image class="business-background" src="/static/partner/bg-overview.png" mode="scaleToFill"/><view class="business-header"><text>{{moduleInfo?.title||'联营中心'}}</text></view><FeaturePageState :status="status" :error="error" @retry="load"/><template v-if="status==='ready'&&overview"><view class="business-identity"><view class="business-person"><view v-if="context.module==='wholesale'" class="business-avatar"><image v-if="overview.avatarUrl && !avatarFailed" :src="overview.avatarUrl" mode="aspectFill" @error="avatarFailed=true"/><text v-else>{{displayName.slice(0,1)}}</text></view><view><view class="business-name">{{context.module==='wholesale'?displayName:context.label}}</view><view class="business-profile-meta"><text class="business-muted">{{context.module==='wholesale'?`ID：${overview.displayId || ""}`:context.scopeLabel||`共${moduleContexts.length}家门店`}}</text><button v-if="context.module==='wholesale'&&overview.inviteCode" class="business-text-button business-invite" @click="copyInvite"><text>邀请码：{{overview.inviteCode}}</text><image src="/static/common/icon-copy.png" mode="aspectFit"/></button></view><button v-if="context.module==='agency'" class="business-text-button" @click="contextOpen=true">切换身份</button></view></view><button v-if="isOrdinary" class="business-switch ordinary-superior" @click="openId('superior')"><image src="/static/common/icon-superior-muted.png" mode="aspectFit"/><text>上级</text></button><button v-else class="business-switch" @click="moduleOpen=true"><image src="/static/common/icon-switch.png" mode="aspectFit"/><text>切换模块</text></button></view><view v-if="context.module==='wholesale'" class="business-card rank-card"><text class="business-badge">当前等级</text><view class="rank-title">{{overview.levelName}}</view><text class="business-muted">{{overview.rankDescription || '尊享合伙权益'}}</text><view v-if="needsEntitlementOpen" class="rank-footer"><text class="business-muted">您暂未开通权益收益费</text></view><view v-else-if="overview.partnerStatus!=='NONE'" class="rank-footer"><text class="business-muted">{{annualExpiryLabel}}</text><view v-if="canShowPromotion" class="rank-links"><button @click="openId('promotion')">晋升任务</button></view></view></view><button v-if="context.module==='wholesale'&&needsEntitlementOpen" class="annual-open" :disabled="entitlementBusy" @click="openAnnualConfirm">{{overview.annualOpenLabel || '开通/续费 200 元权益'}}</button><view v-if="context.module==='costore'" class="business-card business-store"><image src="/static/partner/icon-store-info.png" mode="aspectFit"/><view><view class="business-name">{{context.store?.name||context.label}}</view><text class="business-muted">{{context.store?.number}} {{context.store?.address}}</text><text class="business-muted">{{context.validUntil?`有效期至 ${context.validUntil.slice(0,10)}`:'有效期以后台为准'}}</text><button class="business-text-button" @click="contextOpen=true">切换门店</button></view></view><view v-if="context.module==='agency'" class="business-stats"><button @click="openId('team')"><text>我的团队</text><text class="business-stat-value">{{overview.teamCount ?? 0}}人</text></button><button @click="openId('income')"><text>代理收益（可提现）</text><text class="business-stat-value">¥{{money(overview.available)}}</text></button></view><view v-if="context.module==='agency'" class="business-relations"><button @click="showRelation('superior')"><text>区域上级</text><view>{{overview.superior?.name||'暂未提供'}}</view></button><button @click="showRelation('referrer')"><text>推荐人</text><view>{{overview.referrer?.name||'暂未提供'}}</view></button></view><view v-if="!isOrdinary && !annualLocked" class="business-tool-grid" :class="{compact:context.module!=='wholesale'}"><button v-for="item in (overview.partnerStatus==='NONE'?[]:homeTools)" :key="item.id" @click="openTool(item)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button></view><view v-if="!isOrdinary && !annualLocked && !tools.length" class="business-muted business-empty">当前身份暂无经营功能权限</view><view v-if="context.module==='wholesale' && overview.partnerStatus!=='NONE' && !annualLocked" class="business-stats"><button @click="openId('team')"><text>团队人数</text><text class="business-stat-value">{{teamCountLabel}}</text><text class="business-stat-link">服务商明细<text class="business-stat-arrow">▶</text></text></button><button @click="openId('quota-ledger')"><text>剩余VIP</text><text class="business-stat-value">{{quotaCountLabel}}</text><text class="business-stat-link">进货明细<text class="business-stat-arrow">▶</text></text></button><button @click="openId('quota-transfers')"><text>已划拨VIP</text><text class="business-stat-value">{{transferredCountLabel}}</text><text class="business-stat-link">划转明细<text class="business-stat-arrow">▶</text></text></button></view><view class="business-benefits"><view class="business-section-title"><view class="benefits-rule" aria-hidden="true"/><text class="benefits-spark">✦</text><text class="benefits-label">等级权益</text><text class="benefits-spark">✦</text><view class="benefits-rule" aria-hidden="true"/></view><view v-if="overview.benefits.length>1" class="business-benefit-tabs"><button v-for="item in overview.benefits" :key="item.id" :class="{selected:tierId===item.id}" @click="tierId=item.id"><text>{{item.label}}</text></button></view><view v-if="benefit" class="business-benefit-panel"><view class="business-benefit-panel-glow" aria-hidden="true"/><view class="business-benefit-panel-head"><text class="business-benefit-tier">{{benefitTitle}}</text><text class="business-benefit-tier-hint">合伙人权益说明</text></view><ManagedRichContent :content="benefit.content"/></view><EmptyState v-if="context.module==='wholesale' && !benefit?.content?.nodes?.length"/></view></template><view v-if="moduleOpen" class="business-mask" @click="moduleOpen=false"><view class="business-dialog" @click.stop><view class="business-dialog-title">切换模块<button aria-label="关闭模块切换" @click="moduleOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view><view class="business-module-options" :style="moduleGridStyle"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text><text v-if="context?.module===item.id" class="business-muted">当前身份</text></button></view></view></view><view v-if="contextOpen" class="feature-mask" @click="contextOpen=false"><view class="feature-sheet" @click.stop><view class="panel-heading">{{context.module==='costore'?'切换门店':'切换身份'}}<button class="close-feature" aria-label="关闭身份选择" @click="contextOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view><button v-for="item in moduleContexts" :key="item.id" class="business-context-option" @click="switchContext(item.id)"><view>{{item.label}}</view><text>{{item.scopeLabel||item.store?.address||item.validUntil?.slice(0,10)}}</text><image :src="item.id===context.id?'/static/common/icon-radio-checked.png':'/static/common/icon-radio-unchecked.png'" mode="aspectFit"/></button></view></view><view v-if="relationOpen" class="business-mask business-relation-mask" @click="relationOpen=null"><view class="business-relation-dialog" @click.stop><button class="business-relation-close" aria-label="关闭关系信息" @click="relationOpen=null">×</button><view class="business-relation-title">{{relationTitle}}</view><view class="business-relation-profile"><view class="business-relation-avatar">{{(relation.name||"").slice(0,1)}}</view><view><view>{{relation.name||"暂未提供"}}</view><text>{{relation.scopeLabel||"信息待后台提供"}}</text></view></view><text class="business-relation-note">关系与授权范围由后台确认</text></view></view><view v-if="entitlementConfirm" class="business-mask business-entitlement-mask" @click="!entitlementBusy && (entitlementConfirm=false)"><view class="business-entitlement-dialog" @click.stop><view class="business-entitlement-title">确认支付{{entitlementFeeLabel}}元开通权益收益费吗？开通以后可享受多项权益</view><view class="business-entitlement-actions"><button class="business-entitlement-cancel" :disabled="entitlementBusy" @click="entitlementConfirm=false">取消</button><button class="business-entitlement-ok" :disabled="entitlementBusy" @click="confirmAnnualEntitlement">{{entitlementBusy?'处理中…':'确定'}}</button></view></view></view><WholesaleReport v-if="wholesaleOverlay" :key="wholesaleOverlay" :tool-id="wholesaleOverlay" :page-query="overlayQuery" overlay @close="wholesaleOverlay=''"/><AppTabBar active="partners"/></view></template>
+<template><AgencyDashboard v-if="(status==='shell'||status==='ready') && context?.module==='agency'" ref="agencyRef" @left="leaveAgency"/><CostoreDashboard v-else-if="(status==='shell'||status==='ready') && context?.module==='costore'" ref="costoreRef" @left="leaveAgency"/><view v-else class="business-page feature-page" :class="{'wholesale-dashboard':context?.module==='wholesale','ordinary-dashboard':isOrdinary}"><SilentRefreshBar :active="refreshing"/><image class="business-background" src="/static/partner/bg-overview.png" mode="scaleToFill"/><view class="business-header"><text>{{moduleInfo?.title||'联营中心'}}</text></view><FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="dashboard" @retry="load"/><template v-if="(status==='shell'||status==='ready')&&overview"><view class="business-identity"><view class="business-person"><view v-if="context.module==='wholesale'" class="business-avatar"><image v-if="overview.avatarUrl && !avatarFailed" :src="overview.avatarUrl" mode="aspectFill" @error="avatarFailed=true"/><text v-else>{{displayName.slice(0,1)}}</text></view><view><view class="business-name">{{context.module==='wholesale'?displayName:context.label}}</view><view class="business-profile-meta"><text class="business-muted">{{context.module==='wholesale'?`ID：${overview.displayId || ""}`:context.scopeLabel||`共${moduleContexts.length}家门店`}}</text><button v-if="context.module==='wholesale'&&overview.inviteCode" class="business-text-button business-invite" @click="copyInvite"><text>邀请码：{{overview.inviteCode}}</text><image src="/static/common/icon-copy.png" mode="aspectFit"/></button></view><button v-if="context.module==='agency'" class="business-text-button" @click="contextOpen=true">切换身份</button></view></view><button v-if="isOrdinary" class="business-switch ordinary-superior" @click="openId('superior')"><image src="/static/common/icon-superior-muted.png" mode="aspectFit"/><text>上级</text></button><button v-else class="business-switch" @click="moduleOpen=true"><image src="/static/common/icon-switch.png" mode="aspectFit"/><text>切换模块</text></button></view><view v-if="context.module==='wholesale'" class="business-card rank-card"><text class="business-badge">当前等级</text><view class="rank-title">{{overview.levelName}}</view><text class="business-muted">{{overview.rankDescription || '尊享合伙权益'}}</text><view v-if="needsEntitlementOpen" class="rank-footer"><text class="business-muted">您暂未开通权益收益费</text></view><view v-else-if="overview.partnerStatus!=='NONE'" class="rank-footer"><text class="business-muted">{{annualExpiryLabel}}</text><view v-if="canShowPromotion" class="rank-links"><button @click="openId('promotion')">晋升任务</button></view></view></view><button v-if="context.module==='wholesale'&&needsEntitlementOpen" class="annual-open" :disabled="entitlementBusy" @click="openAnnualConfirm">{{annualOpenButtonLabel}}</button><view v-if="context.module==='costore'" class="business-card business-store"><image src="/static/partner/icon-store-info.png" mode="aspectFit"/><view><view class="business-name">{{context.store?.name||context.label}}</view><text class="business-muted">{{context.store?.number}} {{context.store?.address}}</text><text class="business-muted">{{context.validUntil?`有效期至 ${context.validUntil.slice(0,10)}`:'有效期以后台为准'}}</text><button class="business-text-button" @click="contextOpen=true">切换门店</button></view></view><view v-if="context.module==='agency'" class="business-relations"><button @click="showRelation('superior')"><text>区域上级</text><view>{{overview.superior?.name||'暂未提供'}}</view></button><button @click="showRelation('referrer')"><text>推荐人</text><view>{{overview.referrer?.name||'暂未提供'}}</view></button></view><FeaturePageSkeleton v-if="status==='shell'" variant="dashboard-body"/><view v-if="status==='ready' && !isOrdinary && !annualLocked" class="business-tool-grid" :class="{compact:context.module!=='wholesale'}"><button v-for="item in (overview.partnerStatus==='NONE'?[]:homeTools)" :key="item.id" @click="openTool(item)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button></view><view v-if="status==='ready' && !isOrdinary && !annualLocked && !tools.length" class="business-muted business-empty">当前身份暂无经营功能权限</view><view v-if="status==='ready' && context.module==='wholesale' && overview.partnerStatus!=='NONE' && !annualLocked" class="business-stats"><button @click="openId('team')"><text>团队人数</text><text v-if="!teamCountPending" class="business-stat-value">{{teamCountLabel}}</text><MetricSkeleton v-else size="block" :inline="false"/><text class="business-stat-link">服务商明细<text class="business-stat-arrow">▶</text></text></button><button @click="openId('quota-ledger')"><text>剩余VIP</text><text v-if="!quotaCountPending" class="business-stat-value">{{quotaCountLabel}}</text><MetricSkeleton v-else size="block" :inline="false"/><text class="business-stat-link">进货明细<text class="business-stat-arrow">▶</text></text></button><button @click="openId('quota-transfers')"><text>已划拨VIP</text><text v-if="!transferredCountPending" class="business-stat-value">{{transferredCountLabel}}</text><MetricSkeleton v-else size="block" :inline="false"/><text class="business-stat-link">划转明细<text class="business-stat-arrow">▶</text></text></button></view><view v-if="status==='ready'" class="business-benefits"><view class="business-section-title"><view class="benefits-rule" aria-hidden="true"/><text class="benefits-spark">✦</text><text class="benefits-label">等级权益</text><text class="benefits-spark">✦</text><view class="benefits-rule" aria-hidden="true"/></view><view v-if="overview.benefits.length>1" class="business-benefit-tabs"><button v-for="item in overview.benefits" :key="item.id" :class="{selected:tierId===item.id}" @click="tierId=item.id"><text>{{item.label}}</text></button></view><view v-if="benefit" class="business-benefit-panel"><view class="business-benefit-panel-glow" aria-hidden="true"/><view class="business-benefit-panel-head"><text class="business-benefit-tier">{{benefitTitle}}</text><text class="business-benefit-tier-hint">合伙人权益说明</text></view><ManagedRichContent :content="benefit.content"/></view><EmptyState v-if="context.module==='wholesale' && !benefit?.content?.nodes?.length"/></view></template><view v-if="moduleOpen" class="business-mask" @click="moduleOpen=false"><view class="business-dialog" @click.stop><view class="business-dialog-title">切换模块<button aria-label="关闭模块切换" @click="moduleOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view><view class="business-module-options" :style="moduleGridStyle"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text><text v-if="context?.module===item.id" class="business-muted">当前身份</text></button></view></view></view><view v-if="contextOpen" class="feature-mask" @click="contextOpen=false"><view class="feature-sheet" @click.stop><view class="panel-heading">{{context.module==='costore'?'切换门店':'切换身份'}}<button class="close-feature" aria-label="关闭身份选择" @click="contextOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view><button v-for="item in moduleContexts" :key="item.id" class="business-context-option" @click="switchContext(item.id)"><view>{{item.label}}</view><text>{{item.scopeLabel||item.store?.address||item.validUntil?.slice(0,10)}}</text><image :src="item.id===context.id?'/static/common/icon-radio-checked.png':'/static/common/icon-radio-unchecked.png'" mode="aspectFit"/></button></view></view><view v-if="relationOpen" class="business-mask business-relation-mask" @click="relationOpen=null"><view class="business-relation-dialog" @click.stop><button class="business-relation-close" aria-label="关闭关系信息" @click="relationOpen=null">×</button><view class="business-relation-title">{{relationTitle}}</view><view class="business-relation-profile"><view class="business-relation-avatar">{{(relation.name||"").slice(0,1)}}</view><view><view>{{relation.name||"暂未提供"}}</view><text>{{relation.scopeLabel||"信息待后台提供"}}</text></view></view><text class="business-relation-note">关系与授权范围由后台确认</text></view></view><view v-if="entitlementConfirm" class="business-mask business-entitlement-mask" @click="!entitlementBusy && (entitlementConfirm=false)"><view class="business-entitlement-dialog" @click.stop><view class="business-entitlement-title">确认支付<template v-if="!entitlementFeePending">{{entitlementFeeLabel}}</template><MetricSkeleton v-else size="compact"/>元开通权益收益费吗？开通以后可享受多项权益</view><view class="business-entitlement-actions"><button class="business-entitlement-cancel" :disabled="entitlementBusy" @click="entitlementConfirm=false">取消</button><button class="business-entitlement-ok" :disabled="entitlementBusy||entitlementFeePending" @click="confirmAnnualEntitlement">{{entitlementBusy?'处理中…':'确定'}}</button></view></view></view><WholesaleReport v-if="wholesaleOverlay" :key="wholesaleOverlay" :tool-id="wholesaleOverlay" :page-query="overlayQuery" overlay @close="wholesaleOverlay=''"/><AppTabBar active="partners"/></view></template>
 <script setup>
 import {ref,computed,onMounted,onUnmounted} from 'vue'
 import {config} from '../config'
@@ -9,9 +9,14 @@ import {isOrdinaryAccount} from '../features/business/account-rank'
 import {money} from '../features/exclusive/format'
 import {getSession} from '../services/api'
 import {getBusinessContexts,getBusinessContext,getBusinessOverview,selectBusinessContext} from '../services/business'
+import {prefetchPartnerWorkspace,scheduleIdle} from '../services/prefetch'
 import {getWholesaleBenefitCatalog} from '../services/partner-catalog'
 import {createEntitlementFeeOrder} from '../services/entitlement-fee'
+import {isMetricPending,pickMetricNumber} from '../features/business/metric-display'
 import FeaturePageState from './FeaturePageState.vue'
+import FeaturePageSkeleton from './FeaturePageSkeleton.vue'
+import MetricSkeleton from './MetricSkeleton.vue'
+import SilentRefreshBar from './SilentRefreshBar.vue'
 import ManagedRichContent from './ManagedRichContent.vue'
 import AppTabBar from './AppTabBar.vue'
 import AgencyDashboard from './AgencyDashboard.vue'
@@ -20,10 +25,17 @@ import EmptyState from './EmptyState.vue'
 import WholesaleReport from './WholesaleReport.vue'
 const props=defineProps({initialModule:{type:String,default:''}})
 useAuth();useAppTabBar()
-const preview=businessPreview(config),status=ref('loading'),error=ref(''),overview=ref(null),contexts=ref([]),tierId=ref(''),moduleOpen=ref(false),contextOpen=ref(false),relationOpen=ref('')
+const preview=businessPreview(config),status=ref('loading'),error=ref(''),refreshing=ref(false),overview=ref(null),contexts=ref([]),tierId=ref(''),moduleOpen=ref(false),contextOpen=ref(false),relationOpen=ref('')
 const avatarFailed=ref(false),entitlementConfirm=ref(false),entitlementBusy=ref(false)
-const entitlementFee=computed(()=>{const n=Number(overview.value?.entitlement?.amount??overview.value?.entitlementAmount??200);return Number.isFinite(n)&&n>0?n:200})
-const entitlementFeeLabel=computed(()=>money(entitlementFee.value))
+const entitlementFeeValue=computed(()=>pickMetricNumber(overview.value?.entitlement?.amount,overview.value?.entitlementAmount))
+const entitlementFeePending=computed(()=>entitlementFeeValue.value==null)
+const entitlementFee=computed(()=>entitlementFeeValue.value)
+const entitlementFeeLabel=computed(()=>entitlementFeePending.value?'':money(entitlementFeeValue.value))
+const annualOpenButtonLabel=computed(()=>{
+  if(overview.value?.annualOpenLabel)return overview.value.annualOpenLabel
+  if(entitlementFeePending.value)return '开通/续费权益'
+  return `开通/续费 ${entitlementFeeLabel.value} 元权益`
+})
 const isOrdinary=computed(()=>overview.value?.context?.module==='wholesale' && isOrdinaryAccount(overview.value?.displayId, overview.value?.partnerStatus, overview.value?.isPartner))
 const displayName=computed(()=>{
   const row=overview.value||{}
@@ -54,19 +66,104 @@ const homeTools=computed(()=>storeBindingMissing.value?[]:businessHomeTools(tool
 const BENEFIT_FULL_LABELS={ 'DEMO-VIP':'小批发商',小批:'小批发商',VIP:'小批发商','DEMO-ANGEL':'中批发商',中批:'中批发商',天使:'中批发商','DEMO-BOARD':'大批发商',大批:'大批发商',私董:'大批发商','DEMO-FOUNDER':'总批发商',总批:'总批发商',联创:'总批发商' }
 const context=computed(()=>overview.value?.context),moduleInfo=computed(()=>businessModules.find(item=>item.id===context.value?.module)),modules=computed(()=>businessModules.filter(item=>contexts.value.some(ctx=>ctx.module===item.id))),moduleGridStyle=computed(()=>({gridTemplateColumns:`repeat(${Math.min(Math.max(modules.value.length,1),3)},minmax(0,1fr))`})),moduleContexts=computed(()=>contexts.value.filter(item=>item.module===context.value?.module)),tools=computed(()=>overview.value?.tools||[]),benefit=computed(()=>overview.value?.benefits.find(item=>item.id===tierId.value)),benefitTitle=computed(()=>{const item=benefit.value;if(!item)return '';return BENEFIT_FULL_LABELS[item.id]||BENEFIT_FULL_LABELS[item.label]||item.label}),relation=computed(()=>overview.value?.[relationOpen.value]||{}),relationTitle=computed(()=>relationOpen.value==='superior'?'区域上级':'推荐人')
 const canShowPromotion=computed(()=>String(overview.value?.rawLevelName||context.value?.levelName||'')!=='联创合伙人')
-// Numeric zero must render as "0"; only nullish values fall back to em dash.
-function countLabel(...values){for(const value of values){if(value==null||value==='')continue;const n=typeof value==='number'?value:Number(value);if(Number.isFinite(n))return String(n);if(typeof value==='string'&&value.trim())return value.trim()}return '0'}
-const teamCountLabel=computed(()=>countLabel(overview.value?.team?.summary?.memberCount,overview.value?.teamCount,overview.value?.showcaseTeamCount))
-const quotaCountLabel=computed(()=>countLabel(overview.value?.vipDetails?.remainingCount,overview.value?.quota,overview.value?.showcaseQuota))
-const transferredCountLabel=computed(()=>countLabel(overview.value?.transferred,overview.value?.transferredCount,overview.value?.transferredVip,overview.value?.quotaTransferred,overview.value?.vipDetails?.transferredCount,overview.value?.vipDetails?.transferred,overview.value?.showcaseTransferred))
-async function load(){const current=++epoch;status.value='loading';error.value='';moduleOpen.value=false;contextOpen.value=false;relationOpen.value='';wholesaleOverlay.value='';entitlementConfirm.value=false;try{const rows=await getBusinessContexts();const preferredModule=contextId?null:(props.initialModule||'wholesale');const selected=await getBusinessContext(preferredModule,contextId||undefined);if(!contextId&&selected.module==='wholesale'){try{await selectBusinessContext(selected.id)}catch{/* keep local selection even if persistence fails */}}let result=await getBusinessOverview(selected.module,selected.id);if(selected.module==='wholesale'){try{const benefits=await getWholesaleBenefitCatalog();if(benefits)result={...result,benefits}}catch(reason){console.warn('[partner benefits] 等级权益读取失败，保留概览数据：',reason?.message||reason);if(!result.benefits?.some(item=>item?.content?.nodes?.length))uni.showToast({title:reason?.message||'等级权益加载失败',icon:'none'})}}if(current!==epoch)return;contextId=selected.id;contexts.value=rows;overview.value=result;avatarFailed.value=false;tierId.value=result.benefits.some(item=>item.id===tierId.value)?tierId.value:result.benefits[1]?.id||result.benefits[0]?.id||'';status.value='ready'}catch(reason){if(current===epoch){error.value=reason.message||'工作台加载失败';status.value=reason.code==='FORBIDDEN'?'forbidden':'error'}}}
+// Pending metrics render MetricSkeleton; finite 0 from API still shows "0".
+const metricsSettled=computed(()=>status.value==='ready')
+const teamCountValue=computed(()=>pickMetricNumber(overview.value?.team?.summary?.memberCount,overview.value?.teamCount,overview.value?.showcaseTeamCount))
+const quotaCountValue=computed(()=>pickMetricNumber(overview.value?.vipDetails?.remainingCount,overview.value?.quota,overview.value?.showcaseQuota))
+const transferredCountValue=computed(()=>pickMetricNumber(overview.value?.transferred,overview.value?.transferredCount,overview.value?.transferredVip,overview.value?.quotaTransferred,overview.value?.vipDetails?.transferredCount,overview.value?.vipDetails?.transferred,overview.value?.showcaseTransferred))
+const teamCountPending=computed(()=>isMetricPending(teamCountValue.value,{settled:metricsSettled.value}))
+const quotaCountPending=computed(()=>isMetricPending(quotaCountValue.value,{settled:metricsSettled.value}))
+const transferredCountPending=computed(()=>isMetricPending(transferredCountValue.value,{settled:metricsSettled.value}))
+const teamCountLabel=computed(()=>teamCountPending.value?'':String(teamCountValue.value??0))
+const quotaCountLabel=computed(()=>quotaCountPending.value?'':String(quotaCountValue.value??0))
+const transferredCountLabel=computed(()=>transferredCountPending.value?'':String(transferredCountValue.value??0))
+function paintWholesaleShell(selected,rows){
+  contexts.value=rows
+  contextId=selected.id
+  const session=getSession()
+  overview.value={
+    context:selected,
+    benefits:[],
+    tools:[],
+    name:session?.user?.name||session?.user?.nickname||'',
+    displayId:session?.user?.displayId||session?.user?.id||'',
+    inviteCode:session?.user?.inviteCode||'',
+    levelName:selected.levelName||'',
+  }
+  avatarFailed.value=false
+  status.value='shell'
+}
+async function load(options={}){
+  const force=options.force===true
+  const current=++epoch
+  const silent=!force&&status.value==='ready'&&!!overview.value
+  error.value=''
+  if(silent)refreshing.value=true
+  else{
+    refreshing.value=false
+    moduleOpen.value=false
+    contextOpen.value=false
+    relationOpen.value=''
+    wholesaleOverlay.value=''
+    entitlementConfirm.value=false
+    if(!(status.value==='shell'&&overview.value?.context))status.value='loading'
+  }
+  try{
+    const rows=await getBusinessContexts()
+    const preferredModule=contextId?null:(props.initialModule||'wholesale')
+    const selected=await getBusinessContext(preferredModule,contextId||undefined)
+    if(!contextId&&selected.module==='wholesale'){
+      try{await selectBusinessContext(selected.id)}catch{/* keep local selection even if persistence fails */}
+    }
+    if(current!==epoch)return
+    // Agency/costore dashboards load their own overview; hand off as soon as context is known.
+    if(selected.module==='agency'||selected.module==='costore'){
+      contextId=selected.id
+      contexts.value=rows
+      overview.value={context:selected,benefits:[],tools:[]}
+      avatarFailed.value=false
+      status.value='ready'
+      return
+    }
+    if(!silent)paintWholesaleShell(selected,rows)
+    else{
+      contexts.value=rows
+      contextId=selected.id
+    }
+    let result=await getBusinessOverview(selected.module,selected.id)
+    if(selected.module==='wholesale'){
+      try{
+        const benefits=await getWholesaleBenefitCatalog()
+        if(benefits)result={...result,benefits}
+      }catch(reason){
+        console.warn('[partner benefits] 等级权益读取失败，保留概览数据：',reason?.message||reason)
+        if(!result.benefits?.some(item=>item?.content?.nodes?.length))uni.showToast({title:reason?.message||'等级权益加载失败',icon:'none'})
+      }
+    }
+    if(current!==epoch)return
+    contextId=selected.id
+    contexts.value=rows
+    overview.value=result
+    avatarFailed.value=false
+    tierId.value=result.benefits.some(item=>item.id===tierId.value)?tierId.value:result.benefits[1]?.id||result.benefits[0]?.id||''
+    status.value='ready'
+    scheduleIdle(()=>prefetchPartnerWorkspace(result))
+  }catch(reason){
+    if(current===epoch){
+      error.value=reason.message||'工作台加载失败'
+      if(!silent||!overview.value?.accountId)status.value=reason.code==='FORBIDDEN'?'forbidden':'error'
+    }
+  }finally{
+    if(current===epoch)refreshing.value=false
+  }
+}
 async function switchContext(id){if(switching)return;switching=true;moduleOpen.value=false;contextOpen.value=false;try{const selected=await selectBusinessContext(id);contextId=selected.id;await load()}catch(reason){uni.showToast({title:reason.message||'身份切换未完成，请稍后重试',icon:'none'})}finally{switching=false}}
 function switchModule(module){const selected=contexts.value.find(item=>item.module===module);if(selected)switchContext(selected.id)}
 function openTool(item){if(context.value.module==='wholesale' && ['superior','promotion','share'].includes(item.id)){wholesaleOverlay.value=item.id;return}uni.navigateTo({url:`${item.path}?contextId=${encodeURIComponent(context.value.id)}`})}
 function openId(id){if(storeBindingMissing.value&&['team','quota-ledger','quota-transfers','income','withdrawals','quota-transfer','upgrade'].includes(id)){uni.navigateTo({url:'/pages/partner/bind-store'});return}const item=tools.value.find(item=>item.id===id);if(item)openTool(item);else uni.showToast({title:'当前身份暂无此功能权限',icon:'none'})}
 function openAnnualConfirm(){if(entitlementBusy.value)return;entitlementConfirm.value=true}
 async function confirmAnnualEntitlement(){
-  if(entitlementBusy.value)return
+  if(entitlementBusy.value||entitlementFeePending.value)return
   entitlementBusy.value=true
   try{
     const result=await createEntitlementFeeOrder(entitlementFee.value)
@@ -89,8 +186,12 @@ function copyInvite(){const code=String(overview.value?.inviteCode||'').trim();i
 function showRelation(kind){relationOpen.value=kind}
 function leaveAgency(id){if(id)contextId=id;return load()}
 function enterWholesale(){contextId='';return load()}
-function refresh(){if(status.value==='ready'&&context.value?.module==='agency'&&agencyRef.value)return agencyRef.value.refresh();if(status.value==='ready'&&context.value?.module==='costore'&&costoreRef.value)return costoreRef.value.refresh();return load()}
-onMounted(load);onUnmounted(()=>{++epoch});defineExpose({refresh,enterWholesale})
+function refresh(options){
+  if((status.value==='ready'||status.value==='shell')&&context.value?.module==='agency'&&agencyRef.value)return agencyRef.value.refresh?.(options)
+  if((status.value==='ready'||status.value==='shell')&&context.value?.module==='costore'&&costoreRef.value)return costoreRef.value.refresh?.(options)
+  return load(options)
+}
+onMounted(()=>load());onUnmounted(()=>{++epoch});defineExpose({refresh,enterWholesale})
 </script>
 <style>@import '../styles/account.css';@import '../styles/exclusive.css';@import '../styles/business.css';</style>
 

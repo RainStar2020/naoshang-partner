@@ -1,7 +1,8 @@
 import { config } from '../config'
 import { getSession,request,getCachedMyInviteCode,normalizeEntitlement } from './api'
 import { businessModules,findBusinessTool,businessPreview,visibleBusinessTools } from '../features/business/catalog'
-import { wholesaleLevelDisplay } from '../features/business/account-rank'
+import { publicIdentityLabel, wholesaleLevelDisplay } from '../features/business/account-rank'
+import { rememberQuotaTransferSnapshot } from '../features/business/quota-transfer'
 import { normalizeContent,isMediaUrl } from '../features/content/rich-content'
 import { mockMeBootstrap,mockBusinessOverview,mockBusinessReport,mockBusinessState,mockAgencyTree,mockClone,saveMockBusinessState } from './mock/business'
 import { incomePresentation } from './mock/income-detail'
@@ -74,14 +75,17 @@ function normalizePromotionReport(result){
   const task=normalized.task&&typeof normalized.task==='object'?{...normalized.task}:null
   if(promotion&&!config.useMock)promotion=withYuanMoney(promotion,['paidAmount','standardAmount','differenceAmount'])
   if(promotion){
-    // Claim threshold is always 3 same-rank referrals; VIP equivalent is display copy only.
-    const vipEquivalent=({'VIP合伙人':3,'天使合伙人':9,'私董合伙人':18})[promotion.beforeName] ?? promotion.vipEquivalent
-    const target=3
     const until=parseBizTime(promotion.validUntil ?? task?.validUntil)
     const expired=Number.isFinite(until)&&until<Date.now()
-    const derivedClaim=task?task.achieved===true||task.status==='ACHIEVED':Number(promotion.progress)>=target
-    const canClaim=!expired&&task?.status!=='CLAIMED'&&(typeof promotion.canClaim==='boolean'?promotion.canClaim:derivedClaim)
-    promotion={...promotion,id:promotion.id||task?.taskId||'',version:promotion.version ?? 1,target,vipEquivalent:vipEquivalent ?? target,canClaim,statusLabel:expired?'已过期':(task?.statusLabel||promotion.statusLabel||'进行中'),daysLeft:promotion.daysLeft ?? task?.daysLeft,taskDescription:promotion.taskDescription||task?.text||''}
+    // Progress, tiers and rule copy are authoritative server fields. Do not derive
+    // them from a local tier table or use the percentage as a referral count.
+    const target=promotion.target ?? promotion.requiredQuota ?? promotion.progressTarget ?? 0
+    const claim=task&&['claimable','achieved','status','claimed'].some(key=>key in task)?task:promotion
+    const derivedClaim=claim.claimable===true||claim.achieved===true||claim.status==='ACHIEVED'||claim.canClaim===true||(
+      Number(promotion.progressCurrent ?? 0)>=Number(promotion.progressTarget ?? target)
+    )
+    const canClaim=!expired&&claim.status!=='CLAIMED'&&claim.claimed!==true&&derivedClaim
+    promotion={...promotion,id:promotion.id||task?.taskId||'',version:promotion.version ?? 1,target,canClaim,statusLabel:expired?'已过期':(task?.statusLabel||promotion.statusLabel||'进行中'),daysLeft:promotion.daysLeft ?? task?.daysLeft,taskDescription:promotion.taskDescription||task?.text||''}
     if(Number.isFinite(until))promotion.validUntil=until
   }
   return {...normalized,task,promotion,qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
@@ -280,7 +284,7 @@ function mergeWholesaleDashboardStats(overview,stats){
 function normalizeAgencyRelation(person){
   if(!person||typeof person!=='object')return null
   const agencyLabel=String(person.agencyLabel||person.levelLabel||person.rankLabel||person.scopeLabel||'').trim()
-  const partnerLabel=String(person.partnerLabel||'').trim()
+  const partnerLabel=publicIdentityLabel(person.partnerLabel)
   const regionLabel=String(person.regionLabel||person.scopeLabel||person.areaLabel||'').trim()
   return {
     ...person,
@@ -386,8 +390,63 @@ async function fetchAgencyDashboardStats(account,context){
     ...(agencyIncome!=null?{agencyIncome}:{}),
   }
 }
+/** Async follow-up for agency home metrics (team / income). Same merge keys as before. */
+export async function enrichAgencyOverviewStats(contextId){
+  const account=businessAccount()
+  const context=await getBusinessContext('agency',contextId)
+  checkBusinessAccount(account)
+  const stats=await fetchAgencyDashboardStats(account,context)
+  checkBusinessAccount(account)
+  return Object.fromEntries(Object.entries(stats).filter(([,value])=>value!==undefined))
+}
+function agencyDashboardSummary(dashboard){
+  if(!dashboard||typeof dashboard!=='object')return null
+  const teamCount=pickCount(dashboard.teamCount,dashboard.memberCount)
+  const agencyIncome=pickCount(dashboard.agencyIncome,dashboard.available,dashboard.incomeAvailable)
+  const summary={
+    ...(teamCount!=null?{teamCount}:{}),
+    ...(agencyIncome!=null?{agencyIncome}:{}),
+  }
+  return Object.keys(summary).length?summary:null
+}
+
+function wireAgencyType(value){
+  const raw=String(value||'').trim()
+  if(!raw)return ''
+  const key=raw.toUpperCase()
+  if(['STORE','COUNTY','CITY','PROVINCE'].includes(key))return key
+  return ({store:'STORE',district:'COUNTY',county:'COUNTY',city:'CITY',province:'PROVINCE'})[raw.toLowerCase()]||''
+}
+function parseAgencyScope(value){
+  const raw=String(value||'').trim()
+  const parts=raw.split(':')
+  if(parts[0]!=='agency'||parts.length<3||!parts[1]||!parts.slice(2).join(':'))return null
+  return {id:raw,accountId:parts[1],assignmentId:parts.slice(2).join(':')}
+}
+function isBareAgencyContextId(id){
+  return typeof id==='string'&&/^agency:[^:]+$/.test(id)
+}
+function normalizeBusinessContext(item,account){
+  if(!item||typeof item!=='object'||item.module!=='agency')return item
+  const parsed=parseAgencyScope(item.scope||item.id)
+  const assignmentId=String(item.assignmentId||item.assignment_id||parsed?.assignmentId||'').trim()
+  const scope=String(item.scope||'').trim()
+  let id=String((parsed?parsed.id:item.id)||scope||'').trim()
+  if(assignmentId&&isBareAgencyContextId(id))id=`${id}:${assignmentId}`
+  if(!id&&assignmentId&&account?.id)id=`agency:${account.id}:${assignmentId}`
+  const agencyType=wireAgencyType(item.agencyType||item.agency_type||item.regionType||item.region_type)
+  const regionCode=String(item.regionCode||item.region_code||'').trim()
+  const regionType=item.regionType||item.region_type||undefined
+  const accountId=String(item.accountId||parsed?.accountId||account?.id||'').trim()
+  return {...item,id,accountId,scope:scope||id,assignmentId,agencyType,regionCode,...(regionType?{regionType}:{})}
+}
+function matchBusinessContext(item,id,module){
+  if(!id||isBareAgencyContextId(id)||(module&&item.module!==module))return false
+  return item.id===id||item.scope===id||(item.module==='agency'&&!!item.assignmentId&&(id===item.assignmentId||id.endsWith(`:${item.assignmentId}`)))
+}
 function validateBusinessContexts(account,result){
   if(!Array.isArray(result?.businessContexts))throw new Error('经营身份数据格式异常')
+  result.businessContexts=result.businessContexts.map(item=>normalizeBusinessContext(item,account))
   const rows=result.businessContexts.filter(item=>item.accountId===account.id&&businessModules.some(module=>module.id===item.module)&&(!item.validUntil||Date.parse(item.validUntil)>Date.now()))
   if(rows.some(item=>!item.id||!Array.isArray(item.capabilities)||(item.module==='costore'&&(!item.storeId||!item.contractId))||(item.module==='agency'&&(!item.assignmentId||!['STORE','COUNTY','CITY','PROVINCE'].includes(item.agencyType))))||new Set(rows.map(item=>item.id)).size!==rows.length)throw new Error('经营身份配置异常')
   return rows
@@ -408,16 +467,21 @@ export async function getBusinessContexts(){
 export async function getBusinessContext(module,id){
   const account=businessAccount(),contexts=await getBusinessContexts();checkBusinessAccount(account)
   const stored=uni.getStorageSync(selectionKey(account.id))
-  const byId=id?contexts.find(item=>item.id===id&&(!module||item.module===module)):null
-  const byStored=!id?contexts.find(item=>item.id===stored?.contextId&&(!module||item.module===module)):null
+  const requested=isBareAgencyContextId(id)?undefined:id
+  const storedId=isBareAgencyContextId(stored?.contextId)?undefined:stored?.contextId
+  const byId=requested?contexts.find(item=>matchBusinessContext(item,requested,module)):null
+  const byStored=!requested?contexts.find(item=>matchBusinessContext(item,storedId,module)):null
   // Prefer wholesale as the default landing module when nothing is explicitly selected.
-  const byModule=!id
+  const byModule=!requested
     ?(module
       ?(contexts.find(item=>item.module===module)||(module==='wholesale'?(contexts.find(item=>item.module==='wholesale')||contexts[0]):null))
       :(contexts.find(item=>item.module==='wholesale')||contexts[0]))
     :null
   const current=byId||byStored||byModule||null
   if(!current){const error=new Error('当前经营身份不存在、已到期或无权访问');error.code='FORBIDDEN';throw error}
+  if(stored?.contextId&&isBareAgencyContextId(stored.contextId)){
+    uni.setStorageSync(selectionKey(account.id),{contextId:current.id,module:current.module})
+  }
   return current
 }
 export async function selectBusinessContext(id){const context=await getBusinessContext(null,id);uni.setStorageSync(selectionKey(businessAccount().id),{contextId:context.id,module:context.module});return context}
@@ -429,19 +493,78 @@ export async function withBusinessContext(contextId,capability,operation){
   if(required&&!businessPreview(config)&&!context.capabilities.includes(required)){const error=new Error('当前身份没有此功能权限');error.code='FORBIDDEN';throw error}
   const result=await operation(account,context);checkBusinessAccount(account);return result
 }
+/** Legacy entitlement gate for /partner/* GET returned an empty list shell instead of overview. */
+function isEntitlementListShell(result){
+  if(!result||typeof result!=='object')return false
+  if(result.accountId&&Array.isArray(result.benefits))return false
+  const entitlement=result.entitlement
+  if(!entitlement||typeof entitlement!=='object')return false
+  return Array.isArray(result.items)
+    && (entitlement.code==='ENTITLEMENT_VIP_REQUIRED'||entitlement.displayOnly===true||entitlement.canOpen===false)
+}
+
+/** Ordinary-user wholesale shell used when backend still returns the empty list gate. */
+function ordinaryWholesaleOverviewShell(account,context,entitlement){
+  return {
+    accountId:account.id,
+    contextId:context.id,
+    displayId:account.displayId||null,
+    name:account.name||account.nickname||'',
+    levelName:'普通用户',
+    partnerStatus:'NONE',
+    rankDescription:'您当前不是合伙人，升级可享受合伙人权益',
+    experience:0,
+    experienceTarget:9980,
+    benefits:[
+      {id:'vip',label:'小批',content:null},
+      {id:'angel',label:'中批',content:null},
+      {id:'private',label:'大批',content:null},
+      {id:'cofounder',label:'总批',content:null},
+    ],
+    tools:[{id:'superior',label:'上级',icon:'/static/common/icon-superior-muted.png'}],
+    quotaBalance:0,
+    monthIncome:0,
+    monthByType:{},
+    teamVip:0,
+    entitlement:normalizeEntitlement(entitlement),
+    dashboard:{
+      teamCount:0,
+      quota:0,
+      transferred:0,
+      vipDetails:{remainingCount:0,standardRemaining:0,activityRemaining:0,transferredCount:0,transferred:0},
+      globalAwardEligibility:{eligible:false,reason:entitlement?.reason||'普通用户无全球奖资格'},
+    },
+  }
+}
+
 export async function getBusinessOverview(module,id){
   const account=businessAccount()
   const [bootstrap,context]=await Promise.all([getMeBootstrapData(),getBusinessContext(module,id)])
   checkBusinessAccount(account)
-  const result=config.useMock?mockBusinessOverview(account,context):await request(module==='wholesale'?'/partner/overview':module==='agency'?'/agency/overview':'/costore/overview',{data:{contextId:context.id,assignmentId:context.assignmentId,contractId:context.contractId}})
+  let result=config.useMock?mockBusinessOverview(account,context):await request(module==='wholesale'?'/partner/workspace':module==='agency'?'/agency/overview':'/costore/overview',{data:{contextId:context.id,assignmentId:context.assignmentId,contractId:context.contractId}})
   checkBusinessAccount(account)
-  if(result?.accountId!==account.id||result.contextId!==context.id||!Array.isArray(result.benefits))throw new Error('工作台身份或数据格式异常')
+  // Old servers gated /partner/workspace with an empty list shell; map it to the ordinary home.
+  if(module==='wholesale'&&isEntitlementListShell(result))result=ordinaryWholesaleOverviewShell(account,context,result.entitlement)
+  if(result?.accountId!==account.id||result.contextId!==context.id||!Array.isArray(result.benefits)){
+    const reason=result?.entitlement?.reason||result?.message
+    const error=new Error(reason||'工作台身份或数据格式异常')
+    if(result?.entitlement?.code)error.code=result.entitlement.code
+    throw error
+  }
   if(module==='agency'){
     clearPartnerPromotionCache()
     const base=applyAgencyOverview({...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? null)})
-    const stats=await fetchAgencyDashboardStats(account,context)
-    const merged={...base,...Object.fromEntries(Object.entries(stats).filter(([,value])=>value!==undefined))}
-    return {...merged,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
+    // Align with wholesale: overview/dashboard is the first-paint summary.
+    // Team/income report stats stay the same logic but load after the shell is ready.
+    const summary=agencyDashboardSummary(result.dashboard)
+    const merged=summary?{...base,...summary}:base
+    return {
+      ...merged,
+      context,
+      tools:visibleBusinessTools(context,config),
+      benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)})),
+      needsStatsEnrichment:!summary,
+    }
   }
   if(module!=='wholesale'){
     clearPartnerPromotionCache()
@@ -450,20 +573,24 @@ export async function getBusinessOverview(module,id){
   }
   clearPartnerPromotionCache(context.id)
   const base=applyWholesaleBootstrap(result,bootstrap)
-  const [,stats,globalAwards]=await Promise.all([
-    fetchPartnerPromotionTasks(account,context).catch(()=>null),
-    fetchWholesaleDashboardStats(account,context),
-    // Prefetch 总批补贴 eligibility; hide home entry when not eligible.
-    fetchPartnerGlobalAwards(account,context).catch(()=>({eligibility:{eligible:false,reason:''},report:null})),
-  ])
+  // /partner/workspace 返回的只是首屏摘要；详情列表继续在用户打开对应页时请求。
+  // 兼容仍未部署新接口的环境：缺少 dashboard 时沿用旧的三项统计读取。
+  const workspace=result.dashboard
+  const stats=workspace
+    ? {teamCount:workspace.teamCount,quota:workspace.quota,transferred:workspace.transferred,vipDetails:workspace.vipDetails}
+    : await fetchWholesaleDashboardStats(account,context)
   const merged=mergeWholesaleDashboardStats(base,stats)
   const inviteCode=String(merged.inviteCode||account.inviteCode||getCachedMyInviteCode()?.inviteCode||bootstrap?.inviteCode||'').trim()
   const name=String(merged.name||merged.nickname||merged.userName||account.name||account.nickname||'').trim()
+  rememberQuotaTransferSnapshot(context.id,{
+    standardRemaining:pickCount(merged.quota,merged.vipDetails?.standardRemaining,merged.vipDetails?.remainingCount,merged.vipDetails?.quota),
+    members:merged.team?.members,
+  })
   return {
     ...merged,
     ...(name?{name}:{}),
     ...(inviteCode?{inviteCode}:{}),
-    globalAwardEligibility:globalAwards?.eligibility||{eligible:false,reason:''},
+    globalAwardEligibility:workspace?.globalAwardEligibility||merged.globalAwardEligibility||{eligible:false,reason:''},
     rawLevelName:merged.levelName,
     levelName:module==='wholesale'?wholesaleLevelDisplay(merged.levelName):merged.levelName,
     context,
@@ -552,10 +679,9 @@ function presentAwardCopy(report){
     metrics:Array.isArray(report.metrics)?report.metrics.map(metric=>({...metric,label:incomeDisplay(metric.label)})):report.metrics,
     items:Array.isArray(report.items)?report.items.map(item=>({...item,channel:incomeDisplay(item.channel),title:incomeDisplay(item.title),pendingNote:incomeDisplay(item.pendingNote),details:Array.isArray(item.details)?item.details.map(detail=>({...detail,label:incomeDisplay(detail.label),value:incomeDisplay(detail.value)})):item.details})):report.items}
 }
-function reportFromBootstrap(resource,bootstrap,params){
-  if(resource.id==='team'&&Array.isArray(bootstrap?.team?.members)){
-    return {items:filterBootstrapMembers(bootstrap.team.members,params.keyword),summary:bootstrap.team.summary||null,hasMore:false,nextCursor:null}
-  }
+function reportFromBootstrap(resource,bootstrap){
+  // Team must hit /partner/team: bootstrap members often omit quota/performance and
+  // would paint "0" after write→return refreshes. Empty-list fallback stays below.
   // Prefer bootstrap activity batches only when the server already provided rows.
   if(resource.id==='quota-batches'&&Array.isArray(bootstrap?.vipDetails?.activityBatches)&&bootstrap.vipDetails.activityBatches.length){
     return {items:bootstrap.vipDetails.activityBatches,hasMore:false,nextCursor:null}
@@ -613,7 +739,7 @@ export function getBusinessReport(module,id,contextId,params={}){
       }
     }
     if(module==='wholesale'&&!config.useMock){
-      const fromBootstrap=reportFromBootstrap(resource,bootstrap,params)
+      const fromBootstrap=reportFromBootstrap(resource,bootstrap)
       if(fromBootstrap)return fromBootstrap
     }
     const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:{...params,filter,keyword,contextId:context.id,contractId:context.contractId||'',assignmentId:context.assignmentId,pageSize:20}})
@@ -645,6 +771,8 @@ export function getBusinessReport(module,id,contextId,params={}){
     const presented=(resource.type==='income'||resource.id==='global-awards')?presentAwardCopy(normalized):normalized
     const payload={...presented,qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
     if(defaultIncomePage)agencyIncomeCache.set(context.id,payload)
+    if(module==='wholesale'&&resource.id==='team')rememberQuotaTransferSnapshot(context.id,{members:payload.items})
+    if(module==='wholesale'&&resource.id==='quota-ledger')rememberQuotaTransferSnapshot(context.id,{standardRemaining:pickCount(payload.standardRemaining,payload.remainingCount,payload.quota)})
     return payload
   })
 }

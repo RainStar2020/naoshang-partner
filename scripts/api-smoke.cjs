@@ -8,7 +8,8 @@ async function main() {
     password = process.env.API_TEST_PASSWORD;
   if (!phone || !password)
     throw new Error("Set API_TEST_PHONE and API_TEST_PASSWORD");
-  const baseURL = process.env.API_TEST_URL || "http://http://192.168.0.44:3000";
+  const baseURL =
+    process.env.API_TEST_URL || "http://http://47.96.134.119:3000";
   const storage = new Map(),
     cache = new Map();
   const context = vm.createContext({

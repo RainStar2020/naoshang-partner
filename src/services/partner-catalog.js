@@ -189,6 +189,10 @@ function fetchBenefitsRaw(partnerLevel = '') {
 export async function getWholesaleBenefitCatalog(partnerLevel = '') {
   if (config.useMock) return null
   const level = String(partnerLevel || '').trim()
+  if (!level) {
+    const cached = readCache()
+    if (cached?.benefits?.length) return cached.benefits
+  }
   const requestKey = level || '*'
   if (activeRequest?.key === requestKey) return activeRequest.promise
 

@@ -1,0 +1,42 @@
+@keyframes ns-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes ns-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}
+
+.sk-avatar,
+.sk-chip,
+.sk-icon,
+.sk-line,
+.sk-action-icon,
+.sk-action-label,
+.metric-skeleton-bar {
+  background-image: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: ns-skeleton-shimmer 2.2s ease-in-out infinite,
+    ns-skeleton-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-avatar,
+  .sk-chip,
+  .sk-icon,
+  .sk-line,
+  .sk-action-icon,
+  .sk-action-label,
+  .metric-skeleton-bar {
+    animation: none;
+  }
+}

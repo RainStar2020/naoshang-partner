@@ -1,5 +1,9 @@
 ﻿import { defineConfig } from "vite";
 import uni from "@dcloudio/vite-plugin-uni";
+import { getApiBaseUrl } from "./src/config/apiTarget.js";
+
+const apiTarget = getApiBaseUrl();
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [uni()],
@@ -16,13 +20,13 @@ export default defineConfig({
     },
     proxy: {
       "/backend-api": {
-        target: "http://192.168.0.44:3001",
+        target: apiTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/backend-api/, ""),
       },
       "/hq-api": {
         // Direct backend HQ API; same host as backend-api, not the HQ admin Vite proxy.
-        target: "http://192.168.0.44:3001",
+        target: apiTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/hq-api/, "/api/hq"),
       },

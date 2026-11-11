@@ -1,9 +1,10 @@
 <template>
   <view class="me-page">
+    <SilentRefreshBar :active="refreshing" />
     <view class="me-frame">
     <view class="me-heading">个人中心</view>
-    <view v-if="status === 'loading'" class="account-state">正在加载个人信息…</view>
-    <view v-else-if="status === 'error'" class="account-state"><text>{{ error }}</text><button class="secondary" @click="load">重新加载</button></view>
+    <FeaturePageSkeleton v-if="status === 'loading'" variant="profile" />
+    <view v-else-if="status === 'error'" class="account-state"><text>{{ error }}</text><button class="secondary" @click="load({ force: true })">重新加载</button></view>
     <template v-else-if="data">
       <view class="me-user">
         <view class="me-user-main" @click="open('/pages/settings/profile')">
@@ -42,30 +43,32 @@
 </template>
 <script setup>
 import { ref } from 'vue'
-import { onShow, onUnload } from '@dcloudio/uni-app'
-import { config } from '../../config'
 import { useAuth } from '../../composables/useAuth'
 import { useAppTabBar } from '../../composables/useAppTabBar'
+import { useAsyncPage } from '../../composables/useAsyncPage'
 import { getSession } from '../../services/api'
+import { prefetchAfterAuth, scheduleIdle } from '../../services/prefetch'
 import { getMyProfile, getSupportConfig } from '../../services/profile'
 import { getExclusiveAccess, getVisibleExclusiveEntries } from '../../services/exclusive'
 import AppTabBar from '../../components/AppTabBar.vue'
 import ProfileIcon from '../../components/ProfileIcon.vue'
 import AgencyPromotionCode from '../../components/AgencyPromotionCode.vue'
+import FeaturePageSkeleton from '../../components/FeaturePageSkeleton.vue'
+import SilentRefreshBar from '../../components/SilentRefreshBar.vue'
 useAuth(); useAppTabBar()
-const isMock = config.useMock, status = ref('loading'), error = ref(''), data = ref(null)
 const agencyCodeOpen = ref(false)
-let epoch = 0
 const orderEntries = [{ label: '待支付', status: 'pending-payment', icon: 'payment' }, { label: '待发货', status: 'waiting-shipment', icon: 'shipping' }, { label: '待收货', status: 'waiting-receipt', icon: 'receiving' }, { label: '已完成', status: 'completed', icon: 'completed' }]
 const profileExclusiveIds = ['founder-awards', 'costore-application', 'agency-code', 'members']
 const exclusiveEntries = ref([])
 const menu = [{ label: '优惠券', icon: 'coupon', path: '/pages/coupon/list' }, { label: '收货地址', icon: 'address', path: '/pages/address/list' }, { label: '联系客服', icon: 'support' }, { label: '意见反馈', icon: 'feedback', path: '/pages/support/feedback' }, { label: '系统设置', icon: 'settings', path: '/pages/settings/index' }]
-async function load() {
-  if (!getSession()) return
-  const current = ++epoch; status.value = 'loading'; data.value = null
-  try { const result = await getMyProfile({ force: true }); const access = await getExclusiveAccess(result); if(current === epoch) { data.value = result; exclusiveEntries.value = getVisibleExclusiveEntries(access).filter(item => profileExclusiveIds.includes(item.id)); status.value = 'ready' } }
-  catch(reason) { if(current === epoch) { error.value = reason.message || '加载失败'; status.value = 'error' } }
-}
+const { data, status, error, refreshing, load } = useAsyncPage(async (options = {}) => {
+  if (!getSession()) throw new Error('请先登录')
+  const result = await getMyProfile({ force: options.force === true })
+  const access = await getExclusiveAccess(result)
+  exclusiveEntries.value = getVisibleExclusiveEntries(access).filter(item => profileExclusiveIds.includes(item.id))
+  scheduleIdle(() => prefetchAfterAuth())
+  return result
+})
 function open(path) { uni.navigateTo({ url: path }) }
 function openExclusive(item) {
   if (item.id === 'agency-code') {
@@ -91,10 +94,9 @@ async function contactSupport() {
     else uni.showModal({ title: '联系客服', content: support.description || '暂未提供客服联系方式，您可以通过意见反馈留言。', showCancel: false })
   } catch(reason) { uni.showToast({ title: reason.message || '获取客服信息失败', icon: 'none' }) }
 }
-onShow(load); onUnload(() => { ++epoch })
 </script>
 <style scoped>
-.me-page { min-height: 100vh; background: #272c47; color: #fff; font-size: clamp(14px, 3.73vw, 16px); }
+.me-page { position: relative; min-height: 100vh; background: #272c47; color: #fff; font-size: clamp(14px, 3.73vw, 16px); }
 .me-frame { max-width: 750px; margin: 0 auto; padding: 0 .9em calc(5.5em + env(safe-area-inset-bottom)); }
 .me-heading { font-family: var(--font-page-title); font-size: 1.15em; font-weight: 700; padding: calc(.85em + var(--status-bar-height, 0px)) 5em .7em .2em; }
 .me-user { margin: .2em 0 1em; }

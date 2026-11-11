@@ -2,9 +2,8 @@
   <view class="address-page">
     <view class="address-frame">
       <BusinessPageHeader title="地址管理" fallback="/pages/profile/index" />
-      <view v-if="status === 'loading'" class="address-state">正在加载地址…</view>
-      <view v-else-if="status === 'error'" class="address-state"><text>{{ error }}</text><button @click="load">重试</button></view>
-      <view v-else class="address-body">
+      <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="list" @retry="load" />
+      <view v-if="status === 'ready'" class="address-body">
         <EmptyState v-if="!items.length" text="暂无收货地址" />
         <view v-for="address in items" :key="address.id" class="address-card">
           <view class="address-person"><text v-if="address.isDefault" class="default-badge">默认</text>{{ address.recipient }} {{ address.phone }}</view>
@@ -37,11 +36,33 @@ import { onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { getAddresses, setDefaultAddress, deleteAddress } from '../../services/profile'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
+import FeaturePageState from '../../components/FeaturePageState.vue'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const status = ref('loading'), items = ref([]), error = ref(''), operationError = ref(''), busy = ref(false), hasMore = ref(false), loadingMore = ref(false), pending = ref(null)
 let epoch = 0, cursor = null
-async function load() { const current = ++epoch; status.value = 'loading'; items.value = []; try { const result = await getAddresses(); if (current === epoch) { items.value = result.items; cursor = result.nextCursor; hasMore.value = result.hasMore === true; status.value = 'ready' } } catch (reason) { if (current === epoch) { error.value = reason.message || '地址加载失败'; status.value = 'error' } } }
+async function load(options = {}) {
+  const force = options.force === true
+  const silent = !force && items.value.length > 0 && status.value === 'ready'
+  const current = ++epoch
+  error.value = ''
+  if (!silent) {
+    status.value = 'loading'
+    if (force || !items.value.length) items.value = []
+  }
+  try {
+    const result = await getAddresses()
+    if (current !== epoch) return
+    items.value = result.items
+    cursor = result.nextCursor
+    hasMore.value = result.hasMore === true
+    status.value = 'ready'
+  } catch (reason) {
+    if (current !== epoch) return
+    error.value = reason.message || '地址加载失败'
+    if (!silent || !items.value.length) status.value = 'error'
+  }
+}
 async function more() { if (loadingMore.value || !hasMore.value) return; const current = epoch; loadingMore.value = true; try { const result = await getAddresses(cursor); if (current === epoch) { items.value = [...new Map([...items.value, ...result.items].map(item => [item.id, item])).values()]; cursor = result.nextCursor; hasMore.value = result.hasMore === true } } catch (reason) { if (current === epoch) operationError.value = reason.message } finally { if (current === epoch) loadingMore.value = false } }
 function edit(id) { uni.navigateTo({ url: `/pages/address/edit${id ? `?id=${encodeURIComponent(id)}` : ''}` }) }
 function setDefault(address) { if (busy.value || address.isDefault) return; pending.value = { address, action: setDefaultAddress, message: '确定要将该地址设置为默认地址吗？' } }
@@ -53,11 +74,11 @@ async function confirmPending() {
   busy.value = true
   operationError.value = ''
   const current = epoch
-  try { await job.action(job.address.id, job.address.version); if (current === epoch) await load() }
+  try { await job.action(job.address.id, job.address.version); if (current === epoch) await load({ force: true }) }
   catch (reason) { if (current === epoch) operationError.value = reason.message || '操作失败，请刷新后重试' }
   finally { busy.value = false }
 }
-onShow(load); onUnload(() => { ++epoch })
+onShow(() => load({ silent: items.value.length > 0 })); onUnload(() => { ++epoch })
 </script>
 <style scoped>
 .address-page, .address-frame, .address-body, .address-card, .address-state, .address-dialog { display: flex; flex-direction: column; }

@@ -714,6 +714,7 @@ function agencyContextFixtures(user) {
       regionLabel: "郑州市高新区代理",
       scopeLabel: "区县代理",
       assignmentId: "demo-assignment-COUNTY",
+      regionCode: "410171",
     },
     {
       type: "PROVINCE",
@@ -721,6 +722,7 @@ function agencyContextFixtures(user) {
       regionLabel: "河南省代理",
       scopeLabel: "省代",
       assignmentId: "demo-assignment-PROVINCE",
+      regionCode: "410000",
     },
     {
       type: "PROVINCE",
@@ -728,6 +730,7 @@ function agencyContextFixtures(user) {
       regionLabel: "安徽省代理",
       scopeLabel: "省代",
       assignmentId: "demo-assignment-PROVINCE-anhui",
+      regionCode: "340000",
     },
     {
       type: "CITY",
@@ -735,6 +738,7 @@ function agencyContextFixtures(user) {
       regionLabel: "河南省郑州市代理",
       scopeLabel: "市代",
       assignmentId: "demo-assignment-CITY",
+      regionCode: "410100",
     },
     {
       type: "COUNTY",
@@ -742,6 +746,7 @@ function agencyContextFixtures(user) {
       regionLabel: "郑州市二七区代理",
       scopeLabel: "区县代理",
       assignmentId: "demo-assignment-COUNTY-erqi",
+      regionCode: "410103",
     },
     {
       type: "COUNTY",
@@ -749,6 +754,7 @@ function agencyContextFixtures(user) {
       regionLabel: "郑州市中原区代理",
       scopeLabel: "区县代理",
       assignmentId: "demo-assignment-COUNTY-zhongyuan",
+      regionCode: "410102",
     },
     {
       type: "STORE",
@@ -777,19 +783,24 @@ function agencyContextFixtures(user) {
       },
     },
   ];
-  return rows.map((item) => ({
-    id: `agency:${user.id}:${item.type}${item.suffix}`,
+  return rows.map((item) => {
+    const scope = `agency:${user.id}:${item.assignmentId}`;
+    return {
+    id: scope,
+    scope,
     module: "agency",
     accountId: user.id,
     label: item.regionLabel,
     regionLabel: item.regionLabel,
     agencyType: item.type,
     assignmentId: item.assignmentId,
+    regionCode: item.regionCode || "",
     storeId: item.storeId || null,
     store: item.store || null,
     scopeLabel: item.scopeLabel,
     capabilities: [],
-  }));
+  };
+  });
 }
 function incomeEntry(context, category, n) {
   const agency = context.module === "agency";

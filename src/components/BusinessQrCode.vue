@@ -2,14 +2,14 @@
 <script setup>
 import {ref,watch,getCurrentInstance} from 'vue'
 import QRCode from 'qrcode/lib/core/qrcode'
-const props=defineProps({value:String,showSave:{type:Boolean,default:true},posterTitle:String}),rows=ref([]),instance=getCurrentInstance(),canvasId=`qr${Date.now()}${Math.random().toString(36).slice(2)}`
+const props=defineProps({value:String,showSave:{type:Boolean,default:true},posterTitle:String,posterHeading:{type:String,default:'分享码'},posterHint:{type:String,default:'扫码或注册填写分享码即可成功绑定'}}),rows=ref([]),instance=getCurrentInstance(),canvasId=`qr${Date.now()}${Math.random().toString(36).slice(2)}`
 watch(()=>props.value,value=>{try{if(!value){rows.value=[];return}const encoded=encodeURIComponent(value),bytes=[];for(let i=0;i<encoded.length;i++){if(encoded[i]==='%'){bytes.push(parseInt(encoded.slice(i+1,i+3),16));i+=2}else bytes.push(encoded.charCodeAt(i))}const matrix=QRCode.create([{data:new Uint8Array(bytes),mode:'byte'}],{errorCorrectionLevel:'M'}).modules,n=matrix.size;rows.value=Array.from({length:n},(_,r)=>Array.from({length:n},(_,c)=>!!matrix.get(r,c)))}catch{rows.value=[]}},{immediate:true})
 function save(){
  if(!rows.value.length)return
  const poster=Boolean(props.posterTitle),width=400,height=poster?520:400,n=rows.value.length,unit=Math.max(1,Math.floor((poster?300:400)/(n+8))),size=(n+8)*unit,ctx=uni.createCanvasContext(canvasId,instance.proxy)
  ctx.setFillStyle('#fff');ctx.fillRect(0,0,width,height)
  let left=0,top=0
- if(poster){ctx.setFillStyle('#4d89f7');ctx.fillRect(0,0,width,100);ctx.setFillStyle('#fff');ctx.setFontSize(26);ctx.fillText('分享码',24,42);ctx.setFontSize(20);ctx.fillText(props.posterTitle,24,77);left=(width-size)/2;top=120;ctx.setFillStyle('#888');ctx.setFontSize(15);ctx.fillText('扫码或注册填写分享码即可成功绑定',50,480)}
+ if(poster){ctx.setFillStyle('#4d89f7');ctx.fillRect(0,0,width,100);ctx.setFillStyle('#fff');ctx.setFontSize(26);ctx.fillText(props.posterHeading,24,42);ctx.setFontSize(20);ctx.fillText(props.posterTitle,24,77);left=(width-size)/2;top=120;ctx.setFillStyle('#888');ctx.setFontSize(15);ctx.fillText(props.posterHint,50,480)}
  ctx.setFillStyle('#000');rows.value.forEach((row,r)=>row.forEach((cell,c)=>{if(cell)ctx.fillRect(left+(c+4)*unit,top+(r+4)*unit,unit,unit)}))
  ctx.draw(false,()=>uni.canvasToTempFilePath({canvasId,width:poster?width:size,height:poster?height:size,destWidth:poster?width:size,destHeight:poster?height:size,success:result=>{
  // #ifdef H5

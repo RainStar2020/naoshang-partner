@@ -3,7 +3,7 @@
 </style>
 <template>
  <view class="agency-report feature-page">
-  <FeaturePageState :status="status" :error="error" @retry="load"/>
+  <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="metrics" @retry="load"/>
   <template v-if="status==='ready' && report">
    <template v-if="toolId==='team'">
     <view v-for="item in items" :key="item.id" class="agency-team-card">
@@ -24,7 +24,7 @@
        <view v-else class="agency-store-summary">代理 <em>{{scopeSummary(item).storeCount}}</em> 个门店，<em>{{scopeSummary(item).ownerCount}}</em> 个合店老板</view>
       </view>
       <view class="agency-metric-row">
-       <view v-for="metric in teamMetrics(item)" :key="metric.label"><text>{{metric.label}}</text><view>{{teamMetric(metric)}}</view></view>
+       <view v-for="metric in teamMetrics(item)" :key="metric.label"><text>{{metric.label}}</text><view v-if="!metricPending(metric)">{{teamMetric(metric)}}</view><MetricSkeleton v-else size="compact" :inline="false"/></view>
       </view>
      </view>
      <button class="agency-primary" @click="teamDetail(item.id)">查看详情</button>
@@ -33,14 +33,14 @@
    </template>
    <template v-else>
     <view class="income-hero">
-     <view><text>代理积分</text><view>{{money(totalAmount)}}</view></view>
+     <view><text>代理积分</text><view v-if="!totalAmountPending">{{money(totalAmount)}}</view><MetricSkeleton v-else size="block" :inline="false"/></view>
      <view class="income-actions"><button @click="withdrawRecords">兑换记录</button><button class="solid" @click="withdrawApply">积分兑换</button></view>
     </view>
-    <view class="income-channels"><view v-for="item in channelMetrics" :key="item.label"><text>{{item.label}}</text><view>{{money(item.value)}}</view></view></view>
+    <view class="income-channels"><view v-for="item in channelMetrics" :key="item.label"><text>{{item.label}}</text><view v-if="!channelPending(item)">{{money(item.value)}}</view><MetricSkeleton v-else size="compact" :inline="false"/></view></view>
     <view class="income-heading"><text>代理积分明细</text><button :class="{selected:filter==='pending'}" @click="setFilter(filter==='pending'?'':'pending')"><view class="income-radio"/>筛选待处理记录</button></view>
     <button v-for="item in items" :key="item.id" class="income-card" @click="incomeDetail(item.id)">
      <view class="income-card-copy"><text>{{memberLabel(item)}}</text><view>{{item.title || item.bizTypeLabel || '积分记录'}}</view><text>{{timeLabel(item)}}</text><text v-if="item.pendingNote" class="income-note">{{item.pendingNote}}</text></view>
-     <view class="income-card-side"><text class="income-channel">{{channelLabel(item)}}</text><view>{{signedAmount(item.amount)}}</view><text>查看详情</text></view>
+     <view class="income-card-side"><text class="income-channel">{{channelLabel(item)}}</text><view v-if="signedAmount(item.amount)!=null">{{signedAmount(item.amount)}}</view><MetricSkeleton v-else size="compact" :inline="false"/><text>查看详情</text></view>
     </button>
     <EmptyState v-if="!items.length" text="暂无代理积分记录"/>
    </template>
@@ -55,9 +55,11 @@ import {computed, onUnmounted, ref, watch} from 'vue'
 import {money, percent} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
 import {agencyTeamLevelLabel, agencyTeamScopeSummary, fillAgencyTeamMetrics} from '../features/agency/team-display'
+import {formatSignedMetricMoney, pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext, getBusinessContexts, getBusinessReport, selectBusinessContext} from '../services/business'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
+import MetricSkeleton from './MetricSkeleton.vue'
 import EmptyState from './EmptyState.vue'
 const props=defineProps({toolId:String,pageQuery:Object})
 const context=ref(null),contexts=ref([]),items=ref([]),filter=ref(''),keyword=ref(''),hasMore=ref(false),loadingMore=ref(false),moreError=ref(''),contextOpen=ref(false)
@@ -69,14 +71,18 @@ watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreE
 watch(report,value=>{if(value){items.value=value.items;hasMore.value=value.hasMore;cursor=value.nextCursor}})
 watch(contextOpen,async open=>{if(open&&!contexts.value.length){try{contexts.value=await getBusinessContexts()}catch(reason){moreError.value=reason.message}}})
 const format=(value,kind)=>kind==='money'?`${money(value)}积分`:kind==='percent'?percent(value):value??0
+const metricPending=metric=>metric?.pending===true||pickMetricNumber(metric?.value)==null
 const teamMetric=metric=>metric?.kind==='money'?money(metric.value??0):format(metric?.value,metric?.kind)
 const teamMetrics=item=>fillAgencyTeamMetrics(item?.performance)
 const agencyLevel=item=>agencyTeamLevelLabel(item)
 const scopeSummary=item=>agencyTeamScopeSummary(item)
 const metric=label=>report.value?.metrics?.find(item=>item.label===label)?.value
-const channelMetrics=computed(()=>['B端','C端','供应链'].map(label=>{const apiValue=metric(label);const itemValue=(items.value||[]).filter(item=>channelLabel(item)===label).reduce((sum,item)=>sum+(Number(item.amount)||0),0);return {label,value:apiValue ?? itemValue}}))
-const totalAmount=computed(()=>metric('收益合计') ?? metric('积分合计') ?? metric('可提现金额') ?? (items.value||[]).reduce((sum,item)=>sum+(Number(item.amount)||0),0))
-const signedAmount=value=>value==null?'+0':`${value>0?'+':''}${money(value)}`
+const channelMetrics=computed(()=>['B端','C端','供应链'].map(label=>{const apiValue=metric(label);if(apiValue!=null)return {label,value:apiValue,fromApi:true};const rows=(items.value||[]).filter(item=>channelLabel(item)===label);const itemValue=rows.reduce((sum,item)=>sum+(Number(item.amount)||0),0);return {label,value:itemValue,fromApi:false,pending:report.value?.metrics==null&&!rows.length}}))
+const channelPending=item=>item?.pending===true||pickMetricNumber(item?.value)==null&&item?.fromApi!==true&&!(items.value||[]).length
+const totalAmountRaw=computed(()=>pickMetricNumber(metric('收益合计'),metric('积分合计'),metric('可提现金额')))
+const totalAmountPending=computed(()=>totalAmountRaw.value==null&&!(items.value||[]).length&&!report.value?.metrics)
+const totalAmount=computed(()=>totalAmountRaw.value??(items.value||[]).reduce((sum,item)=>sum+(Number(item.amount)||0),0))
+const signedAmount=value=>formatSignedMetricMoney(value,money)
 const channelLabel=item=>item.incomeChannelLabel||item.incomeChannel||item.channel||({supply:'供应链',b:'B端',c:'C端'}[String(item.category||'').toLowerCase()]||'C端')
 const memberLabel=item=>{const member=item.recommendedBy||item.party||item.beneficiary;return member?(member.phone?`${member.name||''}/${member.phone}`:member.name||''):(item.partyLabel||item.beneficiaryName||'')}
 const timeLabel=item=>item.createdAt?date(item.createdAt):(item.occurredAt?date(item.occurredAt):(item.updatedAt?date(item.updatedAt):''))

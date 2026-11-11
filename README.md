@@ -12,7 +12,7 @@ Vue 3 + Vite + uni-app，面向 H5 与微信小程序。基于 DCloud 官方 vit
 
 ## 局域网 API 联调（2026-10-28）
 
-- 已在 `src/config/index.js` 关闭 Mock 和功能预览，真实后端为 `http://192.168.0.44:3001`，接口路径不加 `/api` 前缀。
+- 已在 `src/config/index.js` 关闭 Mock 和功能预览，真实后端为 `http://47.96.134.119:3000`，接口路径不加 `/api` 前缀。
 - H5 开发请求 `/backend-api`，由 `vite.config.js` 代理到后端，覆盖 GET/POST/PUT/PATCH/DELETE，避免后端当前只允许 GET/POST/OPTIONS 的跨域配置限制。H5 正式构建直接访问后端，部署前需在后端补齐跨域允许方法。
 - `npm run dev:h5 -- --port 5173` 启动后，可通过本机局域网地址访问；当前为 `http://192.168.0.43:5173/`。如 localhost 打开其他项目，请使用该局域网地址或 `127.0.0.1`。
 - 微信开发者工具本地联调 HTTP/IP 时需在本地设置中关闭合法域名校验；真机需与后端处于可互通网络。正式小程序需 HTTPS 合法域名。

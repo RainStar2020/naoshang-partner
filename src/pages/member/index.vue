@@ -2,31 +2,52 @@
     <view class="member-page" :class="{ 'member-module-limited': courseLocked }">
     <image class="member-background" src="/static/member/bg-learning-journey.png" mode="scaleToFill" aria-hidden="true" />
     <view class="member-brand"><image src="/static/logo.png" mode="aspectFit" /><text>脑商AI</text></view>
-    <view v-if="status === 'loading'" class="page-state">正在加载会员信息…</view>
-    <view v-else-if="status === 'error'" class="page-state"><text>{{ error }}</text><button class="retry-button" @click="load">重新加载</button></view>
-    <template v-else>
-      <view v-if="selected" class="identity-card">
-        <image class="identity-frame" src="/static/member/bg-identity-frame.png" mode="scaleToFill" aria-hidden="true" />
-        <text class="current-label">当前身份</text>
-        <view class="identity-row">
-          <view class="identity-person">
-            <view class="member-avatar">{{ selected.name?.slice(0, 1) || '会' }}</view>
-            <view class="identity-main">
-              <view class="identity-name-line"><text class="identity-name">{{ selected.name }}</text><text class="identity-badge">{{ selected.badge }}</text></view>
-              <view class="identity-meta-line">
-                <text class="identity-meta">ID：{{ selected.displayId }}</text>
-                <text v-if="selected.grade" class="identity-meta">年级：{{ homeGrade(selected.grade) }}</text>
-              </view>
-            </view>
+    <view v-if="status === 'loading'" class="identity-card" aria-hidden="true">
+      <image class="identity-frame" src="/static/member/bg-identity-frame.png" mode="scaleToFill" />
+      <text class="current-label">当前身份</text>
+      <view class="identity-row">
+        <view class="identity-person">
+          <view class="sk-avatar" />
+          <view class="identity-main">
+            <view class="sk-line sk-line-name" />
+            <view class="sk-line sk-line-meta" />
           </view>
-          <view class="identity-actions">
-            <button class="switch-button" @click="openMembership"><image class="switch-image" :src="membershipActive ? '/static/partner/icon-superior.png' : '/static/common/icon-superior-muted.png'" mode="aspectFit" /><text>粉丝会员</text></button>
-            <button class="switch-button" @click="pickerOpen = true"><image class="switch-image" src="/static/common/icon-switch.png" mode="aspectFit" /><text>切换身份</text></button>
+        </view>
+        <view class="identity-actions">
+          <view class="sk-action">
+            <view class="sk-action-icon" />
+            <view class="sk-action-label" />
+          </view>
+          <view class="sk-action">
+            <view class="sk-action-icon" />
+            <view class="sk-action-label" />
           </view>
         </view>
       </view>
-      <view v-else class="page-state">暂无可用身份，请联系服务人员</view>
-      <view class="journey" aria-label="会员成长等级">
+    </view>
+    <view v-else-if="status === 'error'" class="page-state page-state-banner"><text>{{ error }}</text><button class="retry-button" @click="load">重新加载</button></view>
+    <view v-else-if="selected" class="identity-card">
+      <image class="identity-frame" src="/static/member/bg-identity-frame.png" mode="scaleToFill" aria-hidden="true" />
+      <text class="current-label">当前身份</text>
+      <view class="identity-row">
+        <view class="identity-person">
+          <view class="member-avatar">{{ selected.name?.slice(0, 1) || '会' }}</view>
+          <view class="identity-main">
+            <view class="identity-name-line"><text class="identity-name">{{ selected.name }}</text><text class="identity-badge">{{ selected.badge }}</text></view>
+            <view class="identity-meta-line">
+              <text class="identity-meta">ID：{{ selected.displayId }}</text>
+              <text v-if="selected.grade" class="identity-meta">年级：{{ homeGrade(selected.grade) }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="identity-actions">
+          <button class="switch-button" @click="openMembership"><image class="switch-image" :src="membershipActive ? '/static/partner/icon-superior.png' : '/static/common/icon-superior-muted.png'" mode="aspectFit" /><text>粉丝会员</text></button>
+          <button class="switch-button" @click="pickerOpen = true"><image class="switch-image" src="/static/common/icon-switch.png" mode="aspectFit" /><text>切换身份</text></button>
+        </view>
+      </view>
+    </view>
+    <view v-else class="page-state page-state-banner">暂无可用身份，请联系服务人员</view>
+    <view class="journey" aria-label="会员成长等级">
         <button class="announcement-link" aria-label="公告榜" @click="openAnnouncements"><image src="/static/member/icon-announcement.png" mode="aspectFit"/><text>公告榜</text></button>
         <view v-for="tier in [3, 2, 1]" :key="tier" class="tier-band" :class="`tier-${tier}`">
           <button class="tier-marker" :aria-label="`查看${['一阶','二阶','三阶'][tier - 1]}会员课程`" @click="openMembership"><image :src="`/static/member/bg-tier-${tier}.png`" mode="scaleToFill"/><text>{{ ['一阶','二阶','三阶'][tier - 1] }}</text><text>{{ ['菁英会员','行能会员','羿烁会员'][tier - 1] }}</text></button>
@@ -41,8 +62,7 @@
             </view>
           </view>
         </view>
-      </view>
-    </template>
+    </view>
     <IdentityPicker :open="pickerOpen" :identities="identities" :selected-id="selected?.id" @close="pickerOpen = false" @select="switchIdentity" />
     <AppTabBar active="member" />
   </view>
@@ -84,7 +104,9 @@ let loadEpoch = 0, levelEpoch = 0
 async function load() {
   if (!getSession()) return
   const epoch = ++loadEpoch
-  ++levelEpoch; pickerOpen.value = false; status.value = 'loading'; error.value = ''; levelEntitlements.value = []; selected.value = null
+  const refreshing = status.value === 'ready' && !!selected.value
+  ++levelEpoch; pickerOpen.value = false
+  if (!refreshing) { status.value = 'loading'; error.value = '' }
   try {
     const rows = await getLearningIdentities()
     if (epoch !== loadEpoch) return
@@ -93,19 +115,31 @@ async function load() {
     childAccess.value = normalizeChildModuleAccess(me.identity?.childModuleAccess)
     identities.value = rows; selected.value = getSelectedIdentity(rows); status.value = 'ready'
     if (selected.value) await loadLevels()
-  } catch (reason) { if (epoch === loadEpoch) { status.value = 'error'; error.value = reason.message || '会员信息加载失败' } }
+  } catch (reason) {
+    if (epoch === loadEpoch) {
+      const message = reason.message || '会员信息加载失败'
+      if (refreshing) { uni.showToast({ title: message, icon: 'none' }) }
+      else { status.value = 'error'; error.value = message }
+    }
+  }
 }
 async function loadLevels() {
   if (!selected.value) return
   const epoch = ++levelEpoch, contextId = selected.value.id
-  levelEntitlements.value = []
   try {
     const result = await getLearningLevels(selected.value)
     if (epoch === levelEpoch && contextId === selected.value?.id) { levelEntitlements.value = result }
   } catch { /* 权益读取失败时保留完整成长路径，详情页继续校验访问权限。 */ }
 }
 function switchIdentity(id) {
-  try { selected.value = selectLearningIdentity(id, identities.value); pickerOpen.value = false; loadLevels() }
+  try {
+    const next = selectLearningIdentity(id, identities.value)
+    const changed = next?.id !== selected.value?.id
+    selected.value = next
+    pickerOpen.value = false
+    if (changed) levelEntitlements.value = []
+    loadLevels()
+  }
   catch (reason) { uni.showToast({ title: reason.message, icon: 'none' }) }
 }
 function openLevel(level) {
@@ -131,7 +165,16 @@ onUnload(() => { ++loadEpoch; ++levelEpoch })
 .member-background{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
 .member-brand{display:flex;align-items:center;gap:.5em;flex-shrink:0;padding:calc(.55em + var(--status-bar-height,0px)) 7em .55em 1em;background:#1b3563;font-size:1.05em;font-weight:600}.member-brand image{width:2em;height:2em}
 .identity-card{position:relative;flex-shrink:0;margin:1.25em .8em .6em;border:0;padding:0;background:transparent;aspect-ratio:702 / 216;min-height:0;overflow:hidden;box-sizing:border-box}.identity-frame{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}.current-label{position:absolute;z-index:2;left:2.2%;top:3.2%;width:24%;height:24%;display:flex;flex-direction:row;align-items:center;justify-content:center;color:#fff;font-size:.95em;font-weight:600;line-height:1;letter-spacing:.02em;background:transparent}.identity-row{position:relative;z-index:1;display:flex;flex-direction:row;align-items:center;height:100%;box-sizing:border-box;gap:.4em;padding:8.6% 3% 1.4% 3.2%}.identity-person{display:flex;flex-direction:row;align-items:center;gap:.42em;flex:1;min-width:0}.member-avatar{width:3.5em;height:3.5em;flex-shrink:0;border-radius:50%;background:#263d6b;border:1rpx solid #e1eeff;display:flex;align-items:center;justify-content:center;font-size:1.2em}.identity-main{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.16em}.identity-name-line{display:flex;flex-direction:row;align-items:center;gap:.32em;min-width:0}.identity-name{min-width:0;font-size:1.34em;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.identity-badge{flex-shrink:0;font-size:.8em;line-height:1.3;border-radius:2em;padding:.08em .5em;background:linear-gradient(90deg,#00b8e8,#3155ff)}.identity-meta-line{display:flex;flex-direction:row;align-items:center;gap:.45em;min-width:0}.identity-meta{flex-shrink:0;font-size:.9em;color:#9ca8c9;line-height:1.25;white-space:nowrap}.identity-actions{display:flex;flex-direction:row;align-items:flex-end;gap:.7em;margin-left:auto;flex-shrink:0;transform:translateY(-.28em)}.switch-button{display:flex;flex-direction:column;align-items:center;gap:.1em;padding:0;background:none;color:#9ca8c9;font-size:.9em;line-height:1.25;flex-shrink:0;margin:0}.switch-image{width:2.5em;height:2.5em;display:block;flex-shrink:0}
-.page-state{flex:1;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:1em;color:#b5c2dd;padding:2em 1em;font-size:.95em;line-height:1.7}.retry-button{background:#185491;color:#fff;font-size:1em;padding:0 1.2em;border-radius:2em;margin:0 auto}
+.page-state{flex:1;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:1em;color:#b5c2dd;padding:2em 1em;font-size:.95em;line-height:1.7}.page-state-banner{flex:none;min-height:0;padding:1em}.retry-button{background:#185491;color:#fff;font-size:1em;padding:0 1.2em;border-radius:2em;margin:0 auto}
+.identity-card .sk-avatar{width:3.5em;height:3.5em;flex-shrink:0;border-radius:50%;background-color:rgba(225,238,255,.22)}
+.identity-card .sk-line{border-radius:999px;background-color:rgba(225,238,255,.22)}
+.identity-card .sk-line-name{width:52%;height:1em}
+.identity-card .sk-line-meta{width:68%;height:.7em;margin-top:.2em}
+.identity-card .sk-action{display:flex;flex-direction:column;align-items:center;gap:.12em;flex-shrink:0}
+.identity-card .sk-action-icon{width:2.5em;height:2.5em;border-radius:.45em;background-color:rgba(225,238,255,.22)}
+.identity-card .sk-action-label{width:3.2em;height:.65em;border-radius:999px;background-color:rgba(225,238,255,.22)}
+@media(max-height:650px){.identity-card .sk-avatar{width:2.3em;height:2.3em}}
+@media(orientation:landscape) and (max-height:500px){.identity-card .sk-avatar{width:2em;height:2em}}
 .journey{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}.tier-band{position:relative;display:flex;flex-direction:column;min-height:0;box-sizing:border-box}.tier-band.tier-3{flex:5;background:linear-gradient(120deg,#622e6c44,#4a245c44)}.tier-band.tier-2{flex:4;border-top:1rpx solid #2caff488;background:linear-gradient(120deg,#10469b88,#124f9255)}.tier-band.tier-1{flex:1.25;border-top:1rpx solid #18d6e488;background:linear-gradient(100deg,#007e9c77,#02678466)}
 .level-row{flex:1;min-height:0;display:flex;align-items:center;position:relative}.level-node{position:relative;width:34%;height:84%;max-height:2.8em;margin:0;padding:0;flex-shrink:0;background:none;color:#fff;font-size:clamp(11px,3.5vw,17px);line-height:1}.level-node::after{border:0}.level-node image{position:absolute;inset:0;width:100%;height:100%}.level-number{position:absolute;left:0;top:50%;transform:translateY(-50%);width:28%;text-align:center;font-size:1.25em;font-weight:700}.level-name{position:absolute;left:29%;right:5%;top:50%;transform:translateY(-50%);white-space:nowrap;text-align:center;font-size:1em;font-weight:600}
 .position-10,.position-6{padding-left:56%}.position-9,.position-7{padding-left:39%}.position-8{padding-left:22%}.position-5{padding-left:64%}.position-4{padding-left:47%}.position-3{padding-left:30%}.position-2{padding-left:13%}.position-1{padding-left:2%}.position-1 .level-node{width:27vw}.level-row{box-sizing:content-box}.level-node{width:34vw;max-width:255px}.journey-extra{display:flex;align-items:center;gap:.35em;margin-left:.35em;min-width:0}.tier-chip{position:relative;display:flex;align-items:center;justify-content:center;height:1.4em;margin:0;padding:0 .7em;flex-shrink:0;background:transparent;color:#fff;font-weight:600;line-height:1;white-space:nowrap}.tier-chip image{position:absolute;inset:0;width:100%;height:100%}.tier-chip text{position:relative;font-size:clamp(11px,3.5vw,17px);font-weight:600}.tier-marker{position:absolute;z-index:1;right:0;top:44%;width:15%;height:18%;max-height:3.6em;min-height:2.5em;font-size:.8em;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;line-height:1.3}.tier-marker image{position:absolute;inset:0;width:100%;height:100%;z-index:-1}.tier-2 .tier-marker{left:0;right:auto;top:12%}.tier-1 .tier-marker{top:20%;height:65%;min-height:0}

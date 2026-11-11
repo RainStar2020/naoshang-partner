@@ -40,7 +40,12 @@ function dateLabel(value) { const date = new Date(value); return Number.isNaN(da
 async function submit() {
   if (busy.value || !selectedStoreId.value || !data.value?.canBind) return
   busy.value = true
-  try { await bindDownlineStore({ targetAccountId: targetAccountId.value, storeId: selectedStoreId.value, reason: reason.value }); uni.showToast({ title: '门店绑定成功', icon: 'success' }); await load() }
+  try {
+    await bindDownlineStore({ targetAccountId: targetAccountId.value, storeId: selectedStoreId.value, reason: reason.value })
+    uni.showToast({ title: '门店绑定成功', icon: 'success' })
+    if (getCurrentPages().length > 1) uni.navigateBack()
+    else uni.redirectTo({ url: '/pages/partner/team' })
+  }
   catch (cause) { uni.showToast({ title: storeBindingErrorMessage(cause), icon: 'none' }) }
   finally { busy.value = false }
 }

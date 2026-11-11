@@ -1,7 +1,8 @@
 import { ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad } from '@dcloudio/uni-app'
 import { useAuth } from './useAuth'
 import { useBusinessReturn } from './useBusinessReturn'
+import { useFreshOnShow } from './useFreshOnShow'
 
 // Page lifecycle hooks must run from the page setup, not a child component.
 export function usePartnerToolPage() {
@@ -10,6 +11,9 @@ export function usePartnerToolPage() {
   const page = ref(null)
   const query = ref(null)
   onLoad(options => { query.value = options })
-  onShow(() => { if (query.value) page.value?.refresh() })
-  return { page, query }
+  const fresh = useFreshOnShow(() => {
+    if (!query.value) return null
+    return opts => page.value?.refresh?.(opts)
+  })
+  return { page, query, markStale: fresh.markStale }
 }

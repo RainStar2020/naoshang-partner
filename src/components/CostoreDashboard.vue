@@ -1,9 +1,10 @@
 <template>
  <view class="costore-page feature-page">
   <image class="costore-background" src="/static/partner/bg-overview.png" mode="scaleToFill"/>
+  <SilentRefreshBar :active="refreshing"/>
   <view class="costore-heading">{{moduleTitle}}</view>
-  <FeaturePageState :status="status" :error="error" @retry="load"/>
-  <template v-if="status==='ready' && overview">
+  <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="dashboard" @retry="load"/>
+  <template v-if="(status==='shell'||status==='ready') && overview">
    <view class="costore-identity">
     <view>
      <view class="costore-title">{{roleTitle}}</view>
@@ -19,10 +20,11 @@
      <view class="costore-store-foot"><text>{{daysText}}</text><button @click="storesOpen=true">切换门店 <text>›</text></button></view>
     </view>
    </view>
-   <view class="costore-shortcuts">
+   <FeaturePageSkeleton v-if="status==='shell'" variant="dashboard-body"/>
+   <view v-if="status==='ready'" class="costore-shortcuts">
     <button v-for="item in shortcuts" :key="item.id" @click="open(item)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button>
    </view>
-   <view class="costore-benefits">
+   <view v-if="status==='ready'" class="costore-benefits">
     <view class="costore-benefit-title"><text>✦</text> 等级权益 <text>✦</text></view>
     <ManagedRichContent v-if="benefit" :content="benefit.content"/>
     <EmptyState v-if="!benefit?.content?.nodes?.length" text="这里还没有内容～"/>
@@ -57,13 +59,16 @@ import {useAuth} from '../composables/useAuth'
 import {useAppTabBar} from '../composables/useAppTabBar'
 import {businessModules} from '../features/business/catalog'
 import {getBusinessContext, getBusinessContexts, getBusinessOverview, selectBusinessContext} from '../services/business'
+import {prefetchPartnerWorkspace, scheduleIdle} from '../services/prefetch'
 import FeaturePageState from './FeaturePageState.vue'
+import FeaturePageSkeleton from './FeaturePageSkeleton.vue'
+import SilentRefreshBar from './SilentRefreshBar.vue'
 import ManagedRichContent from './ManagedRichContent.vue'
 import EmptyState from './EmptyState.vue'
 import AppTabBar from './AppTabBar.vue'
 useAuth();useAppTabBar()
 const emit=defineEmits(['left'])
-const status=ref('loading'),error=ref(''),overview=ref(null),contexts=ref([]),allContexts=ref([]),storesOpen=ref(false),moduleOpen=ref(false)
+const status=ref('loading'),error=ref(''),refreshing=ref(false),overview=ref(null),contexts=ref([]),allContexts=ref([]),storesOpen=ref(false),moduleOpen=ref(false)
 let active=true,epoch=0,selectedId=''
 const context=computed(()=>overview.value?.context)
 const store=computed(()=>context.value?.store)
@@ -75,7 +80,52 @@ const roleTitle=moduleMeta?.label?`${moduleMeta.label}身份`:'合店身份'
 const daysText=computed(()=>store.value?.daysRemaining==null?'有效期以后台为准':`${store.value.daysRemaining}天后到期`)
 const modules=computed(()=>businessModules.filter(item=>allContexts.value.some(row=>row.module===item.id)))
 const shortcuts=computed(()=>['income','card-dividends','promotion-dividends'].map(id=>overview.value?.tools?.find(tool=>tool.id===id)).filter(Boolean))
-async function load(){const current=++epoch;status.value=overview.value?'ready':'loading';error.value='';storesOpen.value=false;moduleOpen.value=false;try{const rows=await getBusinessContexts();const ctx=await getBusinessContext('costore',selectedId||undefined);const result=await getBusinessOverview('costore',ctx.id);if(!active||current!==epoch)return;allContexts.value=rows;contexts.value=rows.filter(item=>item.module==='costore');overview.value=result;selectedId=ctx.id;status.value='ready'}catch(reason){if(active&&current===epoch){error.value=reason.message||'合店工作台加载失败';status.value=reason.code==='FORBIDDEN'?'forbidden':'error'}}}
+function paintCostoreShell(ctx,rows){
+  allContexts.value=rows
+  contexts.value=rows.filter(item=>item.module==='costore')
+  selectedId=ctx.id
+  overview.value={context:ctx,benefits:[],tools:[]}
+  status.value='shell'
+}
+async function load(options={}){
+  const force=options.force===true
+  const current=++epoch
+  const silent=!force&&status.value==='ready'&&!!overview.value
+  error.value=''
+  if(silent)refreshing.value=true
+  else{
+    refreshing.value=false
+    storesOpen.value=false
+    moduleOpen.value=false
+    if(!(status.value==='shell'&&overview.value?.context))status.value='loading'
+  }
+  try{
+    const rows=await getBusinessContexts()
+    const ctx=await getBusinessContext('costore',selectedId||undefined)
+    if(!active||current!==epoch)return
+    if(!silent)paintCostoreShell(ctx,rows)
+    else{
+      allContexts.value=rows
+      contexts.value=rows.filter(item=>item.module==='costore')
+      selectedId=ctx.id
+    }
+    const result=await getBusinessOverview('costore',ctx.id)
+    if(!active||current!==epoch)return
+    allContexts.value=rows
+    contexts.value=rows.filter(item=>item.module==='costore')
+    overview.value=result
+    selectedId=ctx.id
+    status.value='ready'
+    scheduleIdle(()=>prefetchPartnerWorkspace(result))
+  }catch(reason){
+    if(active&&current===epoch){
+      error.value=reason.message||'合店工作台加载失败'
+      if(!silent||!overview.value?.accountId)status.value=reason.code==='FORBIDDEN'?'forbidden':'error'
+    }
+  }finally{
+    if(current===epoch)refreshing.value=false
+  }
+}
 async function chooseContext(id){try{const selected=await selectBusinessContext(id);selectedId=selected.id;await load()}catch(reason){uni.showToast({title:reason.message||'身份切换未完成，请稍后重试',icon:'none'})}}
 async function switchModule(moduleId){if(moduleId===context.value?.module){moduleOpen.value=false;return}const selected=allContexts.value.find(item=>item.module===moduleId);if(!selected)return;try{const next=await selectBusinessContext(selected.id);moduleOpen.value=false;if(next.module!=='costore'){emit('left',next.id);const route=getCurrentPages().slice(-1)[0]?.route;if(route!=='pages/partners/index')uni.switchTab({url:'/pages/partners/index'});return}selectedId=next.id;await load()}catch(reason){uni.showToast({title:reason.message||'身份切换未完成，请稍后重试',icon:'none'})}}
 function open(item){const allowed=overview.value?.tools?.some(tool=>tool.id===item.id);if(!allowed){uni.showToast({title:'当前身份暂无此功能权限',icon:'none'});return}uni.navigateTo({url:`${item.path}?contextId=${context.value.id}`})}

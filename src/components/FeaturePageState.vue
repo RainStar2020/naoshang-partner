@@ -1,5 +1,13 @@
 <template>
-  <view v-if="status !== 'ready'" class="account-state" :class="{ 'forbidden-panel': status === 'forbidden' }">
+  <FeaturePageSkeleton
+    v-if="status === 'loading' && mode === 'skeleton'"
+    :variant="skeletonVariant"
+  />
+  <view
+    v-else-if="status !== 'ready' && status !== 'shell'"
+    class="account-state"
+    :class="{ 'forbidden-panel': status === 'forbidden' }"
+  >
     <template v-if="status === 'forbidden'">
       <image class="forbidden-icon" src="/static/common/empty-content.png" mode="aspectFit" />
       <text class="forbidden-title">{{ forbiddenTitle || '暂无访问权限' }}</text>
@@ -12,11 +20,23 @@
   </view>
 </template>
 <script setup>
+import FeaturePageSkeleton from './FeaturePageSkeleton.vue'
+
 defineProps({
   status: String,
   error: String,
   forbiddenTitle: { type: String, default: '' },
   forbiddenDetail: { type: String, default: '' },
+  mode: {
+    type: String,
+    default: 'text',
+    validator: value => ['text', 'skeleton'].includes(value),
+  },
+  skeletonVariant: {
+    type: String,
+    default: 'dashboard',
+    validator: value => ['dashboard', 'dashboard-body', 'dashboard-benefits', 'list', 'metrics', 'dialog', 'profile'].includes(value),
+  },
 })
 defineEmits(['retry'])
 </script>

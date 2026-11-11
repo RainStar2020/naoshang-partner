@@ -112,7 +112,7 @@ async function fixture(e, p, d, user, state) {
       if (!row) fail('公告不存在', 'NOT_FOUND', 404)
       return { ...row, content }
     }
-    case 'GET /me': return { profile: mockProfileState(user).profile, orderCounts: { pendingPayment: 0, waitingShipment: 0, waitingReceipt: 0, completed: 0 }, support: { phone: '', description: '本地演示' }, exclusiveAccess: { accountId: user.id, capabilities: [] } }
+    case 'GET /me': return { profile: mockProfileState(user).profile, orderCounts: { pendingPayment: 0, waitingShipment: 0, waitingReceipt: 0, completed: 0 }, support: { phone: '', description: '本地演示' }, agencyPromotionCode: null, identity: { agencyPromotionCode: null }, exclusiveAccess: { accountId: user.id, capabilities: [] } }
     case 'GET /addresses': return page(mockProfileState(user).addresses)
     case 'GET /addresses/{id}': {
       const address = mockProfileState(user).addresses.find(row => row.id === p.id)

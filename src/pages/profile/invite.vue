@@ -2,8 +2,8 @@
  <view class="invite-page">
   <BusinessPageHeader title="我的邀请" fallback="/pages/profile/index"/>
   <view class="invite-body">
-   <FeaturePageState :status="status" :error="error" @retry="load"/>
-   <view v-if="data" class="invite-card">
+   <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="dialog" @retry="load"/>
+   <view v-if="status==='ready' && data" class="invite-card">
     <text class="invite-label">我的邀请码</text>
     <view class="invite-code"><text>{{data.inviteCode}}</text><button @click="copy(data.inviteCode)">复制</button></view>
     <text class="invite-tip">邀请好友注册脑商 AI，填写邀请码即可建立推荐关系</text>

@@ -2,8 +2,8 @@
  <view class="quota-page">
   <BusinessPageHeader title="划转明细" fallback="/pages/partners/index"/>
   <view class="quota-body">
-   <FeaturePageState :status="status" :error="error" @retry="load"/>
-   <template v-if="report">
+   <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="list" @retry="load"/>
+   <template v-if="status==='ready' && report">
     <view v-for="item in items" :key="item.id" class="quota-card">
      <view class="quota-card-head">
       <text class="quota-title">{{titleOf(item)}}</text>

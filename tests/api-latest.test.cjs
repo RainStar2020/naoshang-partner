@@ -86,8 +86,10 @@ test('real training upload sends bytes before completions and accepts fileId-onl
 
 test('agency application uses local fee catalog and validates region depth by type', async () => {
   const storage = new Map()
+  const code = 'A7K3M9P2Q'
   const api = await loadService('agency-application', {
     overrides: {
+      '/config': { config: { useMock: true, baseURL: 'https://api.example.test', timeout: 1000 } },
       '/api': {
         getSession: () => ({ token: 't', user: { id: 'A' } }),
         request: async () => { throw new Error('Unexpected network') },
@@ -99,22 +101,34 @@ test('agency application uses local fee catalog and validates region depth by ty
       removeStorageSync: key => storage.delete(key),
     },
   })
-  const province = await api.getAgencyApplicationOptions('PROVINCE', 'invite')
+  const province = await api.getAgencyApplicationOptions('PROVINCE', code)
   assert.equal(province.payableWan, 260)
   assert.equal(province.payableAmount, 2600000)
   assert.equal(province.regionLevels, 1)
   assert.equal(province.requiresStorefront, false)
+  assert.equal(province.promotionId, code)
+  assert.equal(province.promotionCode, code)
   assert.match(province.feeNote, /200万技术费/)
-  const city = await api.getAgencyApplicationOptions('CITY', 'invite', 'POP_LT_5M')
+  const city = await api.getAgencyApplicationOptions('CITY', code, 'POP_LT_5M')
   assert.equal(city.payableWan, 35)
   assert.equal(city.regionLevels, 2)
-  const store = await api.getAgencyApplicationOptions('STORE', 'invite')
+  const store = await api.getAgencyApplicationOptions('STORE', code)
   assert.equal(store.payableWan, 8)
   assert.equal(store.requiresAddress, true)
   assert.equal(store.requiresStorefront, true)
   await assert.rejects(api.submitAgencyApplication(store, {}, 'key'), /协议/)
+  await assert.rejects(api.getAgencyApplicationOptions('PROVINCE', 'PC96FN'), /已失效/)
   await assert.rejects(api.submitAgencyApplication(province, {
     agreementAccepted: true,
+    promotionCode: 'promo-A',
+    name: '测试',
+    phone: '13800138000',
+    regionNames: ['河南省'],
+    regionCodes: ['410000'],
+  }, 'retired'), /已失效/)
+  await assert.rejects(api.submitAgencyApplication(province, {
+    agreementAccepted: true,
+    promotionCode: code,
     name: '测试',
     phone: '13800138000',
     regionNames: ['河南省', '郑州市', '中原区'],
@@ -124,6 +138,7 @@ test('agency application uses local fee catalog and validates region depth by ty
   }, 'prov-deep'), /省份/)
   const submitted = await api.submitAgencyApplication(province, {
     agreementAccepted: true,
+    promotionCode: code,
     name: '测试',
     phone: '13800138000',
     regionNames: ['河南省'],

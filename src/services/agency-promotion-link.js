@@ -1,4 +1,5 @@
 import { config } from '../config'
+import { normalizeAgencyPromotionCode } from './agency-promotion-code'
 
 export const agencyTypeIds = ['STORE', 'COUNTY', 'CITY', 'PROVINCE']
 
@@ -11,8 +12,9 @@ function publicH5Origin() {
 
 /** Deep link scanned users open: application page for the chosen agency type. */
 export function buildAgencyApplicationUrl(promotionId, agencyType) {
-  if (!promotionId || !agencyTypeIds.includes(agencyType)) return ''
-  const query = `promotionId=${encodeURIComponent(promotionId)}&agencyType=${encodeURIComponent(agencyType)}`
+  const code = normalizeAgencyPromotionCode(promotionId)
+  if (!code || !agencyTypeIds.includes(agencyType)) return ''
+  const query = `promotionId=${encodeURIComponent(code)}&agencyType=${encodeURIComponent(agencyType)}`
   const origin = publicH5Origin()
   return origin ? `${origin}/#/pages/application/agency?${query}` : `#/pages/application/agency?${query}`
 }

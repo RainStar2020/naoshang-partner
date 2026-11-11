@@ -6,20 +6,34 @@
         <picker mode="date" fields="month" :value="month" @change="changeMonth">
           <view class="award-month">{{ monthTitle }}<image src="/static/common/icon-chevron-right.png" mode="aspectFit" /></view>
         </picker>
-        <FeaturePageState :status="status" :error="error" @retry="load" />
+        <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="metrics" @retry="load" />
         <template v-if="status === 'ready'">
           <view class="award-summary">
             <text>本月总裁补贴</text>
-            <view class="award-total">{{ money(data.summary?.amount) }}积分</view>
+            <view v-if="!amountPending" class="award-total">{{ amountLabel }}积分</view>
+            <MetricSkeleton v-else size="block" :inline="false" class="award-total-skeleton" />
             <view class="award-metrics">
               <view><text>本人身份</text><text>{{ data.summary?.identityLabel || '' }}</text></view>
-              <view><text>本月VIP数量</text><text>{{ data.summary?.vipCount ?? 0 }}</text></view>
-              <view><text>分红比例</text><text>{{ percent(data.summary?.rateBps) }}</text></view>
+              <view>
+                <text>本月VIP数量</text>
+                <text v-if="!vipCountPending">{{ vipCountLabel }}</text>
+                <MetricSkeleton v-else size="compact" :inline="false" />
+              </view>
+              <view>
+                <text>分红比例</text>
+                <text v-if="!ratePending">{{ rateLabel }}</text>
+                <MetricSkeleton v-else size="compact" :inline="false" />
+              </view>
             </view>
           </view>
           <view class="report-table">
             <view class="table-row table-heading"><text>月份</text><text>VIP数量</text><text>分红比例</text><text>本月总裁补贴</text></view>
-            <view v-for="row in rows" :key="row.id" class="table-row"><text>{{ row.month }}</text><text>{{ row.vipCount ?? 0 }}</text><text>{{ percent(row.rateBps) }}</text><text>{{ money(row.amount) }}积分</text></view>
+            <view v-for="row in rows" :key="row.id" class="table-row">
+              <text>{{ row.month }}</text>
+              <text>{{ rowVipLabel(row) }}</text>
+              <text>{{ percent(row.rateBps) }}</text>
+              <text>{{ rowAmountLabel(row) }}积分</text>
+            </view>
           </view>
           <EmptyState v-if="!rows.length" text="暂无总裁补贴记录" />
           <button v-if="hasMore" class="secondary" :disabled="loadingMore" @click="more">{{ loadingMore ? '加载中…' : '加载更多' }}</button>
@@ -36,8 +50,10 @@ import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
 import { getFounderAwards } from '../../services/exclusive'
 import { money, percent } from '../../features/exclusive/format'
+import { pickMetricNumber } from '../../features/business/metric-display'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
+import MetricSkeleton from '../../components/MetricSkeleton.vue'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const now = new Date(), month = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`), rows = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref('')
@@ -46,6 +62,21 @@ let cursor = null, epoch = 0
 const { data, status, error, load } = useAsyncPage(() => getFounderAwards(month.value))
 watch(data, result => { if (result) { rows.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
+const summaryReady = computed(() => data.value?.summary != null)
+const amountValue = computed(() => pickMetricNumber(data.value?.summary?.amount))
+const amountPending = computed(() => !summaryReady.value)
+const amountLabel = computed(() => money(amountValue.value ?? 0))
+const vipCountValue = computed(() => pickMetricNumber(data.value?.summary?.vipCount))
+const vipCountPending = computed(() => !summaryReady.value)
+const vipCountLabel = computed(() => String(vipCountValue.value ?? 0))
+const ratePending = computed(() => !summaryReady.value)
+const rateLabel = computed(() => percent(data.value?.summary?.rateBps))
+function rowVipLabel(row) {
+  return String(pickMetricNumber(row?.vipCount) ?? 0)
+}
+function rowAmountLabel(row) {
+  return money(pickMetricNumber(row?.amount) ?? 0)
+}
 function changeMonth(event) { month.value = event.detail.value; load() }
 async function more() {
   if (loadingMore.value || !hasMore.value) return
@@ -71,11 +102,12 @@ onUnload(() => { ++epoch })
 .award-month image { width: .7em; height: .7em; transform: rotate(90deg); }
 .award-summary { text-align: center; color: #b7bdd2; }
 .award-total { margin: .25em 0 .9em; color: #fff; font-size: 2em; font-weight: 700; line-height: 1.2; }
+.award-total-skeleton { margin: .55em auto .9em; justify-content: center; }
 .award-metrics { display: flex; gap: .4em; padding: .85em .4em; border-radius: .7em; background: #353a59; }
-.award-metrics > view { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35em; }
+.award-metrics > view { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35em; align-items: center; }
 .award-metrics text:last-child { color: #fff; font-weight: 700; overflow-wrap: anywhere; }
 .report-table { margin-top: 1em; overflow-x: auto; }
-.table-row { display: grid; grid-template-columns: 1.2fr .9fr .9fr 1.2fr; gap: .3em; padding: .75em .35em; text-align: center; background: #313652; }
+.table-row { display: grid; grid-template-columns: 1.2fr .9fr .9fr 1.2fr; gap: .3em; padding: .75em .35em; text-align: center; background: #313652; align-items: center; justify-items: center; }
 .table-row > text { min-width: 0; overflow-wrap: anywhere; }
 .table-row:nth-child(even) { background: #3a4060; }
 .table-heading { background: #12315f; border: 1px solid #2f78ff; color: #d7e6ff; }

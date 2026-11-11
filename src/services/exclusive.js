@@ -6,6 +6,7 @@ import { mockExclusiveState, saveMockExclusiveState, mockCostoreOptions, mockFou
 import { mockCostorePaymentOrder } from './mock/commerce'
 import { buildAgencyApplicationUrl } from './agency-promotion-link'
 import { getCachedMeContext, loadMeContext } from './me-context'
+import { resolveAgencyPromotionCodeFromMe, MISSING_AGENCY_PROMOTION_CODE_MESSAGE } from './agency-promotion-code'
 export { buildAgencyApplicationUrl } from './agency-promotion-link'
 const copy = value => JSON.parse(JSON.stringify(value))
 function coerceRichContent(value) {
@@ -65,6 +66,10 @@ export async function getExclusiveAccess(profileResult) {
   const capabilities = [...result.capabilities]
   // Product: every logged-in account can manage their own family members.
   if (!capabilities.includes('family-members:manage')) capabilities.push('family-members:manage')
+  // Temporary compatibility for deployments that have not yet added costore:apply
+  // to /me. The fallback is deliberately gated by the server's tier verdict.
+  const isVipPlus = source?.identity?.isVipPlus === true || Number(source?.identity?.isVipPlus) === 1
+  if (isVipPlus && !capabilities.includes('costore:apply')) capabilities.push('costore:apply')
   return {
     ...result,
     capabilities,
@@ -76,7 +81,7 @@ export async function withExclusive(featureId, operation) {
   checkAccount(user)
   if (!visibleExclusiveFeatures(access, config).some(item => item.id === featureId)) {
     const message = featureId === 'costore-application'
-      ? '中批发商及以上身份才可以使用该功能'
+      ? 'VIP（小批发商）及以上身份才可以使用该功能'
       : '当前身份暂不能使用此功能'
     const error = new Error(message); error.code = 'FORBIDDEN'; throw error
   }
@@ -173,19 +178,24 @@ function resolveAgencyScanUrl(result, type) {
 export function getAgencyPromotion(type) {
   if (!agencyTypes.some(item => item.id === type)) throw new Error('代理类型无效')
   return withExclusive('agency-code', async (user) => {
-    // Temporary: always build local promotion payloads; do not depend on backend fields/API yet.
-    const result = {
+    let me = getCachedMeContext()
+    if (!me) me = await loadMeContext().catch(() => null)
+    checkAccount(user)
+    if (!me && !config.useMock) {
+      me = await request('/me')
+      checkAccount(user)
+    }
+    const code = resolveAgencyPromotionCodeFromMe(me)
+    if (!code) throw new Error(MISSING_AGENCY_PROMOTION_CODE_MESSAGE)
+    // Keep the selected agency type in the deep link. The agency promotion
+    // code identifies the referring partner; do not substitute personal invite codes.
+    const scanUrl = buildAgencyApplicationUrl(code, type)
+    if (!scanUrl) throw new Error(MISSING_AGENCY_PROMOTION_CODE_MESSAGE)
+    return {
       accountId: user.id,
       agencyType: type,
-      promotionId: `local-${user.id}-${type}`,
-      qrUrl: '',
-      posterUrl: '',
-      shareUrl: '',
-      mockOnly: true,
-    }
-    const scanUrl = resolveAgencyScanUrl(result, type)
-    return {
-      ...result,
+      promotionId: code,
+      agencyPromotionCode: code,
       qrUrl: '',
       posterUrl: '',
       shareUrl: scanUrl,

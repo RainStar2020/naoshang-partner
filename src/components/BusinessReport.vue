@@ -7,5 +7,5 @@ import BusinessGenericReport from './BusinessGenericReport.vue'
 defineProps({module:String,toolId:String,pageQuery:Object})
 const page=ref(null)
 function close(){if(getCurrentPages().length>1)uni.navigateBack();else uni.switchTab({url:'/pages/partners/index'})}
-defineExpose({refresh:()=>page.value?.refresh()})
+defineExpose({refresh:(opts)=>page.value?.refresh?.(opts)})
 </script>

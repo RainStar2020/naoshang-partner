@@ -31,7 +31,8 @@
         >
           <image src="/static/common/icon-close.png" mode="aspectFit" /></button
       ></view>
-      <FeaturePageState :status="status" :error="error" @retry="load" />
+      <SilentRefreshBar :active="refreshing" />
+      <FeaturePageState :status="status" :error="error" mode="skeleton" :skeleton-variant="overlaySkeletonVariant" @retry="load" />
       <template v-if="status === 'ready' && report">
         <template v-if="toolId === 'superior'">
           <template v-if="report.superior"
@@ -137,7 +138,7 @@
             <view class="wh-upgrade-before">
               <text class="wh-upgrade-tab wh-upgrade-tab-before">升级前</text>
               <text class="wh-upgrade-title wh-upgrade-title-before">{{
-                wholesaleLevelDisplay(report.promotion.beforeName)
+                promotionBeforeIdentity
               }}</text>
               <view class="wh-upgrade-dashed wh-upgrade-dashed-before" />
             </view>
@@ -176,7 +177,7 @@
               <view class="wh-upgrade-after-content">
                 <text class="wh-upgrade-tab wh-upgrade-tab-after">升级后</text>
                 <text class="wh-upgrade-title wh-upgrade-title-after">{{
-                  wholesaleLevelDisplay(report.promotion.afterName)
+                  promotionAfterIdentity
                 }}</text>
                 <view class="wh-upgrade-dashed wh-upgrade-dashed-after" />
               </view>
@@ -206,16 +207,16 @@
               />
             </svg>
             <text class="wh-upgrade-benefits wh-upgrade-benefits-before"
-              ><text class="wh-upgrade-benefits-num">{{
-                report.promotion.beforeQuota
+              ><text v-if="promotionQuota(report.promotion.beforeQuota)!=null" class="wh-upgrade-benefits-num">{{
+                promotionQuota(report.promotion.beforeQuota)
               }}</text
-              >项会员权益</text
+              ><MetricSkeleton v-else size="compact" class="wh-upgrade-benefits-num"/>项会员权益</text
             >
             <text class="wh-upgrade-benefits wh-upgrade-benefits-after"
-              ><text class="wh-upgrade-benefits-num">{{
-                report.promotion.afterQuota
+              ><text v-if="promotionQuota(report.promotion.afterQuota)!=null" class="wh-upgrade-benefits-num">{{
+                promotionQuota(report.promotion.afterQuota)
               }}</text
-              >项会员权益</text
+              ><MetricSkeleton v-else size="compact" class="wh-upgrade-benefits-num"/>项会员权益</text
             >
           </view>
           <view class="wh-promotion-switch" role="tablist" aria-label="晋升方式"
@@ -233,21 +234,22 @@
           >
           <template v-if="promotionTab === 'difference'"
             ><view class="wh-promotion-note"
-              >您当前是{{ wholesaleLevelDisplay(report.promotion.beforeName) }}，可通过补差价升级，{{
-                wholesaleLevelDisplay(report.promotion.afterName)
-              }}标准价{{ yuan(upgradeQuote.standard) }}，需补差价{{
-                yuan(upgradeQuote.difference)
-              }}</view
+              >您当前是{{ promotionBeforeIdentity }}，可通过补差价升级，{{
+                promotionAfterIdentity
+              }}标准价<template v-if="yuan(upgradeQuote.standard)!=null">{{ yuan(upgradeQuote.standard) }}</template><MetricSkeleton v-else size="compact"/>，需补差价<template v-if="yuan(upgradeQuote.difference)!=null">{{ yuan(upgradeQuote.difference) }}</template><MetricSkeleton v-else size="compact"/></view
             ><view class="wh-price-lines"
               ><view
                 ><text>已缴纳批发商费用</text
-                ><text>{{ money(upgradeQuote.paid) }}积分</text></view
+                ><text v-if="quoteMoney(upgradeQuote.paid)!=null">{{ quoteMoney(upgradeQuote.paid) }}积分</text
+                ><MetricSkeleton v-else size="compact"/></view
               ><view
-                ><text>{{ wholesaleLevelDisplay(report.promotion.afterName) }}标准价</text
-                ><text>{{ money(upgradeQuote.standard) }}积分</text></view
+                ><text>{{ promotionAfterIdentity }}标准价</text
+                ><text v-if="quoteMoney(upgradeQuote.standard)!=null">{{ quoteMoney(upgradeQuote.standard) }}积分</text
+                ><MetricSkeleton v-else size="compact"/></view
               ><view
                 ><text>升级需补差价</text
-                ><text>{{ money(upgradeQuote.difference) }}积分</text></view
+                ><text v-if="quoteMoney(upgradeQuote.difference)!=null">{{ quoteMoney(upgradeQuote.difference) }}积分</text
+                ><MetricSkeleton v-else size="compact"/></view
               ></view
             ></template
           >
@@ -257,12 +259,9 @@
             }}</view
             ><view class="wh-promotion-progress"
               ><view
-                ><text>小批发商推广进度</text
-                ><view
-                  >{{ report.promotion.progress }}/{{
-                    report.promotion.target
-                  }}</view
-                ></view
+                ><text>{{ promotionBeforeIdentity }}推广进度</text
+                ><view v-if="!promotionProgressPending">{{ promotionProgressText }}</view
+                ><MetricSkeleton v-else size="compact" :inline="false"/></view
               ><view
                 ><text>任务状态</text
                 ><view>{{ promotionStatusLabel }}</view></view
@@ -288,13 +287,16 @@
             ><view class="wh-split"
               ><view
                 ><text>团队人数</text
-                ><view>{{ report.summary.memberCount ?? items.length }}</view></view
+                ><view v-if="summaryCount(report.summary.memberCount, items.length)!=null">{{ summaryCount(report.summary.memberCount, items.length) }}</view
+                ><MetricSkeleton v-else size="block" :inline="false"/></view
               ><view
                 ><text>直属成员</text
-                ><view>{{ report.summary.directMemberCount ?? 0 }}</view></view
+                ><view v-if="summaryCount(report.summary.directMemberCount)!=null">{{ summaryCount(report.summary.directMemberCount) }}</view
+                ><MetricSkeleton v-else size="block" :inline="false"/></view
               ><view
                 ><text>团队VIP</text
-                ><view>{{ report.summary.teamVipCount ?? 0 }}</view></view
+                ><view v-if="summaryCount(report.summary.teamVipCount)!=null">{{ summaryCount(report.summary.teamVipCount) }}</view
+                ><MetricSkeleton v-else size="block" :inline="false"/></view
               ></view
             ></view
           >
@@ -341,8 +343,9 @@
               ><view class="wh-row wh-team-stats-head"
                 ><text>业绩统计</text
                 ><text
-                  >剩余<text class="wh-blue">{{ person.quotaRemaining }}个</text
-                  >VIP名额</text
+                  >剩余<template v-if="quotaRemainingText(person.quotaRemaining)!=null"
+                    ><text class="wh-blue">{{ quotaRemainingText(person.quotaRemaining) }}个</text></template
+                  ><MetricSkeleton v-else size="compact"/>VIP名额</text
                 ></view
               ><view class="wh-team-perf"
                 ><view class="wh-team-perf-total"
@@ -350,9 +353,10 @@
                     v-for="metric in teamPerf(person.performance).totals"
                     :key="metric.label"
                     ><text class="wh-team-label">{{ metric.label }}</text
-                    ><view class="wh-team-perf-value">{{
+                    ><view v-if="!metricCellPending(metric)" class="wh-team-perf-value">{{
                       format(metric.value, metric.kind)
-                    }}</view></view
+                    }}</view
+                    ><MetricSkeleton v-else size="compact" :inline="false" class="wh-team-perf-value"/></view
                   ></view
                 ><view class="wh-team-perf-side"
                   ><view
@@ -367,9 +371,10 @@
                         class="wh-team-perf-divider"
                         aria-hidden="true"
                       /><text class="wh-team-label">{{ metric.label }}</text
-                      ><view class="wh-team-perf-value">{{
+                      ><view v-if="!metricCellPending(metric)" class="wh-team-perf-value">{{
                         format(metric.value, metric.kind)
-                      }}</view></view
+                      }}</view
+                      ><MetricSkeleton v-else size="compact" :inline="false" class="wh-team-perf-value"/></view
                     ></view
                   ></view
                 ></view
@@ -405,18 +410,22 @@
             ><view class="wh-split"
               ><view
                 ><text>剩余标准VIP名额</text
-                ><view>{{ report.standardRemaining ?? 0 }}个</view></view
+                ><view v-if="summaryCount(report.standardRemaining, null, '个')!=null">{{ summaryCount(report.standardRemaining, null, '个') }}</view
+                ><MetricSkeleton v-else size="block" :inline="false"/></view
               ><view
                 ><text>剩余活动VIP名额</text
-                ><view>{{ report.activityRemaining ?? 0 }}个</view></view
+                ><view v-if="summaryCount(report.activityRemaining, null, '个')!=null">{{ summaryCount(report.activityRemaining, null, '个') }}</view
+                ><MetricSkeleton v-else size="block" :inline="false"/></view
               ></view
             ><view class="wh-split"
               ><view
                 ><text>你接收的名额个数</text
-                ><view>{{ report.receivedTotal ?? report.summary?.receivedTotal ?? 0 }}个</view></view
+                ><view v-if="summaryCount(report.receivedTotal, report.summary?.receivedTotal, '个')!=null">{{ summaryCount(report.receivedTotal, report.summary?.receivedTotal, '个') }}</view
+                ><MetricSkeleton v-else size="block" :inline="false"/></view
               ><view
                 ><text>接收笔数</text
-                ><view>{{ report.receivedCount ?? report.summary?.receivedCount ?? 0 }}笔</view></view
+                ><view v-if="summaryCount(report.receivedCount, report.summary?.receivedCount, '笔')!=null">{{ summaryCount(report.receivedCount, report.summary?.receivedCount, '笔') }}</view
+                ><MetricSkeleton v-else size="block" :inline="false"/></view
               ></view
             ><view class="wh-row wh-stock-buttons"
               ><button
@@ -470,9 +479,7 @@
         </template>
         <template v-else-if="toolId === 'experience'">
           <view class="wh-experience-summary wh-muted"
-            >累计业务推广{{
-              report.promotionExperience ?? 0
-            }}经验值，购买产品{{ report.productExperience ?? 0 }}经验值</view
+            >累计业务推广<template v-if="summaryCount(report.promotionExperience)!=null">{{ summaryCount(report.promotionExperience) }}</template><MetricSkeleton v-else size="compact"/>经验值，购买产品<template v-if="summaryCount(report.productExperience)!=null">{{ summaryCount(report.productExperience) }}</template><MetricSkeleton v-else size="compact"/>经验值</view
           ><view class="wh-tabs"
             ><button
               :class="{ active: filter !== 'products' }"
@@ -526,12 +533,14 @@
             ><view class="wh-metrics"
               ><view v-for="metric in report.metrics" :key="metric.label"
                 ><text>{{ metric.label }}</text
-                ><view>{{ show(metric.value, metric.kind) }}</view></view
+                ><view v-if="!metricCellPending(metric)">{{ show(metric.value, metric.kind) }}</view
+                ><MetricSkeleton v-else size="compact" :inline="false"/></view
               ></view
             ><view class="wh-split wh-summary-four wh-divided"
               ><view v-for="metric in report.summary || []" :key="metric.label"
                 ><text>{{ metric.label }}</text
-                ><view>{{ show(metric.value, metric.kind) }}</view></view
+                ><view v-if="!metricCellPending(metric)">{{ show(metric.value, metric.kind) }}</view
+                ><MetricSkeleton v-else size="compact" :inline="false"/></view
               ></view
             ></view
           ><view class="wh-table-frame"
@@ -560,7 +569,8 @@
           <view class="income-hero">
             <view
               ><text>可提现积分</text
-              ><view>{{ money(incomeTotal) }}</view></view
+              ><view v-if="!incomeTotalPending">{{ money(incomeTotal) }}</view
+              ><MetricSkeleton v-else size="block" :inline="false"/></view
             >
             <view class="income-actions"
               ><button @click="wallet('withdrawals')">兑换记录</button
@@ -572,9 +582,8 @@
           <view class="income-channels"
             ><view v-for="metric in incomeChannels" :key="metric.label"
               ><text>{{ metric.label }}</text
-              ><view>{{
-                money(metric.value)
-              }}</view></view
+              ><view v-if="pickMetricNumber(metric.value)!=null">{{ money(metric.value) }}</view
+              ><MetricSkeleton v-else size="compact" :inline="false"/></view
             ></view
           >
           <view class="income-heading"><text>积分明细</text></view>
@@ -596,7 +605,8 @@
               ><text class="income-channel">{{
                 incomeChannel(item)
               }}</text
-              ><view>{{ signedAmount(item.amount) }}</view
+              ><view v-if="signedAmount(item.amount)!=null">{{ signedAmount(item.amount) }}</view
+              ><MetricSkeleton v-else size="compact" :inline="false"/>
               ><text>查看详情</text></view
             >
           </button>
@@ -626,18 +636,27 @@
   import { computed, ref, watch, onUnmounted } from "vue";
   import { config } from "../config";
   import { businessPreview } from "../features/business/catalog";
-  import { partnerUpgradeQuote, wholesaleLevelDisplay, rewriteWholesaleCopy } from "../features/business/account-rank";
+  import { wholesaleReportParams } from "../features/business/report-params";
+  import { partnerUpgradeQuote, wholesaleLevelDisplay } from "../features/business/account-rank";
   import { money, percent } from "../features/exclusive/format";
   import { businessDateLabel as date } from "../features/business/format";
+  import {
+    formatMetricCountOrNull,
+    formatSignedMetricMoney,
+    pickMetricNumber,
+  } from "../features/business/metric-display";
   import {
     getBusinessContext,
     getBusinessReport,
     claimBusinessPromotion,
     bindBusinessSuperior,
   } from "../services/business";
+  import { rememberQuotaTransferSnapshot } from "../features/business/quota-transfer";
   import { useAsyncPage } from "../composables/useAsyncPage";
   import BusinessQrCode from "./BusinessQrCode.vue";
   import FeaturePageState from "./FeaturePageState.vue";
+  import MetricSkeleton from "./MetricSkeleton.vue";
+  import SilentRefreshBar from "./SilentRefreshBar.vue";
   import EmptyState from "./EmptyState.vue";
   import WholesaleRecordCard from "./WholesaleRecordCard.vue";
   import WholesaleStatSplit from "./WholesaleStatSplit.vue";
@@ -667,6 +686,7 @@
     data: report,
     status,
     error,
+    refreshing,
     load,
   } = useAsyncPage(async () => {
     const ctx = await getBusinessContext(
@@ -674,10 +694,15 @@
       props.pageQuery?.contextId,
     );
     context.value = ctx;
-    return getBusinessReport("wholesale", props.toolId, ctx.id, {
-      month: month.value,
-      filter: filter.value,
-    });
+    return getBusinessReport(
+      "wholesale",
+      props.toolId,
+      ctx.id,
+      wholesaleReportParams(props.toolId, {
+        month: month.value,
+        filter: filter.value,
+      }),
+    );
   }, false);
   watch(
     () => props.pageQuery,
@@ -710,6 +735,22 @@
         ? percent(value)
         : value ?? 0;
   const show = (value, kind) => format(value, kind);
+  const metricsSettled = computed(() => status.value === "ready");
+  function summaryCount(primary, fallback, suffix = "") {
+    return formatMetricCountOrNull(pickMetricNumber(primary, fallback), {
+      settled: metricsSettled.value,
+      suffix,
+    });
+  }
+  function metricCellPending(metric) {
+    if (metric?.kind === "percent")
+      return metric?.value == null || metric?.value === "";
+    return pickMetricNumber(metric?.value) == null;
+  }
+  function quotaRemainingText(value) {
+    const n = pickMetricNumber(value);
+    return n == null ? null : String(n);
+  }
   const monthNames = [
     "",
     "一",
@@ -750,18 +791,28 @@
     return fields;
   }
   function signedAmount(value) {
-    if (value == null) return "+0";
-    return `${value > 0 ? "+" : ""}${money(value)}`;
+    return formatSignedMetricMoney(value, money);
   }
   const incomeMetric = (label) =>
     report.value?.metrics?.find((item) => item.label === label)?.value;
+  const incomeTotalRaw = computed(() =>
+    pickMetricNumber(
+      report.value?.available,
+      incomeMetric("可提现积分"),
+      incomeMetric("可提现金额"),
+      incomeMetric("积分合计"),
+      incomeMetric("收益合计"),
+    ),
+  );
+  const incomeTotalPending = computed(
+    () =>
+      incomeTotalRaw.value == null &&
+      !(items.value || []).length &&
+      !report.value?.metrics,
+  );
   const incomeTotal = computed(
     () =>
-      report.value?.available ??
-      incomeMetric("可提现积分") ??
-      incomeMetric("可提现金额") ??
-      incomeMetric("积分合计") ??
-      incomeMetric("收益合计") ??
+      incomeTotalRaw.value ??
       (items.value || []).reduce(
         (sum, item) => sum + (Number(item.amount) || 0),
         0,
@@ -830,6 +881,10 @@
     });
   }
   function operation(id, target) {
+    if (id === "quota-transfer") {
+      const person = (items.value || []).find((item) => item.id === target);
+      if (person) rememberQuotaTransferSnapshot(context.value.id, { person });
+    }
     open(id, target);
   }
   function wallet(page) {
@@ -849,35 +904,49 @@
     wholesaleLevelDisplay(
       person?.tier || person?.tagLabel || person?.levelLabel || person?.tierLabel,
     ) || "";
-  const yuan = (value) => (Number.isFinite(Number(value)) ? money(value).replace(/\.00$/, "") : "0");
+  const overlaySkeletonVariant = computed(() => {
+    if (!props.overlay) return "metrics";
+    if (props.toolId === "promotion") return "metrics";
+    return "dialog";
+  });
+  const yuan = (value) => {
+    const n = pickMetricNumber(value);
+    return n == null ? null : money(n).replace(/\.00$/, "");
+  };
+  const quoteMoney = (value) => {
+    const n = pickMetricNumber(value);
+    return n == null ? null : money(n);
+  };
+  const promotionQuota = (value) => pickMetricNumber(value);
   const upgradeQuote = computed(() =>
     partnerUpgradeQuote(report.value?.promotion || {}),
   );
+  const promotionBeforeIdentity = computed(() => {
+    const promotion = report.value?.promotion || {};
+    return promotion.currentWholesaleIdentity || wholesaleLevelDisplay(promotion.beforeName) || "";
+  });
+  const promotionAfterIdentity = computed(() => {
+    const promotion = report.value?.promotion || {};
+    return promotion.nextWholesaleIdentity || wholesaleLevelDisplay(promotion.afterName) || "";
+  });
+  const promotionProgressPending = computed(() => {
+    const promotion = report.value?.promotion || {};
+    if (promotion.progressText) return false;
+    const current = pickMetricNumber(promotion.progressCurrent);
+    const target = pickMetricNumber(promotion.progressTarget, promotion.target);
+    return current == null || target == null;
+  });
+  const promotionProgressText = computed(() => {
+    const promotion = report.value?.promotion || {};
+    if (promotion.progressText) return promotion.progressText;
+    const current = pickMetricNumber(promotion.progressCurrent);
+    const target = pickMetricNumber(promotion.progressTarget, promotion.target);
+    return current != null && target != null ? `${current}/${target}` : "";
+  });
   const promotionTaskNote = computed(() => {
     const promotion = report.value?.promotion;
-    const task = report.value?.task;
     if (!promotion) return "";
-    if (task?.text || promotion.taskDescription)
-      return rewriteWholesaleCopy(task?.text || promotion.taskDescription);
-    if (task?.deadlineText) return rewriteWholesaleCopy(task.deadlineText);
-    const opened = date(promotion.startedAt || promotion.openedAt).slice(0, 10);
-    const beforeLabel = wholesaleLevelDisplay(promotion.beforeName);
-    const afterLabel = wholesaleLevelDisplay(promotion.afterName);
-    const vip =
-      promotion.vipEquivalent ??
-      ({ VIP合伙人: 3, 天使合伙人: 9, 私董合伙人: 18, 小批发商: 3, 中批发商: 9, 大批发商: 18 })[promotion.beforeName] ??
-      ({ VIP合伙人: 3, 天使合伙人: 9, 私董合伙人: 18, 小批发商: 3, 中批发商: 9, 大批发商: 18 })[beforeLabel] ??
-      3;
-    const until = Number(promotion.validUntil);
-    const days = Number.isFinite(until)
-      ? Math.max(0, Math.ceil((until - Date.now()) / 86400000))
-      : promotion.daysLeft ?? 0;
-    // 小批发商→中批发商: only same-level count. Higher ranks also allow 小批发商 equivalent.
-    const requirement =
-      beforeLabel === "小批发商" || promotion.beforeName === "VIP合伙人"
-        ? `直推3位小批发商`
-        : `直推3位${beforeLabel}或${vip}个小批发商`;
-    return `任务有效期1年，自您${opened || ""}开通批发商起，1年内${requirement}即可免费晋升${afterLabel}，任务将于${days}天后截止`;
+    return promotion.displayText || promotion.quotaRequirementText || "晋升规则加载中…";
   });
   const promotionExpired = computed(() => {
     const until = Number(report.value?.promotion?.validUntil);
@@ -891,7 +960,7 @@
   const promotionCanClaim = computed(() => {
     const promotion = report.value?.promotion;
     if (!promotion || promotionExpired.value) return false;
-    return Number(promotion.progress) >= Number(promotion.target);
+    return promotion.canClaim === true;
   });
   function teamMetric(list, label) {
     return (list || []).find((item) => item.label === label) || null;
@@ -955,8 +1024,12 @@
       await bindBusinessSuperior(context.value.id, superiorCode.value);
       superiorCode.value = "";
       await load();
+      uni.showToast({ title: "绑定运营商成功", icon: "success" });
     } catch (e) {
-      superiorError.value = e.message;
+      const message = String(e?.serverMessage || e?.message || "");
+      superiorError.value = /不能绑定自己为上级|自己的邀请码/.test(message)
+        ? "不允许输入自己的邀请码，请输入正确的邀请码"
+        : "请输入正确的邀请码";
     } finally {
       bindingSuperior.value = false;
     }
@@ -983,7 +1056,11 @@
         "wholesale",
         props.toolId,
         context.value.id,
-        { cursor, month: month.value, filter: filter.value },
+        wholesaleReportParams(props.toolId, {
+          cursor,
+          month: month.value,
+          filter: filter.value,
+        }),
       );
       if (current === epoch) {
         items.value = [

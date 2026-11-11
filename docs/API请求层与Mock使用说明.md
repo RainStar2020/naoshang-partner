@@ -222,7 +222,7 @@ export async function callEndpoint(key, input = {}) {
 ## 9. 切到真实后端的步骤
 
 1. 在 `src/config/index.js` 设置例如：  
-   `baseURL: 'https://api.example.com'`（或本地 `http://http://192.168.0.44:3000`），**不要**重复追加 `/api`。
+   `baseURL: 'https://api.example.com'`（或本地 `http://http://47.96.134.119:3000`），**不要**重复追加 `/api`。
 2. `contractConfig.useMock = false`（若页面已迁契约）。
 3. 页面层改为调真实接口后：`config.useMock = false`。
 4. `previewAllExclusiveFeatures` / `previewAllBusinessFeatures` 设为 `false`（或依赖关 Mock 后自动不预览）。

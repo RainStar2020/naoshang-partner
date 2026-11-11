@@ -5,9 +5,16 @@
       src="/static/partner/bg-overview.png"
       mode="scaleToFill"
     />
+    <SilentRefreshBar :active="refreshing" />
     <view class="agency-heading">{{ moduleTitle }}</view>
-    <FeaturePageState :status="status" :error="error" @retry="load" />
-    <template v-if="status === 'ready' && overview">
+    <FeaturePageState
+      :status="status"
+      :error="error"
+      mode="skeleton"
+      skeleton-variant="dashboard"
+      @retry="load"
+    />
+    <template v-if="(status === 'shell' || status === 'ready') && overview">
       <view class="agency-identity">
         <view class="agency-identity-copy">
           <view class="agency-title-line"
@@ -47,11 +54,11 @@
         <button @click="open('team')">
           <image src="/static/partner/icon-team.png" mode="aspectFit" /><view
             ><text>我的团队</text
-            ><strong
+            ><strong v-if="!teamCountPending"
               >{{ teamCountLabel
               }}<text class="agency-summary-unit">人</text></strong
-            ></view
-          >
+            ><MetricSkeleton v-else size="compact"
+          /></view>
         </button>
         <view class="agency-summary-divider" />
         <button @click="open('income')">
@@ -59,7 +66,9 @@
             src="/static/partner/icon-agency-income.png"
             mode="aspectFit"
           /><view
-            ><text>代理积分收益</text><strong>{{ incomeLabel }}</strong></view
+            ><text>代理积分收益</text
+            ><strong v-if="!incomePending">{{ incomeLabel }}</strong
+            ><MetricSkeleton v-else size="compact" /></view
           >
         </button>
       </view>
@@ -70,12 +79,22 @@
           class="agency-relation"
           :class="[
             'agency-relation-' + kind.key,
-            { 'agency-relation-empty': !hasRelation(kind.key) },
+            {
+              'agency-relation-empty':
+                !relationsPending && !hasRelation(kind.key),
+            },
           ]"
-          @click="hasRelation(kind.key) && (relationOpen = kind.key)"
+          @click="
+            !relationsPending &&
+              hasRelation(kind.key) &&
+              (relationOpen = kind.key)
+          "
         >
           <view class="agency-relation-label">{{ kind.label }}</view>
-          <view v-if="hasRelation(kind.key)" class="agency-relation-body">
+          <view v-if="relationsPending" class="agency-relation-empty-text">
+            <MetricSkeleton size="compact" :inline="false" />
+          </view>
+          <view v-else-if="hasRelation(kind.key)" class="agency-relation-body">
             <image
               v-if="relationOf(kind.key)?.avatarUrl"
               class="agency-relation-avatar"
@@ -112,7 +131,11 @@
           }}</view>
         </button>
       </view>
-      <view class="agency-benefits">
+      <FeaturePageSkeleton
+        v-if="status === 'shell'"
+        variant="dashboard-benefits"
+      />
+      <view v-if="status === 'ready'" class="agency-benefits">
         <view class="agency-benefit-title"
           ><text>✦</text> 等级权益 <text>✦</text></view
         >
@@ -242,6 +265,14 @@
                 relationPerson?.regionLabel || relationPerson?.scopeLabel || ""
               }}</text
             >
+            <view
+              v-if="relationStatPending || relationStatLabel"
+              class="relation-stat-row"
+            >
+              <text>{{ relationStatTitle }}</text>
+              <text v-if="!relationStatPending">{{ relationStatLabel }}</text>
+              <MetricSkeleton v-else size="compact" />
+            </view>
           </view>
           <view class="relation-photo"
             ><view class="relation-arch"
@@ -264,18 +295,31 @@
 </template>
 
 <script setup>
+  import { agencyDisplayName } from "../features/agency/display-name";
   import { computed, onMounted, onUnmounted, ref } from "vue";
   import { useAuth } from "../composables/useAuth";
   import { useAppTabBar } from "../composables/useAppTabBar";
   import { money } from "../features/exclusive/format";
   import { businessModules } from "../features/business/catalog";
   import {
+    isMetricPending,
+    pickMetricNumber,
+  } from "../features/business/metric-display";
+  import {
+    enrichAgencyOverviewStats,
     getBusinessContext,
     getBusinessContexts,
     getBusinessOverview,
     selectBusinessContext,
   } from "../services/business";
+  import {
+    prefetchPartnerWorkspace,
+    scheduleIdle,
+  } from "../services/prefetch";
   import FeaturePageState from "./FeaturePageState.vue";
+  import FeaturePageSkeleton from "./FeaturePageSkeleton.vue";
+  import MetricSkeleton from "./MetricSkeleton.vue";
+  import SilentRefreshBar from "./SilentRefreshBar.vue";
   import ManagedRichContent from "./ManagedRichContent.vue";
   import EmptyState from "./EmptyState.vue";
   import AppTabBar from "./AppTabBar.vue";
@@ -284,6 +328,7 @@
   const emit = defineEmits(["left"]);
   const status = ref("loading"),
     error = ref(""),
+    refreshing = ref(false),
     overview = ref(null),
     contexts = ref([]),
     allContexts = ref([]),
@@ -300,11 +345,7 @@
   const context = computed(() => overview.value?.context);
   const isStore = computed(() => context.value?.agencyType === "STORE");
   const storeNumber = computed(() => context.value?.store?.number || "");
-  const agencyTitle = computed(() =>
-    isStore.value
-      ? context.value?.store?.name || context.value?.regionLabel || "单店代理"
-      : context.value?.regionLabel || context.value?.label || "区域代理",
-  );
+  const agencyTitle = computed(() => agencyDisplayName({ ...context.value, ...overview.value, store: context.value?.store }));
   const identityLabel = computed(
     () =>
       ({
@@ -351,7 +392,35 @@
     { key: "superior", label: "区域上级", emptyLabel: "暂无上级" },
     { key: "referrer", label: "推荐人", emptyLabel: "暂无推荐人" },
   ];
+  // shell 期 superior/referrer 尚未写入，勿先闪「暂无」再跳真值
+  const relationsPending = computed(
+    () => status.value === "shell" || status.value === "loading",
+  );
   const relationPerson = computed(() => overview.value?.[relationOpen.value]);
+  const relationStatTitle = computed(() =>
+    relationOpen.value === "superior" ? "团队人数" : "相关指标",
+  );
+  const relationStatValue = computed(() =>
+    pickMetricNumber(
+      relationPerson.value?.teamCount,
+      relationPerson.value?.memberCount,
+      relationPerson.value?.available,
+      relationPerson.value?.metricValue,
+    ),
+  );
+  const relationHasStatField = computed(() => {
+    const person = relationPerson.value;
+    if (!person || typeof person !== "object") return false;
+    return ["teamCount", "memberCount", "available", "metricValue"].some(
+      (key) => person[key] != null && person[key] !== "",
+    );
+  });
+  const relationStatPending = computed(
+    () => relationHasStatField.value && relationStatValue.value == null,
+  );
+  const relationStatLabel = computed(() =>
+    relationStatValue.value == null ? "" : String(relationStatValue.value),
+  );
   const typeMeta = {
     PROVINCE: "省代",
     CITY: "市代",
@@ -378,44 +447,48 @@
       allContexts.value.some((row) => row.module === item.id),
     ),
   );
-  function countLabel(...values) {
-    for (const value of values) {
-      if (value == null || value === "") continue;
-      const n = typeof value === "number" ? value : Number(value);
-      if (Number.isFinite(n)) return String(n);
-      if (typeof value === "string" && value.trim()) return value.trim();
-    }
-    return "0";
-  }
-  const teamCountLabel = computed(() =>
-    countLabel(
+  // Metrics are settled only after shell is gone and optional stats enrich finished.
+  const metricsSettled = computed(
+    () =>
+      status.value === "ready" && overview.value?.needsStatsEnrichment !== true,
+  );
+  const teamCountValue = computed(() =>
+    pickMetricNumber(
       overview.value?.teamCount,
       overview.value?.team?.summary?.memberCount,
     ),
   );
-  const incomeLabel = computed(() => {
-    const amount = overview.value?.agencyIncome ?? overview.value?.available;
-    return Number.isFinite(Number(amount)) ? money(amount) : "0";
-  });
+  const incomeValue = computed(() =>
+    pickMetricNumber(overview.value?.agencyIncome, overview.value?.available),
+  );
+  const teamCountPending = computed(() =>
+    isMetricPending(teamCountValue.value, { settled: metricsSettled.value }),
+  );
+  const incomePending = computed(() =>
+    isMetricPending(incomeValue.value, { settled: metricsSettled.value }),
+  );
+  const teamCountLabel = computed(() =>
+    teamCountPending.value ? "" : String(teamCountValue.value ?? 0),
+  );
+  const incomeLabel = computed(() =>
+    incomePending.value ? "" : money(incomeValue.value ?? 0),
+  );
   function relationOf(key) {
     return overview.value?.[key] || null;
   }
   function hasRelation(key) {
     return !!String(relationOf(key)?.name || "").trim();
   }
-  function contextTitle(item) {
-    return item.agencyType === "STORE"
-      ? item.store?.name || item.regionLabel || item.label
-      : item.regionLabel || item.label;
-  }
+  function contextTitle(item) { return agencyDisplayName(item); }
   function contextSubtitle(item) {
-    return item.agencyType === "STORE"
-      ? item.store?.address || item.scopeLabel || ""
-      : { PROVINCE: "省代", CITY: "市代", COUNTY: "区县代理" }[
-          item.agencyType
-        ] ||
-          item.scopeLabel ||
-          "";
+    if (item.agencyType === "STORE")
+      return item.store?.address || item.scopeLabel || "";
+    const title = contextTitle(item);
+    const typeLabel =
+      { PROVINCE: "省代", CITY: "市代", COUNTY: "区县代理" }[item.agencyType] ||
+      item.scopeLabel ||
+      "";
+    return title && title !== typeLabel ? title : typeLabel;
   }
   function agencyIdentity(person, key) {
     if (key === "referrer")
@@ -434,16 +507,61 @@
       return "";
     return label;
   }
-  async function load() {
+  function paintAgencyShell(ctx, rows) {
+    allContexts.value = rows;
+    contexts.value = rows.filter((item) => item.module === "agency");
+    selectedId = ctx.id;
+    overview.value = {
+      context: ctx,
+      benefits: [],
+      tools: [],
+      superior: null,
+      referrer: null,
+    };
+    status.value = "shell";
+  }
+  async function enrichStats(contextId, loadEpoch) {
+    try {
+      const stats = await enrichAgencyOverviewStats(contextId);
+      if (!active || loadEpoch !== epoch) return;
+      if (!overview.value || overview.value.context?.id !== contextId) return;
+      if (!stats || !Object.keys(stats).length) {
+        overview.value = { ...overview.value, needsStatsEnrichment: false };
+        return;
+      }
+      overview.value = {
+        ...overview.value,
+        ...stats,
+        needsStatsEnrichment: false,
+      };
+    } catch (reason) {
+      console.warn("[agency stats]", reason?.message || reason);
+    }
+  }
+  async function load(options = {}) {
+    const force = options.force === true;
     const current = ++epoch;
-    status.value = overview.value ? "ready" : "loading";
+    const silent = !force && status.value === "ready" && !!overview.value;
     error.value = "";
-    contextOpen.value = false;
-    relationOpen.value = "";
-    moduleOpen.value = false;
+    if (silent) refreshing.value = true;
+    else {
+      refreshing.value = false;
+      contextOpen.value = false;
+      relationOpen.value = "";
+      moduleOpen.value = false;
+      if (!(status.value === "shell" && overview.value?.context))
+        status.value = "loading";
+    }
     try {
       const rows = await getBusinessContexts();
       const ctx = await getBusinessContext("agency", selectedId || undefined);
+      if (!active || current !== epoch) return;
+      if (!silent) paintAgencyShell(ctx, rows);
+      else {
+        allContexts.value = rows;
+        contexts.value = rows.filter((item) => item.module === "agency");
+        selectedId = ctx.id;
+      }
       const result = await getBusinessOverview("agency", ctx.id);
       if (!active || current !== epoch) return;
       allContexts.value = rows;
@@ -463,18 +581,26 @@
       }
       selectedId = ctx.id;
       status.value = "ready";
+      if (result.needsStatsEnrichment) void enrichStats(ctx.id, current);
+      scheduleIdle(() => prefetchPartnerWorkspace(result));
     } catch (reason) {
       if (active && current === epoch) {
         error.value = reason.message || "代理工作台加载失败";
-        status.value = reason.code === "FORBIDDEN" ? "forbidden" : "error";
+        if (!silent || !overview.value?.accountId) {
+          status.value = reason.code === "FORBIDDEN" ? "forbidden" : "error";
+        }
+        if (options.throwOnError) throw reason;
       }
+    } finally {
+      if (current === epoch) refreshing.value = false;
     }
   }
   async function chooseContext(id) {
     try {
       const selected = await selectBusinessContext(id);
       selectedId = selected.id;
-      await load();
+      await load({ throwOnError: true });
+      contextOpen.value = false;
     } catch (reason) {
       uni.showToast({
         title: reason.message || "身份切换未完成，请稍后重试",
@@ -1117,6 +1243,14 @@
     font-size: 0.78em;
     line-height: 1.5;
     overflow-wrap: anywhere;
+  }
+  .relation-stat-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    margin-top: 0.35em;
+    color: #d6e7ff;
+    font-size: 0.9em;
   }
   .relation-photo {
     position: absolute;

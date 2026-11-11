@@ -24,7 +24,7 @@ defineProps({
   query: { type: Object, default: null },
 })
 const page = ref(null)
-defineExpose({ refresh: () => page.value?.refresh() })
+defineExpose({ refresh: (opts) => page.value?.refresh?.(opts) })
 </script>
 <style scoped>
 .partner-tool-page { min-height: 100vh; background: #272c47; }

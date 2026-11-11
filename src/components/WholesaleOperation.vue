@@ -26,7 +26,7 @@
      </template>
      <template v-else-if="kind==='withdraw'"><view class="wh-card"><text>可提现积分</text><view class="wh-available"><text class="wh-blue">{{points(available)}}</text></view></view></template>
      <text v-if="operationError" class="wh-error" role="alert">{{operationError}}</text>
-     <view v-if="dialog" class="wh-confirm"><button v-if="kind==='quota-purchase'" class="wh-secondary wh-pill" :disabled="locked" @click="back">取消</button><button v-if="!vipCalculationOnly" role="button" class="wh-primary wh-pill" :disabled="busy || !canQuote" @click="submit">{{busy?'处理中…':kind==='quota-transfer'?'确认划拨':'立即支付'}}</button></view>
+     <view v-if="dialog" class="wh-confirm"><button v-if="kind==='quota-purchase'" class="wh-secondary wh-pill" :disabled="locked" @click="back">取消</button><button v-if="!vipCalculationOnly" role="button" class="wh-primary wh-pill" :disabled="busy || !canConfirm" @click="submit">{{busy?'处理中…':kind==='quota-transfer'?'确认划拨':'立即支付'}}</button></view>
     </template>
    </template>
   </view>
@@ -37,8 +37,9 @@
 <script setup>
 import {ref,computed,watch,onUnmounted} from 'vue'
 import {money,percent} from '../features/exclusive/format'
-import {nextWholesaleUpgradePlan,vipQuotaUnitPrice,wholesaleLevelDisplay} from '../features/business/account-rank'
-import {getBusinessContext} from '../services/business'
+import {nextWholesaleUpgradePlan,wholesaleLevelDisplay} from '../features/business/account-rank'
+import {resolveQuotaTransferModalState,transferUnitAmountFor} from '../features/business/quota-transfer'
+import {getBusinessContext,getMeBootstrapData} from '../services/business'
 import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOperation,getBusinessOperationIntent,rememberBusinessOperationIntent} from '../services/business-operations'
 import {getCommerceOrder} from '../services/commerce'
 import {storeBindingErrorMessage} from '../services/store-binding'
@@ -51,9 +52,15 @@ let epoch=0,active=true,key='',receivedAt=0,quoteTimer=null
 const {data:options,status,error,load}=useAsyncPage(async()=>{
   const ctx=await getBusinessContext(props.kind==='withdraw'?null:'wholesale',props.pageQuery?.contextId)
   const targetAccountId=String(props.pageQuery?.targetAccountId || '').trim()
-  const value=await getBusinessOperationOptions(props.kind,ctx.id,'',{targetAccountId})
-  value.fields=Array.isArray(value?.fields)?value.fields:[]
-  value.allowedActions=Array.isArray(value?.allowedActions)?value.allowedActions:['quote','submit']
+  let value
+  if(props.kind==='quota-transfer'){
+    const bootstrap=await getMeBootstrapData().catch(()=>null)
+    value=resolveQuotaTransferModalState(ctx.id,targetAccountId,bootstrap)
+  }else{
+    value=await getBusinessOperationOptions(props.kind,ctx.id,'',{targetAccountId})
+    value.fields=Array.isArray(value?.fields)?value.fields:[]
+    value.allowedActions=Array.isArray(value?.allowedActions)?value.allowedActions:['quote','submit']
+  }
   if(props.kind!=='quota-purchase'&&!value.fields.length&&!(Array.isArray(value.members)&&value.members.length)&&!(Array.isArray(value.upgradePlans)&&value.upgradePlans.length)){
     throw new Error('操作信息暂时无法加载，请稍后重试')
   }
@@ -65,7 +72,7 @@ const {data:options,status,error,load}=useAsyncPage(async()=>{
     if(chosen)draft.value.targetAccountId=chosen.id
   }
   const pending=getBusinessOperationIntent(props.kind,ctx.id,targetAccountId)
-  quote.value=pending?.quote || (pending?{id:pending.quoteId,details:[],expiresAt:0,serverTime:0}:null)
+  quote.value=props.kind==='quota-transfer'?null:(pending?.quote || (pending?{id:pending.quoteId,details:[],expiresAt:0,serverTime:0}:null))
   if(pending?.draft)draft.value={...pending.draft}
   result.value=null
   key=pending?.idempotencyKey || ''
@@ -78,14 +85,12 @@ watch(()=>props.pageQuery,q=>{if(q)load()},{immediate:true})
 const locked=computed(()=>busy.value || uncertain.value)
 const dialog=computed(()=>['quota-transfer','quota-purchase'].includes(props.kind)),memberChoices=computed(()=>options.value?.fields.find(f=>f.key==='targetAccountId')?.options || []),person=computed(()=>options.value?.members?.find(p=>p.id===draft.value.targetAccountId)),personLevelLabel=computed(()=>person.value?.displayLevelLabel||wholesaleLevelDisplay(person.value?.levelLabel)||person.value?.levelLabel||'普通用户'),plans=computed(()=>person.value?.upgradePlans || options.value?.upgradePlans || options.value?.fields.find(f=>f.key==='targetLevel')?.options || []),plan=computed(()=>plans.value.find(p=>p.value===draft.value.targetLevel)),sources=computed(()=>[{key:'activityQuantity',label:'活动',remaining:options.value?.sellerActivityRemaining??options.value?.activityRemaining},{key:'standardQuantity',label:'标准',remaining:options.value?.sellerStandardRemaining??options.value?.standardRemaining}])
 const stores=computed(()=>(options.value?.stores || []).filter(s=>!region.value.codes.length || region.value.codes.every((code,index)=>s.regionCodes?.[index]===code))),points=value=>`${money(value)}积分`
-const canQuote=computed(()=>options.value?.allowedActions.includes('quote')),canSubmit=computed(()=>options.value?.allowedActions.includes('submit')),canPurchase=computed(()=>props.kind==='quota-purchase'&&options.value?.purchaseMode==='PAYMENT'),vipCalculationOnly=computed(()=>props.kind==='quota-purchase'&&!canPurchase.value),available=computed(()=>options.value?.balances?.find(x=>x.kind==='money')?.value)
+const canQuote=computed(()=>options.value?.allowedActions.includes('quote')),canSubmit=computed(()=>options.value?.allowedActions.includes('submit')),canConfirm=computed(()=>props.kind==='quota-transfer'?canSubmit.value:canQuote.value),canPurchase=computed(()=>props.kind==='quota-purchase'&&options.value?.purchaseMode==='PAYMENT'),vipCalculationOnly=computed(()=>props.kind==='quota-purchase'&&!canPurchase.value),available=computed(()=>options.value?.balances?.find(x=>x.kind==='money')?.value)
 const successLabels={'quota-transfer':'划拨名额成功',upgrade:'设置等级成功','bind-store':'绑定门店成功','quota-purchase':'购买VIP名额成功',withdraw:'提现申请成功',entitlement:'年度权益开通成功'}
 const successTitle=computed(()=>{const status=result.value?.status;if(status==='PENDING_PAYMENT')return '订单待支付';if(status==='PENDING_REVIEW')return '提现申请已提交，等待审核';if(status==='PAID')return successLabels[props.kind]||'支付成功';if(status==='CANCELLED')return '订单已取消';return successLabels[props.kind]||'操作已完成'})
 const transferUnitAmount=computed(()=>{
   if(props.kind!=='quota-transfer')return null
-  const remote=Number(person.value?.wholesalePerQuota)
-  if(Number.isFinite(remote)&&remote>=0)return remote
-  return vipQuotaUnitPrice(person.value?.levelLabel)
+  return transferUnitAmountFor(person.value)
 })
 const quoteAmount=computed(()=>{if(['quota-transfer','quota-purchase'].includes(props.kind)&&/^[1-9]\d{0,3}$/.test(String(draft.value.quantity))){const unit=props.kind==='quota-transfer'?transferUnitAmount.value:options.value?.unitAmount;if(Number.isFinite(Number(unit)))return Number(draft.value.quantity)*Number(unit)}return quote.value?.amount ?? quote.value?.details?.find(x=>['待支付金额','预估购买金额','服务费','本次升级需缴纳服务费','合计金额'].includes(x.label))?.value ?? null})
 const ACTIVITY_UPGRADE_UNIT=2000
@@ -148,6 +153,11 @@ watch(()=>[draft.value.targetAccountId,options.value],()=>{
 })
 watch(()=>[draft.value.quantity,draft.value.targetAccountId,draft.value.targetLevel,draft.value.standardQuantity,draft.value.activityQuantity],()=>{
  clearTimeout(quoteTimer)
+ // 划拨名额只在点击“确认划拨”时获取报价，避免输入数量后自动报价，
+ // 随后点击确认又重复报价一次。
+ // 设置等级同样只在用户点击操作按钮时获取报价，避免默认等级/名额
+ // 初始化后在后台静默报价，导致确认流程出现无意义的等待。
+ if(['quota-transfer','upgrade'].includes(props.kind))return
  const quantityReady=['quota-transfer','quota-purchase'].includes(props.kind) && /^[1-9]\d{0,3}$/.test(String(draft.value.quantity)) && (props.kind==='quota-purchase' || draft.value.targetAccountId)
  const upgradeReady=props.kind==='upgrade' && draft.value.targetAccountId && plan.value && Number(draft.value.standardQuantity)+Number(draft.value.activityQuantity)===plan.value.requiredQuota
  if(locked.value || vipCalculationOnly.value || !canQuote.value || (!quantityReady && !upgradeReady))return
@@ -155,7 +165,24 @@ watch(()=>[draft.value.quantity,draft.value.targetAccountId,draft.value.targetLe
 })
 function dismissConfirmation(){if(busy.value)return;confirmation.value=false;if(!uncertain.value)operationError.value=''}
 function operationErrorMessage(error){if(error?.code==='QUOTA_ONLINE_PAY_DISABLED')return error?.offlinePayHint||error?.data?.offlinePayHint||error?.message||'购买 VIP 名额仅支持线下结算';return storeBindingErrorMessage(error)}
-async function submit(){if(locked.value||!canQuote.value||!upgradeQuotaReady.value)return;clearTimeout(quoteTimer);++epoch;busy.value=true;operationError.value='';try{if(await prepare())confirmation.value=true}catch(e){operationError.value=operationErrorMessage(e)}finally{if(active)busy.value=false}}
+async function commitTransfer(){
+  const targetAccountId=String(draft.value.targetAccountId||'').trim()
+  if(!targetAccountId)throw new Error('请选择接收人')
+  if(!/^[1-9]\d{0,3}$/.test(String(draft.value.quantity)))throw new Error('请输入 1–9999 的整数名额')
+  const remaining=Number(options.value?.standardRemaining)
+  const quantity=Number(draft.value.quantity)
+  if(Number.isFinite(remaining)&&quantity>remaining)throw new Error('标准名额余额不足')
+  const current=epoch
+  if(!key)key=`wholesale-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  rememberBusinessOperationIntent(props.kind,context.value.id,null,key,{...draft.value})
+  uncertain.value=true
+  const output=await commitBusinessOperation(props.kind,context.value.id,'',key,'',draft.value)
+  if(!active||current!==epoch)return
+  result.value=presentCommitResult(output)
+  uncertain.value=false
+  confirmation.value=false
+}
+async function submit(){if(busy.value||!canConfirm.value||!upgradeQuotaReady.value)return;if(props.kind!=='quota-transfer'&&locked.value)return;clearTimeout(quoteTimer);++epoch;busy.value=true;operationError.value='';try{if(props.kind==='quota-transfer')await commitTransfer();else if(await prepare())confirmation.value=true}catch(e){if(props.kind==='quota-transfer'){uncertain.value=Boolean(getBusinessOperationIntent(props.kind,context.value.id,draft.value.targetAccountId)?.dispatched);if(!uncertain.value)key=''}operationError.value=operationErrorMessage(e)}finally{if(active)busy.value=false}}
 async function chooseStore(store){if(locked.value)return;set('storeId',store.id);await submit()}
 function shouldOpenCashier(output){
   if(!output?.orderId||output.status!=='PENDING_PAYMENT')return false

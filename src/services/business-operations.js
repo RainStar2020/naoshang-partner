@@ -6,12 +6,18 @@ import {parseBusinessAmount} from '../features/business/format'
 import {buildWholesaleUpgradePlans,wholesaleLevelDisplay,wholesaleLadderEntry} from '../features/business/account-rank'
 import {mockBusinessState,saveMockBusinessState} from './mock/business'
 import { validAllocationQuote, allocationKind } from './contracts/v3'
+import { buildQuotaTransferPayload } from '../features/business/quota-transfer'
 const known=['quota-transfer','quota-purchase','upgrade','entitlement','bind-store','withdraw','allocation']
 const trackedKinds=['quota-transfer','quota-purchase','upgrade','bind-store','withdraw']
 const intentKey=(accountId,kind,contextId,targetAccountId='')=>`naoshang-business-intent:${JSON.stringify([accountId,contextId,kind,kind==='upgrade'?String(targetAccountId||'').trim():''])}`
 export function getBusinessOperationIntent(kind,contextId,targetAccountId=''){return uni.getStorageSync(intentKey(businessAccount().id,kind,contextId,targetAccountId)) || null}
 export function rememberBusinessOperationIntent(kind,contextId,quote,idempotencyKey,draft){
  const account=businessAccount(),key=intentKey(account.id,kind,contextId,draft?.targetAccountId),previous=uni.getStorageSync(key)
+ if(kind==='quota-transfer'){
+  if(previous?.dispatched && previous.idempotencyKey!==idempotencyKey)throw new Error('上一笔操作待确认，请勿重复提交')
+  uni.setStorageSync(key,JSON.parse(JSON.stringify({idempotencyKey,draft,dispatched:previous?.dispatched || false})))
+  return
+ }
  if(previous?.dispatched && (previous.quoteId!==quote.id || previous.idempotencyKey!==idempotencyKey))throw new Error('上一笔操作待确认，请勿重复提交')
  uni.setStorageSync(key,JSON.parse(JSON.stringify({quoteId:quote.id,idempotencyKey,quote,draft,dispatched:previous?.dispatched || false})))
 }
@@ -219,16 +225,29 @@ function validateQuote(quote){if(!quote?.id||!Array.isArray(quote.details)||!Num
 export function commitBusinessOperation(kind,contextId,quoteId,idempotencyKey,entryId='',input={}){
   guardKind(kind)
   return withBusinessContext(contextId,context=>capability(kind,context),async(account,context)=>{
-    scopeKind(kind,context);if(!quoteId||!idempotencyKey)throw new Error('请先确认本次操作预览')
+    scopeKind(kind,context)
     const targetAccountId=String(input?.targetAccountId||'').trim()
     if(kind==='upgrade'&&!targetAccountId)throw new Error('请从团队页选择下级')
+    if(kind==='quota-transfer'){if(!idempotencyKey)throw new Error('请先确认本次操作')}
+    else if(!quoteId||!idempotencyKey)throw new Error('请先确认本次操作预览')
     const tracked=trackedKinds.includes(kind),storageKey=intentKey(account.id,kind,contextId,targetAccountId),previous=tracked?uni.getStorageSync(storageKey):null
-    if(previous?.dispatched && (previous.quoteId!==quoteId || previous.idempotencyKey!==idempotencyKey))throw new Error('上一笔操作待确认，请勿重复提交')
-    if(tracked)uni.setStorageSync(storageKey,{...previous,quoteId,idempotencyKey,dispatched:true})
+    if(kind==='quota-transfer'){
+      if(previous?.dispatched && previous.idempotencyKey!==idempotencyKey)throw new Error('上一笔操作待确认，请勿重复提交')
+      if(tracked)uni.setStorageSync(storageKey,{...previous,idempotencyKey,draft:input,dispatched:true})
+    }else{
+      if(previous?.dispatched && (previous.quoteId!==quoteId || previous.idempotencyKey!==idempotencyKey))throw new Error('上一笔操作待确认，请勿重复提交')
+      if(tracked)uni.setStorageSync(storageKey,{...previous,quoteId,idempotencyKey,dispatched:true})
+    }
     try{
       let result
-      if(!config.useMock){const endpoint={withdraw:'/wallet/withdrawals',allocation:`/income/entries/${encodeURIComponent(entryId)}/allocations`,'quota-transfer':'/partner/quota-transfers','quota-purchase':'/partner/quota-orders',upgrade:'/partner/upgrades',entitlement:'/partner/entitlement-orders','bind-store':'/partner/store-bindings'}[kind];result=await request(endpoint,{method:'POST',data:kind==='upgrade'?{contextId:context.id,targetAccountId,targetLevel:input.targetLevel,idempotencyKey,quoteId}:{contextId:context.id,quoteId,idempotencyKey}})}
-      else result=mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId)
+      if(!config.useMock){
+        if(kind==='quota-transfer'){
+          result=await request('/partner/quota-transfers',{method:'POST',data:buildQuotaTransferPayload({contextId:context.id,targetAccountId,quantity:input.quantity,idempotencyKey})})
+        }else{
+          const endpoint={withdraw:'/wallet/withdrawals',allocation:`/income/entries/${encodeURIComponent(entryId)}/allocations`,'quota-purchase':'/partner/quota-orders',upgrade:'/partner/upgrades',entitlement:'/partner/entitlement-orders','bind-store':'/partner/store-bindings'}[kind];result=await request(endpoint,{method:'POST',data:kind==='upgrade'?{contextId:context.id,targetAccountId,targetLevel:input.targetLevel,idempotencyKey,quoteId}:{contextId:context.id,quoteId,idempotencyKey}})
+        }
+      }
+      else result=mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId,input)
       checkBusinessAccount(account)
       if(!result || typeof result!=='object' || !['PENDING_PAYMENT','PENDING_REVIEW','PENDING_SETTLEMENT','DEMO_APPLIED','APPLIED','SUCCEEDED','COMPLETED','PAID'].includes(result.status))throw new Error('操作结果待确认，请勿重复提交，可稍后查看记录')
       const validId=value=>typeof value==='string' && value.trim().length>0

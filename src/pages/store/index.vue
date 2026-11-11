@@ -8,9 +8,10 @@
 <script setup>
   import { computed, ref } from "vue";
   import BusinessPageHeader from "../../components/BusinessPageHeader.vue";
-  import { onLoad, onShow } from "@dcloudio/uni-app";
+  import { onLoad } from "@dcloudio/uni-app";
   import { useAuth } from "../../composables/useAuth";
   import { useBusinessReturn } from "../../composables/useBusinessReturn";
+  import { useFreshOnShow } from "../../composables/useFreshOnShow";
   import BusinessStore from "../../components/BusinessStore.vue";
   useAuth();
   useBusinessReturn();
@@ -28,8 +29,9 @@
   onLoad((options) => {
     query.value = options;
   });
-  onShow(() => {
-    if (query.value) page.value?.refresh();
+  useFreshOnShow(() => {
+    if (!query.value) return null;
+    return (opts) => page.value?.refresh?.(opts);
   });
 </script>
 

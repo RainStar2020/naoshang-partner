@@ -1,11 +1,11 @@
 <template>
  <view class="wholesale-ui">
   <view class="wh-body">
-   <FeaturePageState :status="status" :error="error" @retry="load"/>
+   <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="metrics" @retry="load"/>
    <template v-if="status==='ready' && report">
     <template v-if="toolId==='income'">
      <view class="income-head">
-      <view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view>{{money(metric.value)}}</view></view>
+      <view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view v-if="metricNumber(metric.value)!=null">{{money(metric.value)}}</view><MetricSkeleton v-else size="block" :inline="false"/></view>
      </view>
      <view class="income-actions">
       <button v-if="canWallet('read')" class="wh-secondary wh-pill" @click="wallet('withdrawals')">提现记录</button>
@@ -22,8 +22,8 @@
       <picker mode="date" fields="month" :value="month" @change="changeMonth"><view class="wh-center">{{monthTitle}} <image class="wh-month-arrow" src="/static/common/icon-chevron-right.png" mode="aspectFit"/></view></picker>
       <view v-if="report.eligibilityLabel" class="wh-center dividend-title">{{report.eligibilityLabel}}</view>
       <view v-if="report.eligibilityNote" class="wh-muted wh-center wh-eligibility-note">{{report.eligibilityNote}}</view>
-      <view class="wh-metrics"><view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view>{{show(metric.value,metric.kind)}}</view></view></view>
-      <view class="wh-split wh-summary-four wh-divided"><view v-for="metric in report.summary || []" :key="metric.label"><text>{{metric.label}}</text><view>{{show(metric.value,metric.kind)}}</view></view></view>
+      <view class="wh-metrics"><view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view v-if="!metricCellPending(metric)">{{show(metric.value,metric.kind)}}</view><MetricSkeleton v-else size="compact" :inline="false"/></view></view>
+      <view class="wh-split wh-summary-four wh-divided"><view v-for="metric in report.summary || []" :key="metric.label"><text>{{metric.label}}</text><view v-if="!metricCellPending(metric)">{{show(metric.value,metric.kind)}}</view><MetricSkeleton v-else size="compact" :inline="false"/></view></view>
      </view>
      <view class="wh-table-frame"><scroll-view scroll-x class="wh-table-scroll"><view class="wh-table"><view class="wh-tr head"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{column.label}}</text></view><view v-for="item in items" :key="item.id" class="wh-tr"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{show(item[column.key],column.kind)}}</text></view></view></scroll-view></view>
      <EmptyState v-if="!items.length" text="暂无分红"/>
@@ -38,9 +38,11 @@ import {config} from '../config'
 import {businessPreview} from '../features/business/catalog'
 import {money, percent} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
+import {pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext, getBusinessReport} from '../services/business'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
+import MetricSkeleton from './MetricSkeleton.vue'
 import EmptyState from './EmptyState.vue'
 import WholesaleRecordCard from './WholesaleRecordCard.vue'
 import WholesaleStatSplit from './WholesaleStatSplit.vue'
@@ -52,13 +54,15 @@ const monthTitle=computed(()=>{const index=Number(String(month.value).slice(5,7)
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('costore',props.pageQuery?.contextId);context.value=ctx;return getBusinessReport('costore',props.toolId,ctx.id,{month:month.value})},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 watch(report,value=>{items.value=value?.items||[]})
+const metricNumber=value=>pickMetricNumber(value)
+const metricCellPending=metric=>metric?.kind==='percent'?metric?.value==null||metric?.value==='':pickMetricNumber(metric?.value)==null
 const show=(value,kind)=>kind==='money'?money(value):kind==='percent'?percent(value):(value??0)
-const plusAmount=value=>!Number.isFinite(Number(value))?'+0':`+${money(value).replace(/\.00$/,'')}`
+const plusAmount=value=>{const n=pickMetricNumber(value);return n==null?'':`+${money(n).replace(/\.00$/,'')}`}
 const canWallet=id=>businessPreview(config)||context.value?.capabilities?.includes(`wallet:${id}`)
 function wallet(page){uni.navigateTo({url:`/pages/wallet/${page}?contextId=${context.value.id}`})}
 function changeMonth(event){month.value=event.detail.value;load()}
 onUnmounted(()=>{active=false})
-defineExpose({refresh(){if(active)load()}})
+defineExpose({refresh(opts){if(active)load(opts)}})
 </script>
 <style>@import '../styles/wholesale.css';</style>
 <style scoped>

@@ -17,7 +17,7 @@
               @click="changeType(type.id)"
             >{{ type.label }}</button>
           </view>
-          <FeaturePageState :status="status" :error="error" @retry="load" />
+          <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="dialog" @retry="load" />
           <template v-if="status === 'ready'">
             <image
               v-if="showRemoteQr"
@@ -27,7 +27,14 @@
               @error="imageError = true"
             />
             <view v-else-if="scanPayload" class="agency-promo-qr-wrap">
-              <BusinessQrCode ref="localQr" :show-save="false" :value="scanPayload" />
+              <BusinessQrCode
+                ref="localQr"
+                :show-save="false"
+                :value="scanPayload"
+                :poster-title="data.agencyPromotionCode || data.promotionId"
+                :poster-heading="`${agencyTypeLabel}推广码`"
+                :poster-hint="`扫码申请成为${agencyTypeLabel}代理`"
+              />
             </view>
             <EmptyState v-else text="暂无推广码" />
             <text v-if="imageError && data.qrUrl" class="agency-promo-error">二维码图片加载失败，已尝试本地生成。</text>
@@ -70,14 +77,16 @@ const localQr = ref(null)
 let active = true
 let receivedAt = 0
 
+// Overlay tool: explicit load only — avoid page onShow refreshing a closed/open sheet.
 const { data, status, error, load } = useAsyncPage(async () => {
   const result = await getAgencyPromotion(selectedType.value)
   receivedAt = Date.now()
   imageError.value = false
   return result
-})
+}, false)
 
 const scanPayload = computed(() => data.value?.localPayload || data.value?.shareUrl || '')
+const agencyTypeLabel = computed(() => agencyTypes.find(type => type.id === selectedType.value)?.label || '代理')
 const showRemoteQr = computed(() => Boolean(data.value?.qrUrl && !imageError.value))
 const canSaveImage = computed(() => Boolean(data.value?.posterUrl || showRemoteQr.value || scanPayload.value))
 
@@ -120,8 +129,8 @@ async function save() {
   try {
     ensureCurrent(result)
     if (result.posterUrl) await downloadImage(result.posterUrl)
-    else if (result.qrUrl && !imageError.value) await downloadImage(result.qrUrl)
     else if (localQr.value?.save) localQr.value.save()
+    else if (result.qrUrl && !imageError.value) await downloadImage(result.qrUrl)
     else throw new Error('暂无可保存的二维码')
     if (active) uni.showToast({ title: '已保存', icon: 'success' })
   } catch (reason) {

@@ -1,9 +1,10 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm')
 async function setup({useMock=true,preview=true,remote=()=>{throw new Error('Unexpected network')}}={}){
   let now=Date.now();const session={token:'demo-token',user:{id:'A',name:'演示测试用户'}},storage=new Map(),context=vm.createContext({console,Date:class extends Date{static now(){return now}},uni:{removeStorageSync:k=>storage.delete(k),getStorageSync:key=>storage.get(key),setStorageSync:(key,value)=>storage.set(key,value)}}),cache=new Map()
-  async function load(file){if(cache.has(file))return cache.get(file);let module
+  async function load(file){file=file.replaceAll('\\','/').replace(/\.js$/,'');if(cache.has(file))return cache.get(file);let module
     if(file.endsWith('/config'))module=new vm.SyntheticModule(['config'],function(){this.setExport('config',{useMock,previewAllBusinessFeatures:preview})},{context})
-    else if(file.endsWith('/api'))module=new vm.SyntheticModule(['getSession','request'],function(){this.setExport('getSession',()=>session);this.setExport('request',remote)},{context})
+    else if(file.endsWith('/api'))module=new vm.SyntheticModule(['getSession','request','getCachedMyInviteCode','normalizeEntitlement'],function(){this.setExport('getSession',()=>session);this.setExport('request',remote);this.setExport('getCachedMyInviteCode',()=>null);this.setExport('normalizeEntitlement',value=>value||{})},{context})
+    else if(/\/china-area-data$/.test(file))module=new vm.SyntheticModule(['default'],function(){this.setExport('default',{})},{context})
     else module=new vm.SourceTextModule(fs.readFileSync(file+'.js','utf8'),{context,identifier:file})
     cache.set(file,module);await module.link((specifier,parent)=>load(path.resolve(path.dirname(parent.identifier),specifier).replaceAll('\\','/')));return module
   }
@@ -77,6 +78,21 @@ test('agency node traversal cannot invent a parent or read across another accoun
   await assert.rejects(service.getBusinessTeamNode(context.id,'forged-node'),/无权/)
   await assert.rejects(service.getBusinessReport('agency','team',context.id,{parentNodeId:'forged-node'}),/无权/)
 })
+test('agency overview returns shell without awaiting team/income stats; enrich merges the same keys',async()=>{
+  const {service}=await setup(),context=(await service.getBusinessContexts()).find(x=>x.agencyType==='COUNTY')
+  const overview=await service.getBusinessOverview('agency',context.id)
+  assert.equal(overview.needsStatsEnrichment,true)
+  assert.equal(overview.available,200000)
+  assert.ok(overview.tools.length)
+  assert.ok(Array.isArray(overview.benefits))
+  const stats=await service.enrichAgencyOverviewStats(context.id)
+  assert.equal(typeof stats,'object')
+  const merged={...overview,...stats,needsStatsEnrichment:false}
+  assert.equal(merged.available,200000)
+  assert.equal(merged.needsStatsEnrichment,false)
+  if(stats.teamCount!=null)assert.equal(typeof stats.teamCount,'number')
+  if(stats.agencyIncome!=null)assert.equal(typeof stats.agencyIncome,'number')
+})
 test('store staff save never exposes credentials; rejection requires a reason and approval does not move ownership',async()=>{
   const {service,store}=await setup(),context=(await service.getBusinessContexts()).find(x=>x.agencyType==='STORE'),workspace=await store.getBusinessStore(context.id)
   assert.equal(context.store.name,'脑商训练营桐柏路店');assert.equal(context.store.number,'NO.001')
@@ -110,4 +126,21 @@ test('remote withdrawal quotes use integer cents, while the preview flag cannot 
   await operations.previewBusinessOperation('withdraw',context.id,{amount:'10.10',accountType:'PERSONAL',payeeToken:'saved-payee'})
   assert.equal(calls[0].options.data.amount,1010)
   await assert.rejects(service.getBusinessReport('wholesale','income',context.id),/权限/)
+})
+test('wholesale team always hits /partner/team even when bootstrap already has members',async()=>{
+  const calls=[]
+  const context={id:'real-team-scope',module:'wholesale',accountId:'A',capabilities:['wholesale:team']}
+  const bootstrapMember={id:'boot-1',name:'Bootstrap成员',displayId:'LC900033',quotaRemaining:0,performance:[{label:'当月总业绩',value:0,kind:'money'}]}
+  const liveMember={id:'live-1',name:'市代测试',displayId:'LC900033',quotaRemaining:5,performance:[{label:'当月总业绩',value:1200,kind:'money'}]}
+  const {service}=await setup({useMock:false,remote:async(url)=>{
+    calls.push(url)
+    if(url==='/me/bootstrap')return {businessContexts:[context],team:{members:[bootstrapMember],summary:{memberCount:1}}}
+    if(url==='/partner/team')return {items:[liveMember],hasMore:false,nextCursor:null}
+    throw new Error(`Unexpected ${url}`)
+  }})
+  const report=await service.getBusinessReport('wholesale','team',context.id)
+  assert.ok(calls.includes('/partner/team'))
+  assert.equal(report.items.length,1)
+  assert.equal(report.items[0].id,'live-1')
+  assert.equal(report.items[0].quotaRemaining,5)
 })

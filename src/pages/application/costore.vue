@@ -7,7 +7,7 @@
           :status="status"
           :error="error"
           forbidden-title="暂无法申请合店"
-          forbidden-detail="中批发商及以上身份才可以使用该功能"
+          forbidden-detail="VIP（小批发商）及以上身份才可以使用该功能"
           @retry="load"
         />
         <template v-if="status === 'ready'">

@@ -57,10 +57,20 @@ export function mockOperationPreview(kind,account,context,input,entryId,payload)
     state.quotes.set(id,mockClone(quote));return quote
 }
 
-export function mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId) {
+export function mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId,input={}) {
     const state=mockBusinessState(account,context),previous=state.operations.get(idempotencyKey)
-    if(previous){if(previous.quoteId!==quoteId||previous.kind!==kind||previous.entryId!==entryId)throw new Error('重复请求参数不一致');return mockClone(previous.result)}
-    const quote=state.quotes.get(quoteId)
+    if(previous){if((previous.quoteId||'')!==(quoteId||'')||previous.kind!==kind||previous.entryId!==entryId)throw new Error('重复请求参数不一致');return mockClone(previous.result)}
+    const quote=quoteId?state.quotes.get(quoteId):null
+    if(kind==='quota-transfer'&&!quote){
+      const person=state.people.find(item=>item.id===input.targetAccountId);if(!person)throw new Error('请选择授权团队成员')
+      if(!/^[1-9]\d{0,3}$/.test(String(input.quantity)))throw new Error('请输入1—9999的整数名额')
+      const quantity=Number(input.quantity);if(quantity>state.quota)throw new Error('标准名额余额不足')
+      let result={operationId:`demo-operation-${state.operations.size+1}`,status:'DEMO_APPLIED',mockOnly:true}
+      state.quota-=quantity;state.transferred+=quantity;state.quotaLedger.unshift({id:result.operationId,title:'划拨名额',targetName:person.name,quantity:-quantity,createdAt:new Date().toISOString()})
+      state.version++
+      result.balances=[{label:'标准名额余额',kind:'number',value:state.quota}]
+      state.operations.set(idempotencyKey,{kind,quoteId:'',entryId,result:mockClone(result)});saveMockBusinessState(account,context);return result
+    }
     if(!quote||quote.kind!==kind||quote.contextId!==context.id||quote.entryId!==entryId||quote.expiresAt<=Date.now())throw new Error('预览已失效，请重新生成')
     if(quote.version!==state.version)throw new Error('余额或数据版本已变化，请重新加载后预览')
     let result={operationId:`demo-operation-${state.operations.size+1}`,status:'DEMO_APPLIED',mockOnly:true}

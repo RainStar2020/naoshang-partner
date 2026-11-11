@@ -20,6 +20,9 @@
                 @change="regionChanged"
               />
             </view>
+            <text v-if="regionChecking" class="region-hint">正在检查该区域是否可申请…</text>
+            <text v-else-if="regionOccupied" class="agency-error region-hint">该区域已有有效代理，请更换地区</text>
+            <text v-else-if="regionAvailable" class="region-ok region-hint">该区域暂无代理，可以继续申请</text>
             <view v-if="data.agencyType === 'CITY'" class="agency-tier-block">
               <text class="agency-tier-label">城市人口档位</text>
               <view class="agency-tiers">
@@ -31,6 +34,10 @@
                   @click="selectCityTier(tier.id)"
                 >{{ tier.label }}</button>
               </view>
+            </view>
+            <view v-if="isStoreApplication" class="agency-row">
+              <text>门店名称</text>
+              <input v-model="draft.storeName" placeholder="请输入门店名称" maxlength="255" />
             </view>
             <view v-if="data.requiresAddress" class="agency-row address-row">
               <text>门店地址</text>
@@ -66,7 +73,7 @@
                 <text @click.stop="agreementOpen = true">《代理协议》</text>
               </view>
             </view>
-            <button v-if="!submitted" class="submit" :disabled="busy || uploading" @click="submit">{{ busy ? '提交中…' : '提交开通申请' }}</button>
+            <button v-if="!submitted" class="submit" :disabled="busy || uploading || regionChecking || regionOccupied" @click="submit">{{ busy ? '提交中…' : '提交开通申请' }}</button>
           </view>
         </template>
       </view>
@@ -89,11 +96,13 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { config } from '../../config'
 import { rememberAgencyReturn } from '../../services/login-return'
 import { getSession } from '../../services/api'
 import { getMyProfile, uploadProfileImage } from '../../services/profile'
 import {assetUrl} from '../../services/asset-url'
-import { getAgencyApplicationOptions, submitAgencyApplication, applyCityTier } from '../../services/agency-application'
+import { uploadAsset } from '../../services/asset-upload'
+import { getAgencyApplicationOptions, submitAgencyApplication, applyCityTier, checkAgencyRegionAvailability } from '../../services/agency-application'
 import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
 import { commerceRequestKey } from '../../services/commerce'
@@ -102,18 +111,21 @@ import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import ManagedRichContent from '../../components/ManagedRichContent.vue'
 useAuth()
-let type = '', promotionId = '', active = true, key = '', fingerprint = '', applicantSeeded = false
+let type = '', promotionId = '', active = true, key = '', fingerprint = '', applicantSeeded = false, regionCheckSeq = 0
 const draft = ref({
   name: '',
   phone: '',
+  promotionCode: '',
+  storeName: '',
   address: '',
   regionNames: [],
   regionCodes: [],
-  storefrontAssetId: '',
+  storefrontFileId: '',
   cityTierId: '',
   agreementAccepted: false,
 })
 const cover = ref(''), busy = ref(false), uploading = ref(false), submitted = ref(false), actionError = ref(''), agreementOpen = ref(false)
+const regionChecking = ref(false), regionOccupied = ref(false), regionAvailable = ref(false)
 function seedApplicant(profile) {
   if (applicantSeeded) return
   const user = getSession()?.user || {}
@@ -121,9 +133,14 @@ function seedApplicant(profile) {
   draft.value.phone = String(profile?.phone || user.phone || '').trim()
   applicantSeeded = true
 }
+function resetRegionCheck() {
+  regionChecking.value = false
+  regionOccupied.value = false
+  regionAvailable.value = false
+}
 const { data, status, error, load } = useAsyncPage(async () => {
   const [options, profileResult] = await Promise.all([
-    getAgencyApplicationOptions(type, promotionId, draft.value.cityTierId || null),
+    getAgencyApplicationOptions(type, promotionId, draft.value.cityTierId || null, draft.value.promotionCode),
     getMyProfile().catch(() => null),
   ])
   seedApplicant(profileResult?.profile)
@@ -131,14 +148,46 @@ const { data, status, error, load } = useAsyncPage(async () => {
   draft.value.regionNames = []
   draft.value.regionCodes = []
   draft.value.address = ''
-  draft.value.storefrontAssetId = ''
+  draft.value.storeName = ''
+  draft.value.storefrontFileId = ''
   cover.value = ''
+  resetRegionCheck()
   return options
 }, false)
+const isStoreApplication = computed(() => String(data.value?.agencyType || '').toUpperCase() === 'STORE')
 const regionFieldLabel = computed(() => (data.value?.requiresAddress ? '门店地区' : '代理地区'))
+async function verifySelectedRegion() {
+  const seq = ++regionCheckSeq
+  const codes = draft.value.regionCodes
+  const levels = Number(data.value?.regionLevels) || 0
+  const regionCode = Array.isArray(codes) && codes.length ? String(codes[codes.length - 1] || '').trim() : ''
+  if (!data.value || !regionCode || (levels > 0 && codes.length < levels)) {
+    if (seq === regionCheckSeq) resetRegionCheck()
+    return
+  }
+  regionChecking.value = true
+  regionOccupied.value = false
+  regionAvailable.value = false
+  try {
+    const result = await checkAgencyRegionAvailability(data.value.agencyType, regionCode)
+    if (!active || seq !== regionCheckSeq) return
+    regionOccupied.value = result.available !== true
+    regionAvailable.value = result.available === true
+    if (regionOccupied.value) actionError.value = '该区域已有有效代理，请更换地区'
+    else if (actionError.value.includes('已有有效代理')) actionError.value = ''
+  } catch (reason) {
+    if (!active || seq !== regionCheckSeq) return
+    resetRegionCheck()
+    actionError.value = reason.message || '区域占用检验未完成，请稍后重试'
+  } finally {
+    if (active && seq === regionCheckSeq) regionChecking.value = false
+  }
+}
 function regionChanged(value) {
   draft.value.regionNames = value.names
   draft.value.regionCodes = value.codes
+  actionError.value = ''
+  verifySelectedRegion()
 }
 function selectCityTier(tierId) {
   if (!data.value || draft.value.cityTierId === tierId || busy.value || uploading.value) return
@@ -151,15 +200,17 @@ async function upload() {
     const result = await new Promise((resolve, reject) => uni.chooseImage({ count: 1, success: resolve, fail: reject }))
     const file = result.tempFiles?.[0]
     const path = file?.path || result.tempFilePaths?.[0]
-    const asset = await uploadProfileImage({
-      path,
-      size: file?.size || 1,
-      type: file?.type || file?.mimeType || '',
-      name: file?.name || path || '',
-    }, 'storefront')
+    const uploadInput = { path, size: file?.size || 1, type: file?.type || file?.mimeType || '', name: file?.name || path || '' }
+    const asset = config.useMock
+      ? await uploadProfileImage(uploadInput, 'storefront')
+      : await uploadAsset(uploadInput, {
+        purpose: 'storefront',
+        mimeType: uploadInput.type || 'image/jpeg',
+        fileName: uploadInput.name || 'storefront.jpg',
+      })
     if (active) {
       cover.value = assetUrl(asset.previewUrl)
-      draft.value.storefrontAssetId = asset.assetId
+      draft.value.storefrontFileId = asset.fileId || asset.assetId
     }
   } catch (reason) {
     if (active) actionError.value = reason.message || '门头照片上传未完成，请检查网络后重试'
@@ -168,7 +219,7 @@ async function upload() {
   }
 }
 async function submit() {
-  if (busy.value) return
+  if (busy.value || regionChecking.value || regionOccupied.value) return
   busy.value = true
   actionError.value = ''
   try {
@@ -181,7 +232,12 @@ async function submit() {
     await submitAgencyApplication(data.value, { ...draft.value }, key)
     if (active && getSession()?.token === session.token) submitted.value = true
   } catch (reason) {
-    if (active) actionError.value = reason.message || '代理申请提交未完成，请勿重复提交，可稍后查看申请记录'
+    if (!active) return
+    actionError.value = reason.message || '代理申请提交未完成，请勿重复提交，可稍后查看申请记录'
+    if (String(reason.message || '').includes('已有有效代理')) {
+      regionOccupied.value = true
+      regionAvailable.value = false
+    }
   } finally {
     if (active) busy.value = false
   }
@@ -189,7 +245,8 @@ async function submit() {
 onLoad(query => {
   if (!getSession()) rememberAgencyReturn(query)
   type = query.agencyType || 'STORE'
-  promotionId = query.promotionId || ''
+  promotionId = query.promotionId || query.promotionCode || query.inviteCode || ''
+  draft.value.promotionCode = promotionId
   load()
 })
 onUnload(() => { active = false })
@@ -218,6 +275,8 @@ onUnload(() => { active = false })
 .upload-box image { width: 100%; height: 100%; border-radius: .45em; }
 .upload-plus { font-size: 1.5em; line-height: 1; }
 .agency-error { display: block; margin-top: .4em; color: #ffabbc; text-align: center; }
+.region-hint { display: block; margin: -.15em 0 .55em; font-size: .86em; line-height: 1.45; text-align: left; }
+.region-ok { color: #7eb6ff; }
 .agency-done { display: block; margin: .8em 0; color: #7eb6ff; text-align: center; }
 .agreement-line { display: flex; align-items: center; gap: .45em; margin: 1em 0 .15em; color: #c5cadb; font-size: .9em; line-height: 1.4; }
 .agreement-check { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 1em; height: 1em; border: 1.5px solid #8eabda; border-radius: .2em; box-sizing: border-box; }

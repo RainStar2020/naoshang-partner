@@ -2,6 +2,7 @@ import { config } from '../config'
 import * as api from './api'
 import { mockBoundStore, mockProfileState, copy } from './mock/profile'
 import { ensureRegionNames } from '../features/region'
+import { MOCK_PARTNER_AGENCY_PROMOTION_CODE, withNormalizedAgencyPromotionCode } from './agency-promotion-code'
 
 // Session-scoped cache for GET /me (profile + bound store + exclusiveAccess).
 let meCache = null
@@ -62,12 +63,13 @@ function normalizeMePayload(result, user) {
   if (!result || typeof result !== 'object' || rawProfile.id !== user.id) {
     throw new Error('个人资料格式异常')
   }
-  return {
+  const normalized = withNormalizedAgencyPromotionCode({
     ...result,
     profile: normalizeProfile(rawProfile, user),
     identity: { ...identity, childModuleAccess: normalizeChildModuleAccess(identity.childModuleAccess) },
     store: normalizeMeStore(result.store),
-  }
+  })
+  return normalized
 }
 
 function mockMePayload(user) {
@@ -81,7 +83,13 @@ function mockMePayload(user) {
       contextId: `account:${user.id}`,
       capabilities: ['agency-code:read', 'family-members:manage'],
     },
-    identity: { isVipPlus: 1, canOpenEntitlement: 1, childModuleAccess: normalizeChildModuleAccess(null) },
+    agencyPromotionCode: MOCK_PARTNER_AGENCY_PROMOTION_CODE,
+    identity: {
+      isVipPlus: 1,
+      canOpenEntitlement: 1,
+      childModuleAccess: normalizeChildModuleAccess(null),
+      agencyPromotionCode: MOCK_PARTNER_AGENCY_PROMOTION_CODE,
+    },
   }
 }
 

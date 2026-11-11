@@ -1,6 +1,6 @@
 <template>
   <view class="points-exchange">
-    <FeaturePageState :status="status" :error="error" @retry="load" />
+    <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="metrics" @retry="load" />
     <template v-if="status === 'ready' && options">
       <view v-if="result" class="exchange-result">
         <view class="exchange-result-title">{{ successTitle }}</view>
@@ -21,7 +21,7 @@
             placeholder-class="exchange-placeholder"
             @input="onAmount"
           />
-          <text class="exchange-available">{{ options.identityLabel }}可兑换积分 {{ availableLabel }}</text>
+          <text class="exchange-available">{{ options.identityLabel }}可兑换积分 <template v-if="!availablePending">{{ availableLabel }}</template><MetricSkeleton v-else size="compact"/></text>
         </view>
         <text v-if="options.hasNegativeBalance && options.negativeBalanceHint" class="exchange-negative">{{ options.negativeBalanceHint }}</text>
         <text v-if="options.rateNote" class="exchange-note">{{ options.rateNote }}</text>
@@ -41,9 +41,11 @@
 <script setup>
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { money } from '../features/exclusive/format'
+import { pickMetricNumber } from '../features/business/metric-display'
 import { getPartnerPointsOptions, exchangePartnerPoints } from '../services/partner-wallet'
 import { useAsyncPage } from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
+import MetricSkeleton from './MetricSkeleton.vue'
 
 const props = defineProps({ pageQuery: Object })
 const amount = ref('')
@@ -71,8 +73,9 @@ watch(
   { immediate: true },
 )
 
-const available = computed(() => options.value?.availablePoints)
-const availableLabel = computed(() => money(available.value))
+const available = computed(() => pickMetricNumber(options.value?.availablePoints))
+const availablePending = computed(() => available.value == null)
+const availableLabel = computed(() => (availablePending.value ? '' : money(available.value)))
 const canApply = computed(() => options.value?.allowedActions?.includes('exchange'))
 const successTitle = computed(() => {
   if (result.value?.status === 'PENDING_REVIEW') return '兑换申请已提交，等待审核'

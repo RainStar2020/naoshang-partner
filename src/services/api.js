@@ -1,7 +1,11 @@
 import { config } from '../config'
 import { clearMeContext, loadMeContext } from './me-context'
+import { bumpDataFreshness } from './freshness'
+import { clearPrefetchState, prefetchAfterAuth, scheduleIdle } from './prefetch'
+import { clearWholesaleBenefitCatalogCache } from './partner-catalog'
 const SESSION_KEY = 'naoshang-session'
 export const INVITE_CODE_CACHE_KEY = 'naoshang-personal-invite-code'
+const DEFAULT_GET_TTL_MS = 30000
 const ENTITLEMENT_GATE_EXEMPT_PATHS = new Set([
   '/partner/superior',
   '/partner/superior-bindings',
@@ -10,9 +14,165 @@ const ENTITLEMENT_GATE_EXEMPT_PATHS = new Set([
 const skipsEntitlementGate = path => ENTITLEMENT_GATE_EXEMPT_PATHS.has(String(path).split('?')[0])
 // One shared result (including concurrent callers) per authenticated session.
 let bootstrapCache = null
+/** In-memory GET cache: key -> { promise } | { value, expiresAt } */
+const getRequestCache = new Map()
 export function clearBootstrapCache() { bootstrapCache = null }
-export function clearSessionCaches() { clearBootstrapCache(); clearMeContext() }
+export function clearGetRequestCache() { getRequestCache.clear() }
+
+/**
+ * Drop GET cache entries whose request path matches any prefix.
+ * Match rule: exact path or path starts with `${prefix}/`.
+ * @param {string|string[]} prefixes
+ * @returns {number} removed entry count
+ */
+export function invalidateGetRequestCache(prefixes = []) {
+  const list = (Array.isArray(prefixes) ? prefixes : [prefixes])
+    .map(item => String(item || '').split('?')[0].trim())
+    .filter(Boolean)
+  if (!list.length) return 0
+  let removed = 0
+  for (const key of [...getRequestCache.keys()]) {
+    let requestPath = ''
+    try {
+      requestPath = String(JSON.parse(key)?.[1] || '')
+    } catch {
+      continue
+    }
+    const bare = requestPath.split('?')[0]
+    if (!bare) continue
+    if (list.some(prefix => bare === prefix || bare.startsWith(`${prefix}/`))) {
+      getRequestCache.delete(key)
+      removed += 1
+    }
+  }
+  return removed
+}
+
+/** Map a mutating request path to cache invalidation scope. Unmapped → clear all. */
+export function resolveMutationCachePlan(path) {
+  const bare = String(path || '').split('?')[0]
+  if (!bare || bare === '/auth' || bare.startsWith('/auth/')) {
+    return { clearAll: true }
+  }
+  if (bare.startsWith('/partner/')) {
+    return { prefixes: ['/partner', '/me/bootstrap'], clearBootstrap: true }
+  }
+  if (bare.startsWith('/agency/')) {
+    return { prefixes: ['/agency', '/me/bootstrap'], clearBootstrap: true }
+  }
+  if (bare.startsWith('/costore/')) {
+    return { prefixes: ['/costore', '/me/bootstrap'], clearBootstrap: true }
+  }
+  if (bare.startsWith('/income/')) {
+    return { prefixes: ['/income', '/agency', '/partner'] }
+  }
+  if (bare.startsWith('/wallet/')) {
+    return { prefixes: ['/wallet', '/partner', '/costore', '/agency'] }
+  }
+  if (bare === '/stores' || bare.startsWith('/stores/')) {
+    return { prefixes: ['/stores', '/agency', '/me/bootstrap'], clearBootstrap: true }
+  }
+  if (bare.startsWith('/store-bindings') || bare.startsWith('/store-transfer') || bare.startsWith('/partner/store-binding')) {
+    return { prefixes: ['/partner', '/me', '/me/bootstrap'], clearBootstrap: true, clearMe: true }
+  }
+  if (bare.startsWith('/orders') || bare.startsWith('/payments') || bare.startsWith('/checkout')) {
+    return { prefixes: ['/orders', '/products', '/me'] }
+  }
+  if (bare.startsWith('/applications')) {
+    return { prefixes: ['/applications', '/costore', '/agency', '/me/bootstrap'], clearBootstrap: true }
+  }
+  if (bare === '/me' || bare.startsWith('/me/')) {
+    return { prefixes: ['/me', '/me/bootstrap'], clearBootstrap: true, clearMe: true }
+  }
+  if (bare.startsWith('/members') || bare.startsWith('/activations') || bare.startsWith('/training')) {
+    return { prefixes: ['/members', '/me'], clearMe: true }
+  }
+  if (bare.startsWith('/addresses')) {
+    return { prefixes: ['/addresses', '/me'], clearMe: true }
+  }
+  if (bare.startsWith('/materials')) {
+    return { prefixes: ['/materials'] }
+  }
+  if (bare.startsWith('/assets') || bare.startsWith('/support/')) {
+    return { prefixes: [] }
+  }
+  // Conservative default: unknown writes still flush the whole GET table.
+  return { clearAll: true }
+}
+
+function applyMutationCacheInvalidation(path) {
+  const plan = resolveMutationCachePlan(path)
+  if (plan.clearAll) {
+    clearGetRequestCache()
+    clearBootstrapCache()
+    clearMeContext()
+  } else {
+    if (plan.prefixes?.length) invalidateGetRequestCache(plan.prefixes)
+    if (plan.clearBootstrap) clearBootstrapCache()
+    if (plan.clearMe) clearMeContext()
+  }
+  bumpDataFreshness()
+}
+
+export function clearSessionCaches() {
+  clearBootstrapCache()
+  clearMeContext()
+  clearGetRequestCache()
+  clearPrefetchState()
+  bumpDataFreshness()
+}
 export function getBootstrap() { return request('/me/bootstrap') }
+
+function requestMethod(options = {}) {
+  return String(options.method || 'GET').toUpperCase()
+}
+
+function getCacheKey(path, options = {}, session = getSession()) {
+  return JSON.stringify([
+    requestMethod(options),
+    String(path || ''),
+    options.data ?? null,
+    session?.user?.id || '',
+    session?.token || '',
+  ])
+}
+
+/** Resolve TTL for GET caching. 0 disables cache for this call. */
+function resolveGetCacheTtl(path, options = {}) {
+  if (options.cache === false || options.cacheTtl === 0) return 0
+  if (Number.isFinite(options.cacheTtl)) return Math.max(0, Number(options.cacheTtl))
+  const bare = String(path || '').split('?')[0]
+  if (
+    bare.startsWith('/auth/')
+    || bare.startsWith('/payment/')
+    || bare.includes('/checkout/')
+    || /\/quotes$/.test(bare)
+    || bare.includes('cashier')
+  ) return 0
+  if (bare === '/api/hq/region-agents/check') return 10000
+  return DEFAULT_GET_TTL_MS
+}
+
+function cachedGetRequest(path, options = {}) {
+  const ttl = resolveGetCacheTtl(path, options)
+  if (ttl <= 0) return sendRequest(path, options)
+  const session = getSession()
+  const key = getCacheKey(path, options, session)
+  const now = Date.now()
+  const hit = getRequestCache.get(key)
+  if (hit && Object.hasOwn(hit, 'value') && hit.expiresAt > now) return Promise.resolve(hit.value)
+  if (hit?.promise) return hit.promise
+  const entry = { promise: null, expiresAt: 0 }
+  entry.promise = sendRequest(path, options).then(result => {
+    getRequestCache.set(key, { value: result, expiresAt: Date.now() + ttl })
+    return result
+  }).catch(error => {
+    if (getRequestCache.get(key)?.promise === entry.promise) getRequestCache.delete(key)
+    throw error
+  })
+  getRequestCache.set(key, entry)
+  return entry.promise
+}
 export function normalizeEntitlementOpened(value, state) {
   if (value === 0 || value === '0') return 0
   if (value === 1 || value === '1') return 1
@@ -39,17 +199,22 @@ export const getSession = () => {
 }
 export const logout = async ({ revoke = true } = {}) => {
   const session = getSession()
-  if (revoke && !config.useMock && session?.token) {
-    try { await request('/auth/sessions/current', { method: 'DELETE' }) }
-    catch (error) { if (error.statusCode !== 401) { uni.showToast?.({ title: '退出未完成，请稍后重试', icon: 'none' }); return false } }
-    if (getSession()?.token && getSession()?.token !== session.token) return false
-  }
+  const accountId = session?.user?.id
+  const revokePromise = revoke && !config.useMock && session?.token
+    ? request('/auth/sessions/current', {
+      method: 'DELETE',
+      header: { Authorization: `Bearer ${session.token}` },
+    }).catch(() => undefined)
+    : null
+
+  // Local logout must not wait for a slow or unavailable revoke endpoint.
   clearSessionCaches()
-  const accountId = getSession()?.user?.id
+  clearWholesaleBenefitCatalogCache()
   if (accountId) uni.removeStorageSync(`naoshang-learning-identity:${accountId}`)
   uni.removeStorageSync(INVITE_CODE_CACHE_KEY)
   uni.removeStorageSync(SESSION_KEY)
   uni.reLaunch({ url: '/pages/login/index' })
+  void revokePromise
   return true
 }
 function normalizePersonalInviteCode(result) {
@@ -75,22 +240,31 @@ export function getCachedMyInviteCode() {
   return cached
 }
 export function request(path, options = {}) {
-  if (path !== '/me/bootstrap' || (options.method || 'GET') !== 'GET') return sendRequest(path, options)
-  const session = getSession()
-  if (!session?.token || !session?.user?.id) return Promise.reject(new Error('请先登录'))
-  const key = JSON.stringify([session.user.id, session.token])
-  if (bootstrapCache?.key === key) return bootstrapCache.promise
-  const entry = { key, promise: null }
-  bootstrapCache = entry
-  entry.promise = sendRequest(path, options).then(result => {
-    const current = getSession()
-    if (bootstrapCache !== entry || current?.user?.id !== session.user.id || current?.token !== session.token) throw new Error('登录状态已变化，请重新登录后继续')
+  const method = requestMethod(options)
+  if (path === '/me/bootstrap' && method === 'GET') {
+    const session = getSession()
+    if (!session?.token || !session?.user?.id) return Promise.reject(new Error('请先登录'))
+    const key = JSON.stringify([session.user.id, session.token])
+    if (bootstrapCache?.key === key) return bootstrapCache.promise
+    const entry = { key, promise: null }
+    bootstrapCache = entry
+    entry.promise = sendRequest(path, options).then(result => {
+      const current = getSession()
+      if (bootstrapCache !== entry || current?.user?.id !== session.user.id || current?.token !== session.token) {
+        throw new Error('登录状态已变化，请重新登录后继续')
+      }
+      return result
+    }).catch(error => {
+      if (bootstrapCache === entry) clearBootstrapCache()
+      throw error
+    })
+    return entry.promise
+  }
+  if (method === 'GET') return cachedGetRequest(path, options)
+  return sendRequest(path, options).then(result => {
+    applyMutationCacheInvalidation(path)
     return result
-  }).catch(error => {
-    if (bootstrapCache === entry) clearBootstrapCache()
-    throw error
   })
-  return entry.promise
 }
 function sendRequest(path, options = {}) {
   if (!config.baseURL) return Promise.reject(new Error('服务暂不可用，请稍后重试'))
@@ -156,6 +330,7 @@ export async function login(data) {
   const session = { ...result, entitlement: normalizeEntitlement(result.entitlement), accountType: result.accountType || 'parent' }
   uni.removeStorageSync(`naoshang-learning-identity:${session.user.id}`)
   clearSessionCaches()
+  clearWholesaleBenefitCatalogCache()
   uni.setStorageSync(SESSION_KEY, session)
   // These requests enrich the session only. A gate or transient network error
   // must not turn an authenticated login into a failed login.
@@ -167,6 +342,8 @@ export async function login(data) {
     try { await getBootstrap() }
     catch (error) { console.warn('[login] 首页数据预取失败，已跳过：', error?.message || error) }
   }
+  // Warm partner/selection caches in idle time; never block login navigation.
+  scheduleIdle(() => prefetchAfterAuth())
   return session
 }
 export const getLevels = () => config.useMock ? Promise.resolve(['超级记忆','实用记忆','语文系统','外语系统','百科系统','导图大师','速读大师','记忆大师','潜能开发','未来领袖'].map((name, i) => ({ id: i + 1, name, unlocked: false }))) : request('/member/levels')

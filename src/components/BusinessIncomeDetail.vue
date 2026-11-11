@@ -1,6 +1,6 @@
 <template>
  <view class="income-detail feature-page">
-  <FeaturePageState :status="status" :error="error" @retry="load"/>
+  <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="metrics" @retry="load"/>
   <template v-if="status==='ready' && data">
    <view v-if="view.notice" class="income-notice">{{view.notice}}</view>
    <view class="income-card">
@@ -12,7 +12,8 @@
      </view>
      <view class="income-side">
       <text class="income-pill">{{data.channel || '积分'}}</text>
-      <view class="income-amount">{{view.amount}}</view>
+      <view v-if="view.amount!=null" class="income-amount">{{view.amount}}</view>
+      <MetricSkeleton v-else size="block" :inline="false"/>
      </view>
     </view>
     <view class="income-rule"></view>
@@ -67,10 +68,12 @@ import {computed,ref,watch} from 'vue'
 import {money,percent} from '../features/exclusive/format'
 import {wholesaleLevelDisplay} from '../features/business/account-rank'
 import {businessDateLabel as date} from '../features/business/format'
+import {formatSignedMetricMoney,pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext,getBusinessIncomeDetail} from '../services/business'
 import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOperation} from '../services/business-operations'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
+import MetricSkeleton from './MetricSkeleton.vue'
 const props=defineProps({pageQuery:Object})
 const context=ref(null),allocationOpen=ref(false),options=ref(null),targetId=ref(''),agentId=ref(''),quote=ref(null),busy=ref(false),operationError=ref('')
 let attemptKey=''
@@ -84,15 +87,22 @@ const {data,status,error,load}=useAsyncPage(async()=>{
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 const view=computed(()=>{
   const entry=data.value
-  if(entry?.presentation)return entry.presentation
-  const signed=entry?.amount==null?'+0':`${entry.amount>0?'+':''}${entry.amount<0?'-':''}${money(Math.abs(entry.amount||0))}`
+  if(entry?.presentation){
+    const amount=entry.presentation.amount
+    return {
+      ...entry.presentation,
+      amount:amount==null||amount===''?null:amount,
+    }
+  }
+  const signed=formatSignedMetricMoney(entry?.amount,money)
+  const base=pickMetricNumber(entry?.baseAmount)
   return {
     amount:signed,
     notice:entry?.pendingNote||'',
     facts:[
       {label:'业务类型',value:entry?.bizTypeLabel||entry?.paymentTypeLabel||entry?.channel||''},
       {label:'业务明细',value:entry?.bizDetail||''},
-      {label:'有效值',value:money(entry?.baseAmount)},
+      {label:'有效值',value:base==null?'':money(base)},
       {label:'计价方式',value:entry?.rateLabel||''},
     ],
     people:[entry?.recommendedBy||entry?.recommended,entry?.purchaser||entry?.buyer].filter(Boolean).map((item,index)=>({title:index?'购买人信息':'推荐人信息',name:item.name||'暂未提供',badge:displayLevel(item.levelLabel||item.roleLabel),avatarUrl:item.avatarUrl||'',lines:[item.phone?`联系方式：${item.phone}`:'联系方式待后台提供',item.address?`门店地址：${item.address}`:''].filter(Boolean)})),

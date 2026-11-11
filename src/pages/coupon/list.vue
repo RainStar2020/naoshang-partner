@@ -4,10 +4,9 @@
       <BusinessPageHeader title="优惠券" fallback="/pages/profile/index" />
       <view class="coupon-tabs"><button v-for="item in filters" :key="item.id" :class="{ selected: filter === item.id }" @click="change(item.id)">{{ item.label }}</button></view>
       <view class="coupon-body">
-        <view v-if="status === 'loading'" class="coupon-state">正在加载优惠券…</view>
-        <view v-else-if="status === 'error'" class="coupon-state"><text>{{ error }}</text><button @click="load">重新加载</button></view>
-        <EmptyState v-else-if="!items.length" :text="`暂无${filters.find(item => item.id === filter).label}优惠券`" />
-        <template v-else>
+        <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="list" @retry="load" />
+        <EmptyState v-if="status === 'ready' && !items.length" :text="`暂无${filters.find(item => item.id === filter).label}优惠券`" />
+        <template v-if="status === 'ready' && items.length">
           <view v-for="coupon in items" :key="coupon.id" class="coupon-card" :class="{ muted: filter !== 'available' }">
             <view class="coupon-value"><view class="coupon-amount"><text class="currency">¥</text><text class="coupon-figure">{{ amount(coupon.discountAmount) }}</text></view><text class="coupon-threshold">{{ coupon.thresholdText }}</text></view>
             <view class="coupon-info"><view class="coupon-title">{{ coupon.title }}</view><text>{{ coupon.validUntilLabel }}</text><text>{{ coupon.scopeLabel }}</text></view>
@@ -25,15 +24,39 @@ import { onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { getCoupons } from '../../services/profile'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
+import FeaturePageState from '../../components/FeaturePageState.vue'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const filters = [{ id: 'available', label: '待使用' }, { id: 'used', label: '已使用' }, { id: 'void', label: '已作废' }], filter = ref('available'), items = ref([]), status = ref('loading'), error = ref(''), hasMore = ref(false), loadingMore = ref(false), moreError = ref('')
 let epoch = 0, cursor = null
 const amount = value => { const number = Number(value); return Number.isFinite(number) ? number.toFixed(2).replace(/\.00$/, '') : '0' }
-function change(next) { if (next !== filter.value) { filter.value = next; load() } }
-async function load() { const current = ++epoch; status.value = 'loading'; items.value = []; loadingMore.value = false; moreError.value = ''; try { const result = await getCoupons(filter.value); if (current === epoch) { items.value = result.items; cursor = result.nextCursor; hasMore.value = result.hasMore === true; status.value = 'ready' } } catch (reason) { if (current === epoch) { error.value = reason.message; status.value = 'error' } } }
+function change(next) { if (next !== filter.value) { filter.value = next; load({ force: true }) } }
+async function load(options = {}) {
+  const force = options.force === true
+  const silent = !force && items.value.length > 0 && status.value === 'ready'
+  const current = ++epoch
+  error.value = ''
+  loadingMore.value = false
+  moreError.value = ''
+  if (!silent) {
+    status.value = 'loading'
+    if (force || !items.value.length) items.value = []
+  }
+  try {
+    const result = await getCoupons(filter.value)
+    if (current !== epoch) return
+    items.value = result.items
+    cursor = result.nextCursor
+    hasMore.value = result.hasMore === true
+    status.value = 'ready'
+  } catch (reason) {
+    if (current !== epoch) return
+    error.value = reason.message
+    if (!silent || !items.value.length) status.value = 'error'
+  }
+}
 async function more() { if (loadingMore.value || !hasMore.value) return; const current = epoch; loadingMore.value = true; try { const result = await getCoupons(filter.value, cursor); if (current === epoch) { items.value = [...new Map([...items.value, ...result.items].map(item => [item.id, item])).values()]; cursor = result.nextCursor; hasMore.value = result.hasMore === true } } catch (reason) { if (current === epoch) moreError.value = reason.message } finally { if (current === epoch) loadingMore.value = false } }
-onShow(load); onUnload(() => { ++epoch })
+onShow(() => load({ silent: items.value.length > 0 })); onUnload(() => { ++epoch })
 </script>
 <style scoped>
 .coupon-page, .coupon-frame, .coupon-body, .coupon-state { display: flex; flex-direction: column; }

@@ -1,6 +1,6 @@
 <template>
  <view class="agency-detail feature-page">
-  <FeaturePageState :status="status" :error="error" @retry="load"/>
+  <FeaturePageState :status="status" :error="error" mode="skeleton" skeleton-variant="metrics" @retry="load"/>
   <template v-if="status==='ready' && data">
    <view class="detail-person">
     <view class="detail-avatar-wrap">
@@ -25,14 +25,15 @@
     <view class="detail-performance">
      <view v-for="metric in nodeMetrics" :key="metric.label">
       <text>{{metric.label}}</text>
-      <strong>{{metricValue(metric)}}</strong>
+      <strong v-if="!metricPending(metric)">{{metricValue(metric)}}</strong>
+      <MetricSkeleton v-else size="compact" :inline="false"/>
      </view>
     </view>
    </view>
    <view class="detail-base-title">基础信息</view>
    <view class="detail-base">
     <view><text>合伙等级：</text><strong>{{data.node.partnerLevel || agencyLevel(data.node)}}</strong></view>
-    <view><text>地区：</text><strong>{{data.node.regionLabel || ''}}</strong></view>
+    <view><text>地区：</text><strong>{{regionLabelText}}</strong></view>
     <view v-if="isRegional"><text>代理区域：</text><strong>{{territoryText}}</strong></view>
     <view v-else><text>门店数量：</text><strong>{{storeCount(data.node)}}</strong></view>
     <view v-if="!isRegional"><text>合店老板数量：</text><strong>{{ownerCount(data.node)}}</strong></view>
@@ -97,10 +98,12 @@
 import {computed,ref,watch,onUnmounted} from 'vue'
 import {money} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
-import {agencyTeamLevelLabel, agencyTeamStoreCount, agencyTeamOwnerCount, agencyTeamScopeSummary, fillAgencyTeamMetrics} from '../features/agency/team-display'
+import {agencyTeamLevelLabel, agencyTeamRegionLabel, agencyTeamStoreCount, agencyTeamOwnerCount, agencyTeamScopeSummary, fillAgencyTeamMetrics} from '../features/agency/team-display'
+import {pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext,getBusinessTeamNode,getBusinessReport} from '../services/business'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
+import MetricSkeleton from './MetricSkeleton.vue'
 import EmptyState from './EmptyState.vue'
 const props=defineProps({pageQuery:Object}),context=ref(null),loadingMore=ref(false),moreError=ref(''),tab=ref('stores'),territoryIndex=ref(0);let active=true
 const {data,status,error,load}=useAsyncPage(async()=>{
@@ -126,6 +129,7 @@ const agencyLevel=item=>agencyTeamLevelLabel(item)
 const storeCount=item=>agencyTeamStoreCount(item)
 const ownerCount=item=>agencyTeamOwnerCount(item)
 const scopeSummary=item=>agencyTeamScopeSummary(item)
+const regionLabelText=computed(()=>agencyTeamRegionLabel(data.value?.node||{}))
 const isStore=computed(()=>['单店代理','门店成员'].includes(agencyLevel(data.value?.node||{})))
 const isRegional=computed(()=>{
   const label=agencyLevel(data.value?.node||{})
@@ -135,8 +139,13 @@ const isRegional=computed(()=>{
 const nodeMetrics=computed(()=>fillAgencyTeamMetrics(data.value?.node?.performance))
 const storeRows=computed(()=>data.value?.node?.stores||[])
 const territories=computed(()=>data.value?.node?.territoryList||[])
-const territoryText=computed(()=>territories.value.join('、')||data.value?.node?.regionLabel||'')
+const territoryText=computed(()=>{
+ const node=data.value?.node||{}
+ const names=territories.value.map(value=>agencyTeamRegionLabel({...node,regionCode:value,regionLabel:value})).filter(Boolean)
+ return names.join('、')||regionLabelText.value
+})
 const displayedChildren=computed(()=>{const rows=data.value?.children?.items||[];return territoryIndex.value?rows.filter((_,index)=>index%2===territoryIndex.value%2):rows})
+const metricPending=metric=>metric?.pending===true||pickMetricNumber(metric?.value)==null
 const metricValue=metric=>metric?.kind==='money'?money(metric.value??0):metric?.value??0
 function open(id){uni.navigateTo({url:`/pages/agency/team-detail?contextId=${encodeURIComponent(context.value.id)}&nodeId=${encodeURIComponent(id)}`})}
 async function more(){if(loadingMore.value||!data.value?.children.hasMore)return;loadingMore.value=true;moreError.value='';try{const result=await getBusinessReport('agency','team',context.value.id,{parentNodeId:data.value.node.id,cursor:data.value.children.nextCursor});if(active)data.value.children={...result,items:[...data.value.children.items,...result.items]}}catch(reason){if(active)moreError.value=reason.message}finally{if(active)loadingMore.value=false}}

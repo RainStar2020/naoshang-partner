@@ -1,6 +1,6 @@
 // MOCK-ONLY / TODO(API): presentation fixtures for designs 17–53, never real pricing or commission rules.
 import { config } from '../../config'
-import { accountRank, partnerLevelPrice, partnerPromotion } from '../../features/business/account-rank'
+import { accountRank, partnerLevelPrice, partnerPromotion, wholesaleLevelDisplay } from '../../features/business/account-rank'
 import { buildRegisterInviteUrl } from '../agency-promotion-link'
 const activityBatch={id:'activity-batch-1',title:'后台充值4个活动VIP名额',grantedAt:'2026-10-01T00:00:00+08:00',expiresAt:null,validityLabel:'永久有效',transferable:false,refundable:false,total:4}
 export function mockActivityQuota(state){const reserved=Object.values(state.activityReservations || {}).reduce((sum,value)=>sum+value,0),remaining=state.activityQuota ?? activityBatch.total;return {...activityBatch,reserved,remaining,used:Math.max(0,activityBatch.total-remaining-reserved)}}
@@ -15,7 +15,7 @@ export function mockWholesaleReport(user,context,state,resource,params){
  const base={items:[],metrics:[],columns:[],hasMore:false,nextCursor:null,mockOnly:true},people=mockWholesalePeople(state)
  if(resource.id==='team')return {...base,items:people.filter(x=>!params.keyword||`${x.name} ${x.displayId} ${x.phone}`.includes(params.keyword))}
  if(resource.id==='superior'){const status=mockWholesaleOverview(state,user).partnerStatus,sample=status==='ACTIVE'?{name:'李志远',phone:'19919988991',levelLabel:'私董合伙人',avatarUrl:'/static/agency/avatar-li-zhiyuan.png'}:null;return {...base,superior:state.superior||sample}}
- if(resource.id==='promotion'){const step=partnerPromotion(user.displayId||user.id);const paidAmount=partnerLevelPrice(step.beforeName),standardAmount=partnerLevelPrice(step.afterName);return {...base,promotion:{id:'demo-promotion-task',version:1,...step,paidAmount,standardAmount,differenceAmount:Number.isInteger(standardAmount)&&Number.isInteger(paidAmount)?standardAmount-paidAmount:null,startedAt:'2022-08-21T00:00:00+08:00',progress:1,target:3,canClaim:false,statusLabel:'进行中',validUntil:new Date(Date.now()+365*86400000).toISOString()}}}
+ if(resource.id==='promotion'){const step=partnerPromotion(user.displayId||user.id),currentWholesaleIdentity=wholesaleLevelDisplay(step.beforeName),nextWholesaleIdentity=wholesaleLevelDisplay(step.afterName),paidAmount=partnerLevelPrice(step.beforeName),standardAmount=partnerLevelPrice(step.afterName),progressCurrent=1,progressTarget=3;return {...base,promotion:{id:'demo-promotion-task',version:1,...step,currentWholesaleIdentity,nextWholesaleIdentity,displayText:`需 ${progressTarget} 个名额即可免费升为${nextWholesaleIdentity}；您当前为${currentWholesaleIdentity}，直推 3 位${currentWholesaleIdentity}即可升级`,paidAmount,standardAmount,differenceAmount:Number.isInteger(standardAmount)&&Number.isInteger(paidAmount)?standardAmount-paidAmount:null,startedAt:'2022-08-21T00:00:00+08:00',progress:33,progressText:`${progressCurrent}/${progressTarget}`,progressCurrent,progressTarget,target:progressTarget,canClaim:false,statusLabel:'进行中',validUntil:new Date(Date.now()+365*86400000).toISOString()}}}
  if(resource.id==='share'){const inviteCode=user.inviteCode||'LXYA023';const localPayload=buildRegisterInviteUrl(inviteCode);return {...base,inviteCode,localPayload,shareUrl:localPayload}}
  const layoutAt='2022-08-21T13:34:12.000Z'
  const purchases=state.quotaLedger.filter(x=>x.quantity>0)
