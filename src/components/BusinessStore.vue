@@ -277,6 +277,14 @@
         </view>
         <view class="edit-card">
           <view class="edit-row"
+            ><text>门店名称</text
+            ><input
+              v-model="draft.storeName"
+              :disabled="saving"
+              maxlength="255"
+              placeholder="请输入"
+          /></view>
+          <view class="edit-row"
             ><text>门店地区</text
             ><view class="edit-picker"
               ><RegionPicker
@@ -354,6 +362,12 @@
         </view>
         <view class="edit-card info-card">
           <view class="edit-row"
+            ><text>门店名称</text
+            ><text class="info-value">{{
+              storeProfile.storeName || "未填写"
+            }}</text></view
+          >
+          <view class="edit-row"
             ><text>门店地区</text
             ><text class="info-value">{{ storeRegionLabel }}</text></view
           >
@@ -385,17 +399,31 @@
         >
       </template>
       <template v-else>
-        <view class="store-card">
-          <view class="store-person-name">{{ data.store.name }}</view>
-          <text v-if="data.store.number" class="store-line">{{
-            data.store.number
-          }}</text>
-          <text class="store-line">{{
-            data.store.address || "地址待后台提供"
-          }}</text>
-          <text v-if="data.store.contact" class="store-line">{{
-            data.store.contact
-          }}</text>
+        <view class="store-card store-overview-card">
+          <image
+            v-if="data.store.storefrontUrl"
+            class="store-overview-cover"
+            :src="data.store.storefrontUrl"
+            mode="aspectFill"
+          />
+          <view v-else class="store-overview-cover store-overview-cover-empty"
+            >门店照片</view
+          >
+          <view class="store-overview-copy">
+            <view class="store-person-name">{{ data.store.name }}</view>
+            <text v-if="data.store.number" class="store-line">{{
+              data.store.number
+            }}</text>
+            <text class="store-line">{{
+              data.store.fullAddress || data.store.address || "地址待后台提供"
+            }}</text>
+            <text v-if="data.store.feeAmount != null" class="store-line"
+              >合店费用 ¥{{ money(data.store.feeAmount) }}/月</text
+            >
+            <text v-if="data.store.contact" class="store-line">{{
+              data.store.contact
+            }}</text>
+          </view>
         </view>
       </template>
     </template>
@@ -516,6 +544,7 @@
   import EmptyState from "./EmptyState.vue";
   import RegionPicker from "./RegionPicker.vue";
   import { uploadProfileImage } from "../services/profile";
+  import { discardAsset } from "../services/asset-upload";
   const props = defineProps({ pageQuery: Object });
   const approvalTabs = [
     { id: "costore", label: "合店申请" },
@@ -597,11 +626,8 @@
       !store?.id
     )
       return false;
-    // Only the store agent bound to this store may edit.
-    const keys = [store.id, store.storeNo, store.regionCode, store.number]
-      .filter(Boolean)
-      .map(String);
-    if (ctx.storeId && !keys.includes(String(ctx.storeId))) return false;
+    // store.id is the manager user id; bootstrap storeId may be entityId or assignmentId.
+    // Permission is the current STORE assignment plus workspace allowedActions.
     const actions = data.value?.allowedActions || [];
     if (
       actions.length &&
@@ -763,12 +789,13 @@
     const fee = store.feeAmount;
     draft.value = {
       managerName: store.managerName || "",
+      storeName: store.storeName || store.name || "",
       contact: store.contact || "",
       address: store.address || "",
       regionNames: [...(store.regionNames || [])],
       regionCodes: [...(store.regionCodes || [])],
       feeText: fee == null || fee === "" ? "" : String(money(fee)),
-      storefrontAssetId: "",
+      storefrontAssetId: store.storefrontAssetId || "",
       storefrontUrl: store.storefrontUrl || "",
       version: store.version,
       reason: "",
@@ -821,8 +848,10 @@
         "storefront",
       );
       if (active) {
+        const previous = draft.value.storefrontAssetId;
         draft.value.storefrontAssetId = asset.assetId;
         draft.value.storefrontUrl = asset.previewUrl;
+        if (previous && previous !== asset.assetId) discardAsset(previous);
       }
     } catch (reason) {
       if (active && reason?.message) saveError.value = reason.message;
@@ -834,6 +863,11 @@
     if (saving.value || uploading.value) return;
     if (!canEditStore.value) {
       saveError.value = "仅本店单店代理可编辑门店信息";
+      return;
+    }
+    const storeName = String(draft.value.storeName || "").trim();
+    if (!storeName || Array.from(storeName).length > 255) {
+      saveError.value = "请填写1—255字门店名称";
       return;
     }
     const feeAmount = parseYuan(draft.value.feeText);
@@ -853,8 +887,12 @@
     saving.value = true;
     saveError.value = "";
     try {
-      await saveBusinessStore(context.value.id, data.value.store.id, {
+      await saveBusinessStore(
+        context.value.id,
+        data.value.store.entityId || data.value.store.id,
+        {
         managerName: draft.value.managerName,
+        storeName,
         contact: draft.value.contact,
         address: draft.value.address,
         regionNames: draft.value.regionNames,
@@ -866,12 +904,17 @@
       });
       if (!active) return;
       uni.showToast({ title: "申请已提交", icon: "success" });
-      uni.navigateBack({
-        fail: () =>
-          uni.redirectTo({
-            url: `/pages/store/index?contextId=${context.value.id}&view=info`,
-          }),
-      });
+      const infoUrl = `/pages/store/index?contextId=${encodeURIComponent(context.value.id)}&view=info`;
+      setTimeout(() => {
+        if (!active) return;
+        uni.redirectTo({
+          url: infoUrl,
+          fail: () =>
+            uni.navigateBack({
+              fail: () => {},
+            }),
+        });
+      }, 400);
     } catch (reason) {
       if (active)
         saveError.value = reason.message || "门店资料未保存，请检查后重试";
@@ -1263,6 +1306,30 @@
     width: 1.25em;
     height: 1.25em;
   }
+  .store-overview-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7em;
+  }
+  .store-overview-cover {
+    width: 4.8em;
+    height: 4.4em;
+    flex: none;
+    border-radius: 0.35em;
+    background: #2a314c;
+  }
+  .store-overview-cover-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8b94b0;
+    font-size: 0.7em;
+    text-align: center;
+  }
+  .store-overview-copy {
+    min-width: 0;
+    flex: 1;
+  }
   .store-line {
     display: block;
     margin-top: 0.35em;
@@ -1421,8 +1488,9 @@
   }
   .edit-row > text:first-child {
     flex: none;
-    width: 4.4em;
+    width: 4em;
     color: #d5dced;
+    text-align: left;
   }
   .edit-row input,
   .edit-row textarea,
@@ -1432,6 +1500,14 @@
     flex: 1;
     color: #fff;
     font-size: 1em;
+  }
+  .edit-row input,
+  .edit-row textarea,
+  .edit-picker {
+    text-align: left;
+  }
+  .edit-picker :deep(.region-input.plain > text) {
+    text-align: left;
   }
   .edit-row textarea {
     padding: 0.7em 0;
@@ -1465,11 +1541,8 @@
   }
   .edit-address,
   .edit-photo {
-    align-items: flex-start;
+    align-items: center;
     padding: 0.7em 0;
-  }
-  .edit-photo > text:first-child {
-    padding-top: 0.8em;
   }
   .minimum {
     flex: none;

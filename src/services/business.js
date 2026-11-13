@@ -300,13 +300,14 @@ function applyAgencyOverview(result){
   const superior=normalizeAgencyRelation(result.superior??result.relations?.superior)
   const referrer=normalizeAgencyRelation(result.referrer??result.relations?.referrer)
   const teamCount=pickCount(result.teamCount,result.team?.summary?.memberCount,result.summary?.memberCount,result.memberCount)
-  const agencyIncome=pickCount(result.agencyIncome,result.available,result.incomeAvailable,result.pointsBalance,result.pointBalance,result.points)
+  // Only the current assignment's income. Do not use account-level available/points.
+  const agencyIncome=pickCount(result.agencyIncome)
   return {
     ...result,
     superior,
     referrer,
     ...(teamCount!=null?{teamCount}:{}),
-    ...(agencyIncome!=null?{agencyIncome,available:result.available??agencyIncome}:{}),
+    ...(agencyIncome!=null?{agencyIncome}:{}),
   }
 }
 function canAgencyTool(context,toolId){
@@ -338,13 +339,9 @@ function metricAmount(income,...labels){
 function pickAgencyIncomeAmount(income){
   if(!income||typeof income!=='object')return undefined
   return pickCount(
-    income.available,
     income.agencyIncome,
-    income.summary?.available,
-    metricAmount(income,'收益合计','积分合计','可提现金额'),
-    income.pointsBalance,
-    income.pointBalance,
-    income.points,
+    income.summary?.agencyIncome,
+    metricAmount(income,'收益合计','积分合计'),
   )
 }
 // Prefetch /income/entries on agency home; reuse for the income page.
@@ -402,7 +399,7 @@ export async function enrichAgencyOverviewStats(contextId){
 function agencyDashboardSummary(dashboard){
   if(!dashboard||typeof dashboard!=='object')return null
   const teamCount=pickCount(dashboard.teamCount,dashboard.memberCount)
-  const agencyIncome=pickCount(dashboard.agencyIncome,dashboard.available,dashboard.incomeAvailable)
+  const agencyIncome=pickCount(dashboard.agencyIncome)
   const summary={
     ...(teamCount!=null?{teamCount}:{}),
     ...(agencyIncome!=null?{agencyIncome}:{}),
@@ -558,12 +555,13 @@ export async function getBusinessOverview(module,id){
     // Team/income report stats stay the same logic but load after the shell is ready.
     const summary=agencyDashboardSummary(result.dashboard)
     const merged=summary?{...base,...summary}:base
+    // Always load /income/entries for this assignment so homepage income is not an account wallet total.
     return {
       ...merged,
       context,
       tools:visibleBusinessTools(context,config),
       benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)})),
-      needsStatsEnrichment:!summary,
+      needsStatsEnrichment:true,
     }
   }
   if(module!=='wholesale'){

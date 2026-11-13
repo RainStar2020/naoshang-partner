@@ -1,5 +1,6 @@
 /** Agency team level / performance presentation helpers. */
 import areas from "china-area-data";
+import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../store-display'
 
 export function agencyTeamRegionLabel(item = {}) {
   const raw = String(item.regionLabel || item.scopeLabel || "").trim();
@@ -227,23 +228,14 @@ export function normalizeAgencyStore(store) {
     store.storeCode;
   const name = store.name || store.storeName || "";
   if (!id && !name) return null;
-  const monthlyFee = Number(
-    store.monthlyFee ?? store.feeAmount ?? store.costoreFee ?? store.fee,
-  );
   return {
     ...store,
     id: id || name,
     name,
     number: store.number || store.storeNo || store.storeCode || "",
-    address: store.address || store.storeAddress || "",
-    imageUrl:
-      store.imageUrl ||
-      store.coverUrl ||
-      store.storefrontUrl ||
-      store.photoUrl ||
-      store.photo ||
-      "",
-    monthlyFee: Number.isFinite(monthlyFee) && monthlyFee > 0 ? monthlyFee : 0,
+    address: storeDisplayAddress(store) || store.address || store.storeAddress || "",
+    imageUrl: storePhotoUrl(store),
+    monthlyFee: storeFeeAmount(store) ?? 0,
   };
 }
 

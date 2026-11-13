@@ -28,6 +28,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { config } from '../../config'
 import { useAuth } from '../../composables/useAuth'
 import { getSupportConfig, uploadProfileImage, submitSupportFeedback } from '../../services/profile'
+import { discardAsset } from '../../services/asset-upload'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 useAuth()
 const isMock = config.useMock, content = ref(''), images = ref([]), maxImages = ref(0), loading = ref(true), loadError = ref(''), error = ref(''), uploading = ref(false), submitting = ref(false)
@@ -35,7 +36,7 @@ const length = computed(() => Array.from(content.value).length), busy = computed
 let epoch = 0, attemptKey = ''
 async function load() { const current = ++epoch; loading.value = true; loadError.value = ''; try { const result = await getSupportConfig(); if (current !== epoch) return; const limit = result.feedback?.maxImages; if (!Number.isInteger(limit) || limit < 0 || limit > 9) throw new Error('反馈图片配置暂不可用'); maxImages.value = limit } catch (reason) { if (current === epoch) loadError.value = reason.message } finally { if (current === epoch) loading.value = false } }
 function setContent(event) { content.value = Array.from(event.detail.value).slice(0, 500).join(''); attemptKey = '' }
-function remove(index) { if (busy.value) return; images.value.splice(index, 1); attemptKey = '' }
+function remove(index) { if (busy.value) return; const [removed] = images.value.splice(index, 1); if (removed?.assetId) discardAsset(removed.assetId); attemptKey = '' }
 function preview(index) { uni.previewImage({ urls: images.value.map(item => item.previewUrl), current: index }) }
 async function chooseImages() { if (busy.value) return; const current = epoch; uploading.value = true; error.value = ''; try { const selected = await new Promise(resolve => uni.chooseImage({ count: maxImages.value - images.value.length, sourceType: ['album'], success: resolve, fail: () => resolve(null) })); if (!selected || current !== epoch) return; for (let i = 0; i < selected.tempFilePaths.length && images.value.length < maxImages.value; i++) { const file = selected.tempFiles[i] || {}; const result = await uploadProfileImage({ path: file.path || selected.tempFilePaths[i], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' }, 'feedback'); if (current !== epoch) return; images.value.push(result); attemptKey = '' } } catch (reason) { if (current === epoch) error.value = reason.message || '图片上传失败' } finally { if (current === epoch) uploading.value = false } }
 async function submit() { if (busy.value || !content.value.trim()) return; const current = epoch; submitting.value = true; error.value = ''; if (!attemptKey) attemptKey = `feedback-${Date.now()}-${Math.random().toString(36).slice(2)}`; try { const result = await submitSupportFeedback({ content: content.value, imageAssetIds: images.value.map(item => item.assetId), idempotencyKey: attemptKey }); if (current !== epoch) return; content.value = ''; images.value = []; attemptKey = ''; uni.showModal({ title: '提交成功', content: result.mockOnly ? '感谢您的反馈。' : '感谢您的反馈，我们会尽快处理。', showCancel: false }) } catch (reason) { if (current === epoch) error.value = reason.message || '提交失败，请重试' } finally { if (current === epoch) submitting.value = false } }

@@ -17,6 +17,7 @@
   useBusinessReturn();
   const page = ref(null),
     query = ref(null);
+  let initialShow = true;
   const heading = computed(
     () =>
       ({
@@ -30,6 +31,12 @@
     query.value = options;
   });
   useFreshOnShow(() => {
+    // The query watcher owns the first load. Skip only the page's initial
+    // onShow so it cannot issue a duplicate request before that load finishes.
+    if (initialShow) {
+      initialShow = false;
+      return null;
+    }
     if (!query.value) return null;
     return (opts) => page.value?.refresh?.(opts);
   });

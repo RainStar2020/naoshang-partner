@@ -173,6 +173,7 @@ import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
 import { getFamilyMembers, getMemberDictionaries, saveFamilyMember, previewMemberActivation, activateFamilyMember, updateMemberTraining } from '../../services/members'
 import { uploadProfileImage } from '../../services/profile'
+import { discardAsset } from '../../services/asset-upload'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import BusinessQrCode from '../../components/BusinessQrCode.vue'
@@ -231,7 +232,7 @@ async function chooseAvatar() {
     if (!chosen || !active || current !== editorEpoch) return
     const file = chosen.tempFiles[0] || {}
     const result = await uploadProfileImage({ path: file.path || chosen.tempFilePaths[0], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' }, 'member-avatar')
-    if (active && current === editorEpoch) { draft.value.avatarAssetId = result.assetId; avatarPreview.value = result.previewUrl }
+    if (active && current === editorEpoch) { const previous = draft.value.avatarAssetId; draft.value.avatarAssetId = result.assetId; avatarPreview.value = result.previewUrl; if (previous && previous !== result.assetId) discardAsset(previous) }
   } catch (reason) { if (active && current === editorEpoch) editorError.value = reason.message }
   finally { if (active && current === editorEpoch) uploading.value = false }
 }

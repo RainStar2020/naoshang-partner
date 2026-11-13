@@ -1,4 +1,5 @@
 import { getSession, request } from './api'
+import { storeDisplayAddress, storePhotoUrl } from '../features/store-display'
 
 const fail = message => { throw new Error(message) }
 
@@ -57,9 +58,9 @@ function store(value) {
     id: String(value.id),
     storeNo: String(value.storeNo || value.regionCode || ''),
     name: String(value.name),
-    address: String(value.address || ''),
+    address: String(storeDisplayAddress(value) || value.address || ''),
     regionCode: String(value.regionCode || ''),
-    imageUrl: String(value.imageUrl || value.storeImage || value.coverUrl || ''),
+    imageUrl: String(storePhotoUrl(value) || value.imageUrl || value.storeImage || value.coverUrl || ''),
     manager: value.manager && typeof value.manager === 'object' ? {
       id: String(value.manager.id || ''), name: String(value.manager.name || ''), phone: String(value.manager.phone || ''),
     } : null,
@@ -125,9 +126,9 @@ export async function getPartnerStoreBindingOptions() {
         id: String(result.headquarters.id),
         name: String(result.headquarters.name || '总部服务'),
         note: String(result.headquarters.note || result.headquarters.description || '当前门店由总部统一服务'),
-        imageUrl: String(result.headquarters.imageUrl || result.headquarters.storeImage || result.headquarters.coverUrl || ''),
+        imageUrl: String(storePhotoUrl(result.headquarters) || result.headquarters.imageUrl || result.headquarters.storeImage || result.headquarters.coverUrl || ''),
         storeNo: String(result.headquarters.storeNo || ''),
-        address: String(result.headquarters.address || ''),
+        address: String(storeDisplayAddress(result.headquarters) || result.headquarters.address || ''),
         manager: result.headquarters.manager && typeof result.headquarters.manager === 'object'
           ? {
               id: String(result.headquarters.manager.id || ''),

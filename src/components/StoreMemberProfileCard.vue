@@ -101,6 +101,7 @@
 import {computed,onBeforeUnmount,ref} from 'vue'
 import {updateStoreMember,updateMemberConsultant} from '../services/training'
 import {uploadProfileImage} from '../services/profile'
+import {discardAsset} from '../services/asset-upload'
 import BusinessQrCode from './BusinessQrCode.vue'
 const props=defineProps({
  member:{type:Object,required:true},
@@ -151,7 +152,7 @@ async function uploadConsultantQr(){
   const file=chosen.tempFiles?.[0]
   if(!file||!active)return
   const asset=await uploadProfileImage({path:file.path,size:file.size||1,name:file.name||'',type:file.type||file.mimeType||''},'consultant-qr')
-  if(active){draft.value.qrAssetId=asset.assetId;draft.value.qrUrl=asset.previewUrl;draft.value.qrPayload=asset.previewUrl}
+  if(active){const previous=draft.value.qrAssetId;draft.value.qrAssetId=asset.assetId;draft.value.qrUrl=asset.previewUrl;draft.value.qrPayload=asset.previewUrl;if(previous&&previous!==asset.assetId)discardAsset(previous)}
  }catch(reason){if(active&&reason?.message)actionError.value=reason.message}
  finally{if(active)uploading.value=false}
 }

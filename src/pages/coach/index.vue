@@ -30,10 +30,10 @@
   <view v-if="storeOpen && data?.store" class="coach-mask" @click="storeOpen=false">
    <view class="coach-store-wrap" @click.stop>
     <view class="coach-store-dialog" role="dialog" aria-label="门店信息">
-     <image class="coach-store-cover" :src="data.store.imageUrl || '/static/agency/store-wutong.png'" mode="aspectFill"/>
+     <image class="coach-store-cover" :src="storePhotoUrl(data.store) || '/static/agency/store-wutong.png'" mode="aspectFill"/>
      <view>
       <view class="coach-store-name">{{data.store.name || '门店'}}<text v-if="data.store.number">{{data.store.number}}</text></view>
-      <text>{{data.store.address || '地址待后台提供'}}</text>
+      <text>{{storeDisplayAddress(data.store) || data.store.address || '地址待后台提供'}}</text>
       <text>店长信息：{{data.store.managerName || ''}}/{{data.store.phone || ''}}</text>
      </view>
     </view>
@@ -54,6 +54,7 @@ import {isCoachAccount} from '../../services/account-channel'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import StoreMemberProfileCard from '../../components/StoreMemberProfileCard.vue'
+import { storeDisplayAddress, storePhotoUrl } from '../../features/store-display'
 useAuth()
 const isStaff=isCoachAccount(getSession()),storeOpen=ref(false)
 const contextId=ref('')

@@ -13,10 +13,11 @@
     <button class="costore-switch" @click="moduleOpen=true"><image src="/static/common/icon-switch.png" mode="aspectFit"/><text>切换模块</text></button>
    </view>
    <view class="costore-store">
-    <image class="costore-cover" :src="store?.imageUrl || '/static/agency/store-wutong.png'" mode="aspectFill"/>
+    <image class="costore-cover" :src="storePhotoUrl(store) || '/static/agency/store-wutong.png'" mode="aspectFill"/>
     <view class="costore-store-copy">
      <view class="costore-store-name">{{store?.name || context?.label || '合店门店'}}<text v-if="store?.number">{{store.number}}</text></view>
-     <text class="costore-address">{{store?.address || '地址待后台提供'}}</text>
+     <text class="costore-address">{{storeDisplayAddress(store) || store?.address || '地址待后台提供'}}</text>
+     <text v-if="storeFeeAmount(store)!=null" class="costore-fee">合店费用 ¥{{ money(storeFeeAmount(store)) }}/月</text>
      <view class="costore-store-foot"><text>{{daysText}}</text><button @click="storesOpen=true">切换门店 <text>›</text></button></view>
     </view>
    </view>
@@ -34,10 +35,11 @@
    <view class="costore-store-bar"><button aria-label="返回" @click="storesOpen=false"><image src="/static/common/icon-back.png" mode="aspectFit"/></button><text>切换门店</text></view>
    <view class="costore-store-list">
     <button v-for="item in contexts" :key="item.id" @click="chooseContext(item.id)">
-     <image class="costore-cover" :src="item.store?.imageUrl || '/static/agency/store-wutong.png'" mode="aspectFill"/>
+     <image class="costore-cover" :src="storePhotoUrl(item.store) || '/static/agency/store-wutong.png'" mode="aspectFill"/>
      <view class="costore-store-copy">
       <view class="costore-store-name">{{item.store?.name || item.label}}<text v-if="item.store?.number">{{item.store.number}}</text></view>
-      <text class="costore-address">{{item.store?.address || '地址待后台提供'}}</text>
+      <text class="costore-address">{{storeDisplayAddress(item.store) || item.store?.address || '地址待后台提供'}}</text>
+      <text v-if="storeFeeAmount(item.store)!=null" class="costore-fee">合店费用 ¥{{ money(storeFeeAmount(item.store)) }}/月</text>
       <text class="costore-days">{{item.store?.daysRemaining == null ? '有效期以后台为准' : `${item.store.daysRemaining}天后到期`}}</text>
      </view>
      <image class="costore-chevron" src="/static/common/icon-chevron-right.png" mode="aspectFit"/>
@@ -66,6 +68,8 @@ import SilentRefreshBar from './SilentRefreshBar.vue'
 import ManagedRichContent from './ManagedRichContent.vue'
 import EmptyState from './EmptyState.vue'
 import AppTabBar from './AppTabBar.vue'
+import { money } from '../features/exclusive/format'
+import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../features/store-display'
 useAuth();useAppTabBar()
 const emit=defineEmits(['left'])
 const status=ref('loading'),error=ref(''),refreshing=ref(false),overview=ref(null),contexts=ref([]),allContexts=ref([]),storesOpen=ref(false),moduleOpen=ref(false)
@@ -149,7 +153,8 @@ defineExpose({refresh:load})
 .costore-store-copy{min-width:0;flex:1}
 .costore-store-name{display:flex;align-items:center;gap:.4em;font-weight:700;line-height:1.4}
 .costore-store-name text{padding:0 .45em;border-radius:1em;background:linear-gradient(100deg,#00b7ff,#3157ff);font-size:.68em;font-weight:700;line-height:1.7}
-.costore-address,.costore-days{display:block;margin-top:.25em;color:#b7c0d8;font-size:.75em;line-height:1.45;overflow-wrap:anywhere}
+.costore-address,.costore-days,.costore-fee{display:block;margin-top:.25em;color:#b7c0d8;font-size:.75em;line-height:1.45;overflow-wrap:anywhere}
+.costore-fee{color:#ff9db3}
 .costore-store-foot{display:flex;align-items:center;justify-content:space-between;gap:.6em;margin-top:.35em}
 .costore-store-foot>text{color:#b7c0d8;font-size:.78em}
 .costore-store-foot button{flex:none;color:#57adff;font-size:.82em}

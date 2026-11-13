@@ -5,6 +5,7 @@ import {normalizeContent,isMediaUrl} from '../features/content/rich-content'
 import * as mock from './mock/training'
 import {isCoachAccount} from './account-channel'
 import {assetUrl} from './asset-url'
+import { storeDisplayAddress, storePhotoUrl } from '../features/store-display'
 const scoped=(contextId,operation)=>withBusinessContext(contextId,'agency:store-management',operation)
 function actions(value){
  if(value==null)return {allowedActions:[]}
@@ -21,9 +22,9 @@ export async function getCoachWorkspace(contextId){
     const result=await request('/coach/workspace')
     if(getSession()?.token!==session.token||getSession()?.user?.id!==session.user.id)throw new Error('登录账号已变化')
     if(!result?.store?.id||!result.contextId||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常')
-    return actions({...result,childMembers:workspaceChildren(result).map(normalizeStoreMember)})
+    return actions({...result,store:normalizeTransferStore(result.store),childMembers:workspaceChildren(result).map(normalizeStoreMember)})
   }
-  return scoped(contextId,async(user,context)=>{const members=config.useMock?mock.mockCoachMembers(user):null;const result=config.useMock?{contextId:context.id,name:user.name||'健脑官',store:mock.mockCoachStore(user,context,members[0].id),members,allowedActions:['manage-members','read-orders','write-feedback']}:await request('/coach/workspace',{data:{contextId:context.id}});if(!result?.store?.id||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常');return actions({...result,childMembers:workspaceChildren(result).map(normalizeStoreMember)})})
+  return scoped(contextId,async(user,context)=>{const members=config.useMock?mock.mockCoachMembers(user):null;const result=config.useMock?{contextId:context.id,name:user.name||'健脑官',store:mock.mockCoachStore(user,context,members[0].id),members,allowedActions:['manage-members','read-orders','write-feedback']}:await request('/coach/workspace',{data:{contextId:context.id}});if(!result?.store?.id||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常');return actions({...result,store:normalizeTransferStore(result.store),childMembers:workspaceChildren(result).map(normalizeStoreMember)})})
 }
 function selfStudyText(pack,fallback=''){
   if(typeof fallback==='string'&&fallback.trim())return fallback
@@ -150,16 +151,17 @@ function normalizeTransferStore(store){
   const manager=store.manager
   const managerName=store.managerName||(typeof manager==='string'?manager:manager?.name)||store.manager_name||''
   const phone=store.phone||store.contact||(typeof manager==='object'&&manager?manager.phone:'')||store.managerPhone||''
-  const coverUrl=store.coverUrl||store.storefrontUrl||store.imageUrl||store.cover||''
+  const coverUrl=storePhotoUrl(store)
   const number=store.number||store.storeNo||store.storeNumber||''
   const regionCodes=Array.isArray(store.regionCodes)?store.regionCodes.map(String):[]
-  return {...store,managerName,manager:managerName,phone,coverUrl,number,regionCodes,address:store.address||''}
+  const displayAddress=storeDisplayAddress(store)
+  return {...store,managerName,manager:managerName,phone,coverUrl,imageUrl:coverUrl,number,regionCodes,fullAddress:displayAddress,address:displayAddress||store.address||''}
 }
 export function getTransferOptions(contextId,memberId){return scoped(contextId,async(user,context)=>{
   // API returns the full store list; province/city filtering is done on the page.
   const result=config.useMock?mock.mockTransferOptions(user,context,memberId):await request('/store-transfer/options',{data:{contextId,memberId}})
   if(!result?.currentStore?.id||!Array.isArray(result.stores))throw new Error('转店选项数据异常')
-  return {...result,stores:result.stores.map(normalizeTransferStore)}
+  return {...result,currentStore:normalizeTransferStore(result.currentStore),stores:result.stores.map(normalizeTransferStore)}
 })}
 export function applyStoreTransfer(contextId,memberId,draft,key){return scoped(contextId,async(user,context)=>{
   const result=config.useMock?mock.mockApplyTransfer(user,context,memberId,draft,key):await request('/store-transfer/applications',{method:'POST',data:{...draft,contextId,memberId,idempotencyKey:key}})

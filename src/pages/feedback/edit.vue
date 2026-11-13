@@ -12,7 +12,7 @@
      <view v-if="images.length" class="edit-images">
       <view v-for="(item,index) in images" :key="item.assetId">
        <image :src="item.previewUrl" mode="aspectFill"/>
-       <button aria-label="移除图片" :disabled="busy" @click="images.splice(index,1)"><image src="/static/common/icon-remove-image.png" mode="aspectFit"/></button>
+       <button aria-label="移除图片" :disabled="busy" @click="removeImage(index)"><image src="/static/common/icon-remove-image.png" mode="aspectFit"/></button>
       </view>
      </view>
      <view v-for="(item,index) in attachments" :key="item.assetId" class="edit-file">
@@ -20,7 +20,7 @@
       <image v-else class="edit-pdf" src="/static/media/icon-pdf.png" mode="aspectFit"/>
       <view v-if="item.kind==='video'" class="edit-play"><image src="/static/media/icon-play-solid.png" mode="aspectFit"/></view>
       <view v-else class="edit-file-copy"><text>{{item.name || '附件'}}</text><text>{{fileSize(item.size)}}</text></view>
-      <button aria-label="移除附件" :disabled="busy" @click="attachments.splice(index,1)">移除</button>
+      <button aria-label="移除附件" :disabled="busy" @click="removeAttachment(index)">移除</button>
      </view>
     </view>
     <view class="edit-uploads">
@@ -41,12 +41,15 @@ import {useAuth} from '../../composables/useAuth'
 import {saveTrainingFeedback,getStoreMember} from '../../services/training'
 import {uploadTrainingAsset} from '../../services/training-assets'
 import {uploadProfileImage} from '../../services/profile'
+import {discardAsset} from '../../services/asset-upload'
 import {commerceRequestKey} from '../../services/commerce'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 useAuth()
 let contextId='',memberId='',kind='',active=true,key='',fingerprint=''
 const ready=ref(false),title=ref(''),text=ref(''),images=ref([]),attachments=ref([]),busy=ref(false),uploading=ref(false),error=ref('')
 const fileSize=size=>!Number.isFinite(size)?'':size>=1048576?`${(size/1048576).toFixed(2)}mb`:size>=1024?`${Math.round(size/1024)}kb`:`${size}b`
+function removeImage(index){const [removed]=images.value.splice(index,1);if(removed?.assetId)discardAsset(removed.assetId)}
+function removeAttachment(index){const [removed]=attachments.value.splice(index,1);if(removed?.assetId)discardAsset(removed.assetId)}
 async function upload(){uploading.value=true;error.value='';try{const files=await new Promise((resolve,reject)=>uni.chooseImage({count:6-images.value.length,success:resolve,fail:reject}));for(const file of files.tempFiles){const image=await uploadProfileImage({path:file.path,size:file.size,name:file.name||'',type:file.type||file.mimeType||''},'feedback');if(active)images.value.push(image)}}catch(reason){if(active&&reason?.errMsg&&!/cancel/i.test(reason.errMsg))error.value=reason.message||'图片选择或上传失败'}finally{if(active)uploading.value=false}}
 async function uploadAttachment(type){uploading.value=true;error.value='';try{let file
  // #ifdef H5

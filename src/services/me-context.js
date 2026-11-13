@@ -3,6 +3,7 @@ import * as api from './api'
 import { mockBoundStore, mockProfileState, copy } from './mock/profile'
 import { ensureRegionNames } from '../features/region'
 import { MOCK_PARTNER_AGENCY_PROMOTION_CODE, withNormalizedAgencyPromotionCode } from './agency-promotion-code'
+import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../features/store-display'
 
 // Session-scoped cache for GET /me (profile + bound store + exclusiveAccess).
 let meCache = null
@@ -49,11 +50,15 @@ function normalizeMeStore(store) {
     id: String(store.id),
     name: String(store.name || store.storeName || ''),
     number: String(store.number || store.storeNo || store.storeCode || ''),
-    address: String(store.address || ''),
+    address: String(storeDisplayAddress(store) || store.address || ''),
+    fullAddress: String(storeDisplayAddress(store) || store.address || ''),
     managerName: String(store.managerName || manager?.name || ''),
     managerPhone: String(store.managerPhone || store.phone || manager?.phone || ''),
     phone: String(store.phone || store.managerPhone || manager?.phone || ''),
-    coverUrl: String(store.coverUrl || store.imageUrl || ''),
+    coverUrl: String(storePhotoUrl(store)),
+    storefrontUrl: String(storePhotoUrl(store)),
+    storefrontAssetId: String(store.storefrontAssetId || ''),
+    feeAmount: storeFeeAmount(store),
   }
 }
 

@@ -25,6 +25,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { config } from '../../config'
 import { useAuth } from '../../composables/useAuth'
 import { getMyProfile, updateMyProfile, uploadProfileImage } from '../../services/profile'
+import { discardAsset } from '../../services/asset-upload'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import RegionPicker from '../../components/RegionPicker.vue'
 useAuth()
@@ -42,7 +43,7 @@ function regionChange(value) { if(saving.value) return; regionNames.value = valu
 async function chooseAvatar() {
   if(saving.value || uploading.value) return
   const current = epoch; uploading.value = true; error.value = ''
-  try { const result = await new Promise(resolve => uni.chooseImage({ count: 1, sourceType: ['album'], success: resolve, fail: () => resolve(null) })); if(!result || current !== epoch) return; const file = result.tempFiles[0] || {}; const asset = await uploadProfileImage({ path: file.path || result.tempFilePaths[0], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' }, 'avatar'); if(current === epoch) { avatarAssetId.value = asset.assetId; avatarPreview.value = asset.previewUrl } }
+  try { const result = await new Promise(resolve => uni.chooseImage({ count: 1, sourceType: ['album'], success: resolve, fail: () => resolve(null) })); if(!result || current !== epoch) return; const file = result.tempFiles[0] || {}; const asset = await uploadProfileImage({ path: file.path || result.tempFilePaths[0], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' }, 'avatar'); if(current === epoch) { const previous = avatarAssetId.value; avatarAssetId.value = asset.assetId; avatarPreview.value = asset.previewUrl; if (previous && previous !== asset.assetId) discardAsset(previous) } }
   catch(reason) { if(current === epoch) error.value = reason.message || '头像处理失败' }
   finally { if(current === epoch) uploading.value = false }
 }

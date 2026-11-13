@@ -1,6 +1,7 @@
 import { config } from '../config'
 import { getSession, request } from './api'
 import { mockBoundStore } from './mock/profile'
+import { storeDisplayAddress, storePhotoUrl } from '../features/store-display'
 
 const fail = message => { throw new Error(message) }
 
@@ -20,7 +21,7 @@ function normalizeStore(value) {
   const manager = value.manager && typeof value.manager === 'object'
     ? { id: String(value.manager.id || ''), name: String(value.manager.name || ''), phone: String(value.manager.phone || '') }
     : null
-  return { id: String(value.id), storeNo: String(value.storeNo || value.storeCode || value.regionCode || ''), name: String(value.name || value.storeName || ''), address: String(value.address || ''), imageUrl: String(value.imageUrl || value.storeImage || value.coverUrl || ''), isHeadquarters: value.isHeadquarters === true || value.id === 'HQ', manager }
+  return { id: String(value.id), storeNo: String(value.storeNo || value.storeCode || value.regionCode || ''), name: String(value.name || value.storeName || ''), address: String(storeDisplayAddress(value) || value.address || ''), fullAddress: storeDisplayAddress(value), imageUrl: String(storePhotoUrl(value) || value.imageUrl || value.storeImage || value.coverUrl || ''), isHeadquarters: value.isHeadquarters === true || value.id === 'HQ', manager }
 }
 
 function normalizeBinding(value) {
@@ -55,7 +56,15 @@ export async function getCurrentStoreBinding() {
   verify(current)
   if (!result || typeof result !== 'object') fail('门店绑定信息格式异常')
   const binding = normalizeBinding(result)
-  return { ...binding, stores: (Array.isArray(result.stores) ? result.stores : []).map(normalizeStore).filter(Boolean) }
+  const stores = (Array.isArray(result.stores) ? result.stores : []).map(normalizeStore).filter(Boolean)
+  const rawStore = result.store && typeof result.store === 'object' ? result.store : result
+  const matched = stores.find(item => item.id === binding.storeId) || normalizeStore(rawStore)
+  return {
+    ...binding,
+    stores,
+    imageUrl: (matched && matched.imageUrl) || storePhotoUrl(rawStore) || '',
+    address: (matched && matched.address) || storeDisplayAddress(rawStore) || '',
+  }
 }
 
 export async function getDownlineStoreBindingOptions(targetAccountId) {

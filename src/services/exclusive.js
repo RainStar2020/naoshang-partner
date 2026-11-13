@@ -7,6 +7,7 @@ import { mockCostorePaymentOrder } from './mock/commerce'
 import { buildAgencyApplicationUrl } from './agency-promotion-link'
 import { getCachedMeContext, loadMeContext } from './me-context'
 import { resolveAgencyPromotionCodeFromMe, MISSING_AGENCY_PROMOTION_CODE_MESSAGE } from './agency-promotion-code'
+import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../features/store-display'
 export { buildAgencyApplicationUrl } from './agency-promotion-link'
 const copy = value => JSON.parse(JSON.stringify(value))
 function coerceRichContent(value) {
@@ -22,18 +23,17 @@ function mapCostoreStore(store) {
   if (!store || typeof store !== 'object') return null
   const id = store.id || store.storeAgentId
   if (!id) return null
-  const monthlyFee = Number(store.monthlyFee ?? store.monthlyFeeYuan ?? store.fee)
   return {
     ...store,
     id,
     name: store.name || '',
     number: store.number || store.storeCode || '',
-    address: store.address || '',
-    coverUrl: store.coverUrl || store.imageUrl || '',
+    address: storeDisplayAddress(store) || store.address || '',
+    coverUrl: storePhotoUrl(store),
     ownerLabel: store.ownerLabel || '',
     managerName: store.managerName || store.manager?.name || '',
     phone: store.phone || store.manager?.phone || store.contact || '',
-    monthlyFee: Number.isFinite(monthlyFee) && monthlyFee > 0 ? monthlyFee : 0,
+    monthlyFee: storeFeeAmount(store) ?? 0,
   }
 }
 export function accountSnapshot() {
@@ -126,6 +126,7 @@ export function quoteCostore(storeId, durationId) {
       saveMockExclusiveState(user)
     } else result = await request('/costore/application-quotes', { method: 'POST', data: { storeId, durationId, contextId: access.contextId } })
     if (!result?.id || !Number.isInteger(result.payableAmount) || result.payableAmount < 0 || !Number.isFinite(result.expiresAt) || !Number.isFinite(result.serverTime)) throw new Error('费用试算数据异常')
+    if (result.store) result = { ...result, store: mapCostoreStore(result.store) || result.store }
     return result
   })
 }
@@ -165,7 +166,15 @@ export function submitCostoreApplication({ quoteId, idempotencyKey, agreementVer
   })
 }
 export function getMyApplications(cursor = null) {
-  return withExclusive('costore-application', async (user, access) => listResult(config.useMock ? { items: copy(mockExclusiveState(user).applications), hasMore: false, nextCursor: null } : await request('/applications', { data: { type: 'COSTORE', cursor, pageSize: 20, contextId: access.contextId } })))
+  return withExclusive('costore-application', async (user, access) => {
+    const result = listResult(config.useMock ? { items: copy(mockExclusiveState(user).applications), hasMore: false, nextCursor: null } : await request('/applications', { data: { type: 'COSTORE', cursor, pageSize: 20, contextId: access.contextId } }))
+    return {
+      ...result,
+      items: result.items.map((item) => (
+        item?.store ? { ...item, store: mapCostoreStore(item.store) || item.store } : item
+      )),
+    }
+  })
 }
 export const agencyTypes = [{ id: 'STORE', label: '单店代理' }, { id: 'COUNTY', label: '区县代理' }, { id: 'CITY', label: '市代' }, { id: 'PROVINCE', label: '省代' }]
 const isHttpUrl = value => typeof value === 'string' && /^https?:\/\/[^\s<>"'\\]+$/i.test(value)

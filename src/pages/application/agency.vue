@@ -101,7 +101,7 @@ import { rememberAgencyReturn } from '../../services/login-return'
 import { getSession } from '../../services/api'
 import { getMyProfile, uploadProfileImage } from '../../services/profile'
 import {assetUrl} from '../../services/asset-url'
-import { uploadAsset } from '../../services/asset-upload'
+import { uploadAsset, discardAsset } from '../../services/asset-upload'
 import { getAgencyApplicationOptions, submitAgencyApplication, applyCityTier, checkAgencyRegionAvailability } from '../../services/agency-application'
 import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
@@ -209,8 +209,10 @@ async function upload() {
         fileName: uploadInput.name || 'storefront.jpg',
       })
     if (active) {
+      const previous = draft.value.storefrontFileId
       cover.value = assetUrl(asset.previewUrl)
       draft.value.storefrontFileId = asset.fileId || asset.assetId
+      if (previous && previous !== draft.value.storefrontFileId) discardAsset(previous)
     }
   } catch (reason) {
     if (active) actionError.value = reason.message || '门头照片上传未完成，请检查网络后重试'

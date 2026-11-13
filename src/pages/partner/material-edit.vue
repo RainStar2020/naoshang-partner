@@ -20,6 +20,7 @@ import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import { getSession } from '../../services/api'
 import { useAuth } from '../../composables/useAuth'
 import { getMaterial, renderMaterial, getMaterialJob, uploadMaterialQr, materialTypes } from '../../services/materials'
+import { discardAsset } from '../../services/asset-upload'
 import ManagedRichContent from '../../components/ManagedRichContent.vue'
 import BusinessQrCode from '../../components/BusinessQrCode.vue'
 useAuth()
@@ -53,7 +54,7 @@ async function chooseQr() {
     const file = selected.tempFiles[0] || {}
     const result = await uploadMaterialQr({ path: file.path || selected.tempFilePaths[0], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' })
     if (current !== epoch) return
-    qrAssetId.value = result.assetId; qrPreview.value = selected.tempFilePaths[0]; attemptKey = ''; jobId = ''; resultImage.value = ''; resultLink.value = ''; jobStatus.value = ''
+    const previous = qrAssetId.value; qrAssetId.value = result.assetId; qrPreview.value = selected.tempFilePaths[0]; attemptKey = ''; jobId = ''; resultImage.value = ''; resultLink.value = ''; jobStatus.value = ''; if (previous && previous !== result.assetId) discardAsset(previous)
   } catch(reason) { if(current === epoch) operationError.value = reason.message || '二维码上传失败' }
   finally { if (current === epoch) uploading.value = false }
 }

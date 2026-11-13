@@ -5,6 +5,7 @@ import {mockBusinessState,saveMockBusinessState,mockClone,mockStoreWorkspace} fr
 import {mockProfileState} from './mock/profile'
 import {mockExclusiveState,saveMockExclusiveState} from './mock/exclusive'
 import {ensureRegionNames} from '../features/region'
+import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../features/store-display'
 function normalizeStore(store){
   if(!store||typeof store!=='object')return store
   const regionCodes=Array.isArray(store.regionCodes)?store.regionCodes:[]
@@ -14,12 +15,15 @@ function normalizeStore(store){
     ...store,
     number:store.number||store.storeNo||store.regionCode||'',
     managerName:store.managerName||store.manager?.name||'',
+    storeName:store.storeName||store.store_name||store.name||'',
     contact:store.contact||store.managerPhone||store.phone||store.manager?.phone||'',
     address:store.address||'',
     regionCodes,
     regionNames:ensureRegionNames(regionCodes,store.regionNames),
-    storefrontUrl:store.storefrontUrl||store.storefrontPhotoUrl||store.coverUrl||'',
-    feeAmount:Number.isFinite(Number(feeAmount))?Number(feeAmount):null,
+    storefrontAssetId:store.storefrontAssetId||store.storefront_asset_id||'',
+    storefrontUrl:storePhotoUrl(store),
+    fullAddress:storeDisplayAddress(store),
+    feeAmount:storeFeeAmount(store) ?? (Number.isFinite(Number(feeAmount))?Number(feeAmount):null),
     minimumFeeAmount:Number.isFinite(Number(minimumFeeAmount))?Number(minimumFeeAmount):null,
   }
 }
@@ -75,12 +79,14 @@ export function saveBusinessCoach(contextId,storeId,id,draft,idempotencyKey){ret
 })}
 export function saveBusinessStore(contextId,storeId,draft){return withBusinessContext(contextId,'agency:store-management',async(account,context)=>{
   const profile=draft.managerName!=null
-  const managerName=String(draft.managerName||'').trim(),name=String(draft.name||'').trim(),address=String(draft.address||'').trim(),contact=String(draft.contact||'').trim()
+  const managerName=String(draft.managerName||'').trim(),name=String(draft.storeName||draft.name||'').trim(),address=String(draft.address||'').trim(),contact=String(draft.contact||'').trim()
   const regionNames=Array.isArray(draft.regionNames)?draft.regionNames:[],regionCodes=Array.isArray(draft.regionCodes)?draft.regionCodes:[]
   if(profile){
+    // store.id 是店长用户 ID，bootstrap.storeId / entityId / assignmentId 可能不是同一个值。
+    // 当前上下文已是本店单店代理时，不再做 ID 强等校验，由服务端按 contextId 鉴权。
     if(context.agencyType!=='STORE')throw new Error('仅本店单店代理可编辑门店信息')
-    if(context.storeId&&String(context.storeId)!==String(storeId))throw new Error('仅本店单店代理可编辑门店信息')
     if(!managerName||Array.from(managerName).length>30)throw new Error('请填写1—30字姓名')
+    if(!name||Array.from(name).length>255)throw new Error('请填写1—255字门店名称')
     if(!/^1\d{10}$/.test(contact))throw new Error('请填写正确联系手机号')
     if(regionNames.length!==3||regionCodes.length!==3)throw new Error('请选择门店地区')
     if(!address||Array.from(address).length>200)throw new Error('请填写1—200字门店地址')
@@ -89,7 +95,7 @@ export function saveBusinessStore(contextId,storeId,draft){return withBusinessCo
     if(!name||Array.from(name).length>60||!address||Array.from(address).length>200)throw new Error('请填写有效门店名称与地址')
     if(contact&&!/^1\d{10}$/.test(contact))throw new Error('请填写正确联系手机号')
   }
-  if(!config.useMock)return request(`/stores/${encodeURIComponent(storeId)}`,{method:'PATCH',data:{...(profile?{managerName,regionNames,regionCodes,feeAmount:draft.feeAmount,storefrontAssetId:draft.storefrontAssetId||''}:{name}),address,contact,version:draft.version,contextId:context.id}})
+  if(!config.useMock)return request(`/stores/${encodeURIComponent(storeId)}`,{method:'PATCH',data:{...(profile?{managerName,name,regionNames,regionCodes,feeAmount:draft.feeAmount,storefrontAssetId:draft.storefrontAssetId||''}:{name}),address,contact,version:draft.version,contextId:context.id}})
   const state=mockBusinessState(account,context);if(state.store.id!==storeId||state.store.version!==draft.version)throw new Error('门店资料已变化或无权访问')
   if(profile){
     const minimum=Number(state.store.minimumFeeAmount)
@@ -97,7 +103,7 @@ export function saveBusinessStore(contextId,storeId,draft){return withBusinessCo
     const asset=draft.storefrontAssetId?mockProfileState(account).assets.get(draft.storefrontAssetId):null
     if(draft.storefrontAssetId&&asset?.purpose!=='storefront')throw new Error('请上传门头照')
     if(!draft.storefrontAssetId&&!state.store.storefrontUrl)throw new Error('请上传门头照')
-    state.store={...state.store,managerName,address,contact,regionNames,regionCodes,feeAmount:draft.feeAmount,storefrontAssetId:draft.storefrontAssetId||state.store.storefrontAssetId||'',storefrontUrl:draft.storefrontUrl||state.store.storefrontUrl||'',version:state.store.version+1}
+    state.store={...state.store,managerName,name,storeName:name,address,contact,regionNames,regionCodes,feeAmount:draft.feeAmount,storefrontAssetId:draft.storefrontAssetId||state.store.storefrontAssetId||'',storefrontUrl:draft.storefrontUrl||state.store.storefrontUrl||'',version:state.store.version+1}
   }else state.store={...state.store,name,address,contact,version:state.store.version+1}
   state.version++;saveMockBusinessState(account,context);return {store:mockClone(state.store),mockOnly:true}
 })}

@@ -459,7 +459,7 @@
     ),
   );
   const incomeValue = computed(() =>
-    pickMetricNumber(overview.value?.agencyIncome, overview.value?.available),
+    pickMetricNumber(overview.value?.agencyIncome),
   );
   const teamCountPending = computed(() =>
     isMetricPending(teamCountValue.value, { settled: metricsSettled.value }),
@@ -482,7 +482,7 @@
   function contextTitle(item) { return agencyDisplayName(item); }
   function contextSubtitle(item) {
     if (item.agencyType === "STORE")
-      return item.store?.address || item.scopeLabel || "";
+      return item.store?.fullAddress || item.store?.address || item.scopeLabel || "";
     const title = contextTitle(item);
     const typeLabel =
       { PROVINCE: "省代", CITY: "市代", COUNTY: "区县代理" }[item.agencyType] ||

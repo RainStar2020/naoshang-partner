@@ -74,6 +74,7 @@ import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOpera
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
 import MetricSkeleton from './MetricSkeleton.vue'
+import { storeDisplayAddress, storePhotoUrl } from '../features/store-display'
 const props=defineProps({pageQuery:Object})
 const context=ref(null),allocationOpen=ref(false),options=ref(null),targetId=ref(''),agentId=ref(''),quote=ref(null),busy=ref(false),operationError=ref('')
 let attemptKey=''
@@ -106,7 +107,7 @@ const view=computed(()=>{
       {label:'计价方式',value:entry?.rateLabel||''},
     ],
     people:[entry?.recommendedBy||entry?.recommended,entry?.purchaser||entry?.buyer].filter(Boolean).map((item,index)=>({title:index?'购买人信息':'推荐人信息',name:item.name||'暂未提供',badge:displayLevel(item.levelLabel||item.roleLabel),avatarUrl:item.avatarUrl||'',lines:[item.phone?`联系方式：${item.phone}`:'联系方式待后台提供',item.address?`门店地址：${item.address}`:''].filter(Boolean)})),
-    store:(entry?.deliveryStore||entry?.store)?.name?{title:'服务门店',name:(entry.deliveryStore||entry.store).name,number:(entry.deliveryStore||entry.store).number||(entry.deliveryStore||entry.store).code||'',address:(entry.deliveryStore||entry.store).address||'',manager:(entry.deliveryStore||entry.store).manager||'',imageUrl:(entry.deliveryStore||entry.store).imageUrl||'/static/common/icon-store.png'}:null,
+    store:(entry?.deliveryStore||entry?.store)?.name?{title:'服务门店',name:(entry.deliveryStore||entry.store).name,number:(entry.deliveryStore||entry.store).number||(entry.deliveryStore||entry.store).code||'',address:storeDisplayAddress(entry.deliveryStore||entry.store)||(entry.deliveryStore||entry.store).address||'',manager:(entry.deliveryStore||entry.store).manager||'',imageUrl:storePhotoUrl(entry.deliveryStore||entry.store)||(entry.deliveryStore||entry.store).imageUrl||'/static/common/icon-store.png'}:null,
   }
 })
 const candidates=computed(()=>options.value?.fields?.find(field=>field.key==='targetId')?.options||[])
