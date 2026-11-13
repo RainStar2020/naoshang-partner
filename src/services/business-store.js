@@ -66,7 +66,7 @@ export function saveBusinessCoach(contextId,storeId,id,draft,idempotencyKey){ret
   if(!name||Array.from(name).length>24)throw new Error('请输入1—24字健脑官姓名')
   if(!/^[a-zA-Z0-9_-]{4,32}$/.test(loginAccount))throw new Error('登录账号为4—32位字母、数字、下划线或短横线')
   if(!id&&!idempotencyKey)throw new Error('请完整填写信息后再提交')
-  if(!config.useMock)return request(`/stores/${encodeURIComponent(storeId)}/coaches${id?`/${encodeURIComponent(id)}`:''}`,{method:id?'PATCH':'POST',data:{name,loginAccount,...(password?{password}:{}),version:draft.version,idempotencyKey,contextId:context.id}})
+  if(!config.useMock)return request(`/stores/${encodeURIComponent(storeId)}/coaches${id?`/${encodeURIComponent(id)}`:''}`,{method:id?'PATCH':'POST',data:{name,loginAccount,...(password?{loginPassword:password,password}:{}),version:draft.version,idempotencyKey,contextId:context.id}})
   const state=mockBusinessState(account,context);if(storeId!==state.store.id)throw new Error('您无权管理此门店')
   const fingerprint=JSON.stringify({id,name,loginAccount,version:draft.version}),previous=state.operations.get(idempotencyKey)
   if(previous){if(previous.fingerprint!==fingerprint)throw new Error('信息已变化，请刷新后重新提交');return mockClone(previous.result)}
@@ -86,7 +86,7 @@ export function saveBusinessStore(contextId,storeId,draft){return withBusinessCo
     // 当前上下文已是本店单店代理时，不再做 ID 强等校验，由服务端按 contextId 鉴权。
     if(context.agencyType!=='STORE')throw new Error('仅本店单店代理可编辑门店信息')
     if(!managerName||Array.from(managerName).length>30)throw new Error('请填写1—30字姓名')
-    if(!name||Array.from(name).length>255)throw new Error('请填写1—255字门店名称')
+    if(!name||Array.from(name).length>60)throw new Error('请填写1—60字门店名称')
     if(!/^1\d{10}$/.test(contact))throw new Error('请填写正确联系手机号')
     if(regionNames.length!==3||regionCodes.length!==3)throw new Error('请选择门店地区')
     if(!address||Array.from(address).length>200)throw new Error('请填写1—200字门店地址')

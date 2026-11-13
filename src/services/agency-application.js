@@ -37,7 +37,7 @@ function assertStoreName(agencyType, draft) {
   if (agencyType !== 'store') return
   const storeName = resolveStoreName(draft)
   if (!storeName) throw new Error('请填写门店名称')
-  if (storeName.length > 255) throw new Error('门店名称不能超过 255 个字')
+  if (storeName.length > 60) throw new Error('门店名称不能超过 60 个字')
 }
 
 /** Public occupancy check: GET /api/hq/region-agents/check */
@@ -65,6 +65,75 @@ export async function assertAgencyRegionAvailable(regionType, regionCode) {
   return result
 }
 
+function formatAgencyYuanLabel(amount) {
+  const number = Number(amount)
+  if (!Number.isFinite(number)) return ''
+  return `¥${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+const API_FEE_KEYS = ['brandFee', 'extraFee', 'deviceFee', 'depositFee']
+const API_FEE_NAMES = { brandFee: '品牌费', extraFee: '附加费', deviceFee: '设备费', depositFee: '保证金' }
+
+export function hasApiAgencyFees(options) {
+  const breakdown = options?.feeBreakdown
+  if (!breakdown || typeof breakdown !== 'object') return false
+  if (typeof breakdown.label === 'string' && breakdown.label.trim()) return true
+  if (typeof breakdown.note === 'string' && breakdown.note.trim()) return true
+  return API_FEE_KEYS.some(key => breakdown[key] != null)
+}
+
+export function agencyPayableLabel(options) {
+  const label = options?.feeBreakdown?.label
+  if (typeof label === 'string' && label.trim()) return label.trim()
+  return formatAgencyYuanLabel(options?.payableAmount ?? options?.feeBreakdown?.total)
+}
+
+export function agencyFeeNote(options) {
+  const breakdown = options?.feeBreakdown
+  if (typeof breakdown?.note === 'string' && breakdown.note.trim()) return breakdown.note.trim()
+  if (hasApiAgencyFees(options) && breakdown) {
+    const items = []
+    for (const key of API_FEE_KEYS) {
+      const value = Number(breakdown[key])
+      if (!Number.isFinite(value)) continue
+      if (key === 'extraFee' && value === 0) continue
+      items.push(`${API_FEE_NAMES[key]}${formatAgencyYuanLabel(value)}`)
+    }
+    return items.join(' + ')
+  }
+  return typeof options?.feeNote === 'string' ? options.feeNote : ''
+}
+
+function payableYuanFromOptions(result, fallback) {
+  const total = Number(result?.feeBreakdown?.total)
+  if (Number.isFinite(total)) return total
+  const amount = Number(result?.payableAmount)
+  if (Number.isFinite(amount)) return amount
+  return fallback.payableAmount
+}
+
+function agreementFromOptions(result, fallback) {
+  const required = Array.isArray(result?.requiredAgreements) ? result.requiredAgreements : []
+  let version = ''
+  let content = ''
+  for (const item of required) {
+    if (!version && item?.version != null && String(item.version).trim()) version = String(item.version).trim()
+    if (!content && item?.content != null && String(item.content).trim()) content = item.content
+  }
+  if (!version && result?.agreement?.version != null && String(result.agreement.version).trim()) {
+    version = String(result.agreement.version).trim()
+  }
+  if (!content && result?.agreement?.content != null) content = result.agreement.content
+  if (!version) version = fallback?.agreement?.version
+  if (!content) content = fallback?.agreement?.content
+  return {
+    ...(fallback.agreement || {}),
+    ...(result?.agreement || {}),
+    ...(version ? { version } : {}),
+    ...(content ? { content } : {}),
+  }
+}
+
 export function getAgencyApplicationOptions(type, promotionId, cityTierId = null, promotionCode = '') {
   return scoped(async () => {
     const code = assertUsableAgencyPromotionCode(promotionCode || promotionId)
@@ -77,22 +146,27 @@ export function getAgencyApplicationOptions(type, promotionId, cityTierId = null
         promotionCode: code,
       },
     })
-    const payableAmount = Number(result?.payableAmount)
-    return {
+    const payableAmount = payableYuanFromOptions(result, fallback)
+    const output = {
       ...fallback,
       ...result,
       promotionId: code,
       promotionCode: code,
       agencyType: String(result?.agencyType || type).toUpperCase(),
       requiresStorefront: result?.requiresStorefrontPhoto === true || result?.requiresStorefront === true,
-      payableAmount: Number.isFinite(payableAmount) ? payableAmount : fallback.payableAmount,
-      payableWan: Number.isFinite(payableAmount) ? payableAmount / 10000 : fallback.payableWan,
+      payableAmount,
+      agreement: agreementFromOptions(result, fallback),
     }
+    delete output.payableWan
+    output.feeNote = agencyFeeNote(output)
+    return output
   })
 }
 
 export function applyCityTier(options, cityTierId) {
   if (!options || options.agencyType !== 'CITY') return options
+  // Live API fees are already in yuan; do not overwrite them with the local 万元 catalog.
+  if (hasApiAgencyFees(options)) return { ...options, cityTierId }
   const { fees, cityTierId: resolved } = resolveAgencyFees('CITY', cityTierId)
   return {
     ...options,

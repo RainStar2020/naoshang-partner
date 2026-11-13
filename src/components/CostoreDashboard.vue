@@ -40,7 +40,7 @@
       <view class="costore-store-name">{{item.store?.name || item.label}}<text v-if="item.store?.number">{{item.store.number}}</text></view>
       <text class="costore-address">{{storeDisplayAddress(item.store) || item.store?.address || '地址待后台提供'}}</text>
       <text v-if="storeFeeAmount(item.store)!=null" class="costore-fee">合店费用 ¥{{ money(storeFeeAmount(item.store)) }}/月</text>
-      <text class="costore-days">{{item.store?.daysRemaining == null ? '有效期以后台为准' : `${item.store.daysRemaining}天后到期`}}</text>
+      <text class="costore-days">{{costoreDaysText(item.store?.daysRemaining)}}</text>
      </view>
      <image class="costore-chevron" src="/static/common/icon-chevron-right.png" mode="aspectFit"/>
     </button>
@@ -81,7 +81,15 @@ const benefit=computed(()=>overview.value?.benefits?.[0])
 const moduleMeta=businessModules.find(item=>item.id==='costore')
 const moduleTitle=moduleMeta?.title||'合店中心'
 const roleTitle=moduleMeta?.label?`${moduleMeta.label}身份`:'合店身份'
-const daysText=computed(()=>store.value?.daysRemaining==null?'有效期以后台为准':`${store.value.daysRemaining}天后到期`)
+const daysText=computed(()=>costoreDaysText(store.value?.daysRemaining))
+function costoreDaysText(days){
+  if(days==null||days==='')return '有效期以后台为准'
+  const value=Number(days)
+  if(!Number.isFinite(value))return '有效期以后台为准'
+  const whole=Math.trunc(value)
+  if(whole<=0)return '已过期'
+  return `${whole}天后到期`
+}
 const modules=computed(()=>businessModules.filter(item=>allContexts.value.some(row=>row.module===item.id)))
 const shortcuts=computed(()=>['income','card-dividends','promotion-dividends'].map(id=>overview.value?.tools?.find(tool=>tool.id===id)).filter(Boolean))
 function paintCostoreShell(ctx,rows){

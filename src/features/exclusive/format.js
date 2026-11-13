@@ -14,4 +14,4 @@ export const numberOrZero = value => {
   const number = Number(value)
   return Number.isFinite(number) ? number : 0
 }
-export const applicationStatus = value => ({ PENDING_PAYMENT: '待付款', PENDING_REVIEW: '待门店审核', APPROVED: '已通过', REJECTED: '已拒绝', CANCELLED: '已取消' }[value] || '状态待确认')
+export const applicationStatus = value => ({ PENDING_PAYMENT: '待付款', WAITING_PAYMENT: '待付款', PENDING_REVIEW: '待门店审核', APPROVED: '已通过', REJECTED: '已拒绝', CANCELLED: '已取消' }[value] || '状态待确认')

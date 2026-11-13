@@ -23,11 +23,12 @@
       <view class="me-card store-card">
         <view class="me-section-title">绑定门店</view>
         <view v-if="data.store" class="me-store">
-          <image :src="data.store.coverUrl || '/static/common/icon-store.png'" mode="aspectFill" />
+          <image :src="storePhotoUrl(data.store) || data.store.coverUrl || '/static/common/icon-store.png'" mode="aspectFill" />
           <view>
             <view class="me-store-name">{{ data.store.name }}<text v-if="data.store.number" class="store-number">{{ data.store.number }}</text></view>
             <view v-if="data.store.managerName" class="me-muted">店长信息：{{ data.store.managerName }}<text v-if="data.store.managerPhone">/{{ data.store.managerPhone }}</text></view>
-            <view class="me-muted">{{ data.store.address }}</view>
+            <view class="me-muted">{{ storeDisplayAddress(data.store) || data.store.fullAddress || data.store.address }}</view>
+            <view v-if="storeFeeAmount(data.store)" class="me-store-fee">合店费用 ¥{{ money(storeFeeAmount(data.store)) }}/月</view>
           </view>
         </view>
         <text v-else class="unbound-store">暂未绑定门店</text>
@@ -50,6 +51,8 @@ import { getSession } from '../../services/api'
 import { prefetchAfterAuth, scheduleIdle } from '../../services/prefetch'
 import { getMyProfile, getSupportConfig } from '../../services/profile'
 import { getExclusiveAccess, getVisibleExclusiveEntries } from '../../services/exclusive'
+import { money } from '../../features/exclusive/format'
+import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../../features/store-display'
 import AppTabBar from '../../components/AppTabBar.vue'
 import ProfileIcon from '../../components/ProfileIcon.vue'
 import AgencyPromotionCode from '../../components/AgencyPromotionCode.vue'
@@ -117,6 +120,7 @@ async function contactSupport() {
 .me-store > view { flex: 1; min-width: 0; }
 .me-store-name { display: flex; align-items: center; flex-wrap: wrap; gap: .35em; font-weight: 600; line-height: 1.45; }
 .store-number { display: inline-flex; align-items: center; padding: .05em .45em; border-radius: .35em; background: #2f78ff; color: #fff; font-size: .75em; font-weight: 500; line-height: 1.55; }
+.me-store-fee { margin-top: .3em; color: #ff4676; font-weight: 600; font-size: .84em; }
 .me-muted { display: block; margin-top: .25em; color: #9aa3bd; font-size: .84em; line-height: 1.5; overflow-wrap: anywhere; }
 .unbound-store { display: block; color: #9aa3bd; padding: .3em 0 .2em; }
 .me-shortcuts { display: flex; justify-content: space-between; gap: .4em; }

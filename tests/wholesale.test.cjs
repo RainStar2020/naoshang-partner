@@ -12,7 +12,7 @@ test('designed wholesale reports preserve empty benefits and separate purchase, 
  assert.equal(team.items[0].levelLabel,'普通用户');assert.equal(team.items.length,4);assert.equal(plans[0].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,3)
  assert.equal(plans[1].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,3);assert.equal(plans[1].upgradePlans[0].disabled,false)
  assert.equal(plans[2].levelLabel,'天使合伙人');assert.equal(plans[2].upgradePlans.find(x=>x.value==='DEMO-ANGEL').disabled,true);assert.equal(plans[2].upgradePlans[0].disabled,true)
- assert.equal(plans[3].levelLabel,'VIP合伙人');assert.equal(plans[3].upgradePlans[0].disabled,true);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,2);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').listPrice,2980000);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').paidAmount,998000)
+ assert.equal(plans[3].levelLabel,'VIP合伙人');assert.equal(plans[3].upgradePlans[0].disabled,true);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').requiredQuota,2);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').listPrice,29800);assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-ANGEL').paidAmount,9980)
  assert.equal(plans[3].upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,23)
  assert.equal(plans[2].upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,21)
  assert.equal((await operations.getBusinessOperationOptions('upgrade',ctx.id,'',upgradeInput)).upgradePlans.find(x=>x.value==='DEMO-FOUNDER').requiredQuota,24)
@@ -35,9 +35,9 @@ test('promotion preserves server progress fields and never derives a threshold f
   assert.equal(report.promotion.progressTarget,target)
   assert.equal(report.promotion.progress,7)
   assert.equal(report.promotion.canClaim,false)
-  assert.equal(report.promotion.paidAmount,5980000)
-  assert.equal(report.promotion.standardAmount,23980000)
-  assert.equal(report.promotion.differenceAmount,18000000)
+  assert.equal(report.promotion.paidAmount,59800)
+  assert.equal(report.promotion.standardAmount,239800)
+  assert.equal(report.promotion.differenceAmount,180000)
  }
 })
 test('users cannot bind or change their superior from business pages',async()=>{

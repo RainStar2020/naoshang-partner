@@ -1,5 +1,6 @@
 import { config } from '../config'
 import { request, getSession } from './api'
+import { isCoachAccount } from './account-channel'
 import { visibleExclusiveFeatures } from '../features/exclusive/catalog'
 import { emptyContent, normalizeContent, isMediaUrl } from '../features/content/rich-content'
 import { mockExclusiveState, saveMockExclusiveState, mockCostoreOptions, mockFounderAwards } from './mock/exclusive'
@@ -58,7 +59,7 @@ export async function getExclusiveAccess(profileResult) {
   if (!source) source = getCachedMeContext() || await loadMeContext().catch(() => null)
   if (!source && !config.useMock) source = await request('/me')
   const result = config.useMock
-    ? (source?.exclusiveAccess || { accountId: user.id, contextId: `account:${user.id}`, capabilities: ['agency-code:read', 'family-members:manage'] })
+    ? (source?.exclusiveAccess || { accountId: user.id, contextId: `partner:${user.id}`, capabilities: ['agency-code:read', 'family-members:manage'] })
     : source?.exclusiveAccess
   checkAccount(user)
   if (!result) return { accountId: user.id, contextId: null, capabilities: [] }
@@ -73,7 +74,7 @@ export async function getExclusiveAccess(profileResult) {
   return {
     ...result,
     capabilities,
-    contextId: result.contextId || (capabilities.length ? `account:${user.id}` : null),
+    contextId: result.contextId || null,
   }
 }
 export async function withExclusive(featureId, operation) {
@@ -87,7 +88,11 @@ export async function withExclusive(featureId, operation) {
   }
   const result = await operation(user, access); checkAccount(user); return result
 }
-export function getVisibleExclusiveEntries(access) { return visibleExclusiveFeatures(access, config) }
+export function getVisibleExclusiveEntries(access) {
+  const entries = visibleExclusiveFeatures(access, config)
+  if (isCoachAccount(getSession())) return entries
+  return entries.filter(item => item.id !== 'coach')
+}
 export function getFounderAwards(month, cursor = null) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('请选择有效月份')
   return withExclusive('founder-awards', async (_user, access) => listResult(config.useMock ? mockFounderAwards(month) : await request('/founder-awards', { data: { month, cursor, pageSize: 20, contextId: access.contextId } })))
@@ -114,17 +119,19 @@ export function getCostoreOptions() {
     }
   })
 }
-export function quoteCostore(storeId, durationId) {
+export function quoteCostore(storeId, durationId, months) {
   return withExclusive('costore-application', async (user, access) => {
     let result
     if (config.useMock) {
-      const options = mockCostoreOptions(), store = options.stores.find(x => x.id === storeId), duration = options.durations.find(x => x.id === durationId)
-      if (!store || !duration) throw new Error('请选择有效门店和开通时长')
+      const options = mockCostoreOptions(), store = options.stores.find(x => x.id === storeId), duration = options.durations.find(x => String(x.id) === String(durationId))
+      if (!store) throw new Error('请选择有效门店和开通时长')
       const state = mockExclusiveState(user), id = `demo-quote-${state.quotes.size + 1}`
-      result = { id, storeId, durationId, store, durationLabel: duration.label, payableAmount: duration.months * store.monthlyFee, currency: 'CNY', expiresAt: Date.now() + 300000, serverTime: Date.now(), mockOnly: true }
+      const actualMonths = Number(months ?? duration?.months ?? durationId)
+      if (!Number.isInteger(actualMonths) || actualMonths < 6) throw new Error('开通时长至少为6个月')
+      result = { id, storeId, durationId: String(actualMonths), months: actualMonths, store, durationLabel: `${actualMonths}个月`, payableAmount: actualMonths * store.monthlyFee, currency: 'CNY', expiresAt: Date.now() + 300000, serverTime: Date.now(), mockOnly: true }
       state.quotes.set(id, copy(result))
       saveMockExclusiveState(user)
-    } else result = await request('/costore/application-quotes', { method: 'POST', data: { storeId, durationId, contextId: access.contextId } })
+    } else result = await request('/costore/application-quotes', { method: 'POST', data: { storeId, durationId: String(months ?? durationId), months: Number(months ?? durationId), contextId: access.contextId } })
     if (!result?.id || !Number.isInteger(result.payableAmount) || result.payableAmount < 0 || !Number.isFinite(result.expiresAt) || !Number.isFinite(result.serverTime)) throw new Error('费用试算数据异常')
     if (result.store) result = { ...result, store: mapCostoreStore(result.store) || result.store }
     return result
@@ -149,8 +156,11 @@ export function submitCostoreApplication({ quoteId, idempotencyKey, agreementVer
       try{
         const result=await request('/applications/costore', { method: 'POST', data: { quoteId, idempotencyKey, agreementVersion, contextId: access.contextId } })
         checkAccount(user)
-        if(!result?.application?.id||!(result.orderId||result.application.orderId))throw new Error('申请结果待确认，请重试原申请')
-        uni.removeStorageSync(key);return result
+        if(!result?.application?.id)throw new Error('申请结果待确认，请重试原申请')
+        const orderId=[result.orderId,result.application.orderId].find(value=>typeof value==='string'&&value.trim())||''
+        const months=result.application.months??result.months
+        const application={...result.application,orderId:result.application.orderId||orderId||result.application.orderId,...(months!=null?{months}:{})}
+        uni.removeStorageSync(key);return {...result,orderId:orderId||result.orderId,application}
       }catch(error){if(getSession()?.user?.id===user.id&&([400,422].includes(error.statusCode)||(error.statusCode===409&&['QUOTE_EXPIRED','INVALID_QUOTE','VALIDATION_ERROR'].includes(error.code))))uni.removeStorageSync(key);throw error}
     }
     const state = mockExclusiveState(user), previous = state.operations.get(idempotencyKey)

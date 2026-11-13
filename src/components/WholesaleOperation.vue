@@ -5,7 +5,7 @@
    <FeaturePageState :status="status" :error="error" @retry="load"/>
    <template v-if="status==='ready' && options">
     <view v-if="kind==='quota-purchase' && options.offlineOnly" class="wh-card wh-offline"><text class="wh-offline-title">{{options.pricingLabel || '购买 VIP 名额仅支持线下结算'}}</text><text class="wh-muted">{{options.offlinePayHint || options.paymentDisabledReason || '请与你的上级或总部线下结算，由对方划拨名额。'}}</text><text class="wh-muted">我的标准名额：{{options.standardRemaining ?? 0}} 个</text></view>
-    <view v-else-if="result" :class="kind==='quota-transfer' ? 'wh-result-plain' : 'wh-finish'"><view>{{successTitle}}</view><button v-if="result.orderId && result.status==='PENDING_PAYMENT'" class="wh-primary wh-pill" @click="pay">去支付</button><button :class="kind==='quota-transfer' ? 'wh-primary wh-pill' : 'wh-secondary wh-pill'" @click="back">{{kind==='quota-transfer'?'确认':'返回上一页'}}</button><button v-if="kind==='withdraw'" class="wh-link" @click="records">查看提现记录</button></view>
+    <view v-else-if="result" :class="kind==='quota-transfer' ? 'wh-result-plain' : 'wh-finish'"><view>{{successTitle}}</view><button v-if="isCommitAwaitingPayment(result)" class="wh-primary wh-pill" @click="pay">去支付</button><button :class="kind==='quota-transfer' ? 'wh-primary wh-pill' : 'wh-secondary wh-pill'" @click="back">{{kind==='quota-transfer'?'确认':'返回上一页'}}</button><button v-if="kind==='withdraw'" class="wh-link" @click="records">查看提现记录</button></view>
     <template v-else>
      <picker v-if="kind!=='bind-store' && memberChoices.length && !pageQuery?.targetAccountId" :range="memberChoices" range-key="label" @change="set('targetAccountId',memberChoices[$event.detail.value].value)"><view class="wh-member-picker wh-card">受益成员　{{person?.name || '请选择成员'}} <image src="/static/common/icon-chevron-right.png" mode="aspectFit"/></view></picker>
      <view v-if="person && kind!=='bind-store'" class="wh-person wh-selected-person" :class="{'wh-card':!dialog}"><image v-if="person.avatarUrl" :src="person.avatarUrl" class="wh-avatar" mode="aspectFill"/><view v-else class="wh-avatar">{{person.name?.slice(0,1)}}</view><view><text>{{person.name}}</text><text v-if="kind!=='upgrade' && person.displayId" class="wh-muted">{{person.displayId}}</text><text class="wh-tag">{{personLevelLabel}}</text></view></view>
@@ -40,7 +40,7 @@ import {money,percent} from '../features/exclusive/format'
 import {nextWholesaleUpgradePlan,wholesaleLevelDisplay} from '../features/business/account-rank'
 import {resolveQuotaTransferModalState,transferUnitAmountFor} from '../features/business/quota-transfer'
 import {getBusinessContext,getMeBootstrapData} from '../services/business'
-import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOperation,getBusinessOperationIntent,rememberBusinessOperationIntent} from '../services/business-operations'
+import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOperation,getBusinessOperationIntent,rememberBusinessOperationIntent,commitPaymentRef,isCommitAwaitingPayment} from '../services/business-operations'
 import {getCommerceOrder} from '../services/commerce'
 import {storeBindingErrorMessage} from '../services/store-binding'
 import {useAsyncPage} from '../composables/useAsyncPage'
@@ -87,7 +87,7 @@ const dialog=computed(()=>['quota-transfer','quota-purchase'].includes(props.kin
 const stores=computed(()=>(options.value?.stores || []).filter(s=>!region.value.codes.length || region.value.codes.every((code,index)=>s.regionCodes?.[index]===code))),points=value=>`${money(value)}积分`
 const canQuote=computed(()=>options.value?.allowedActions.includes('quote')),canSubmit=computed(()=>options.value?.allowedActions.includes('submit')),canConfirm=computed(()=>props.kind==='quota-transfer'?canSubmit.value:canQuote.value),canPurchase=computed(()=>props.kind==='quota-purchase'&&options.value?.purchaseMode==='PAYMENT'),vipCalculationOnly=computed(()=>props.kind==='quota-purchase'&&!canPurchase.value),available=computed(()=>options.value?.balances?.find(x=>x.kind==='money')?.value)
 const successLabels={'quota-transfer':'划拨名额成功',upgrade:'设置等级成功','bind-store':'绑定门店成功','quota-purchase':'购买VIP名额成功',withdraw:'提现申请成功',entitlement:'年度权益开通成功'}
-const successTitle=computed(()=>{const status=result.value?.status;if(status==='PENDING_PAYMENT')return '订单待支付';if(status==='PENDING_REVIEW')return '提现申请已提交，等待审核';if(status==='PAID')return successLabels[props.kind]||'支付成功';if(status==='CANCELLED')return '订单已取消';return successLabels[props.kind]||'操作已完成'})
+const successTitle=computed(()=>{const status=result.value?.status;if((status==='PENDING_PAYMENT'||status==='CREATED')&&isCommitAwaitingPayment(result.value))return '订单待支付';if(status==='PENDING_REVIEW')return '提现申请已提交，等待审核';if(status==='PAID')return successLabels[props.kind]||'支付成功';if(status==='CANCELLED')return '订单已取消';return successLabels[props.kind]||'操作已完成'})
 const transferUnitAmount=computed(()=>{
   if(props.kind!=='quota-transfer')return null
   return transferUnitAmountFor(person.value)
@@ -185,22 +185,22 @@ async function commitTransfer(){
 async function submit(){if(busy.value||!canConfirm.value||!upgradeQuotaReady.value)return;if(props.kind!=='quota-transfer'&&locked.value)return;clearTimeout(quoteTimer);++epoch;busy.value=true;operationError.value='';try{if(props.kind==='quota-transfer')await commitTransfer();else if(await prepare())confirmation.value=true}catch(e){if(props.kind==='quota-transfer'){uncertain.value=Boolean(getBusinessOperationIntent(props.kind,context.value.id,draft.value.targetAccountId)?.dispatched);if(!uncertain.value)key=''}operationError.value=operationErrorMessage(e)}finally{if(active)busy.value=false}}
 async function chooseStore(store){if(locked.value)return;set('storeId',store.id);await submit()}
 function shouldOpenCashier(output){
-  if(!output?.orderId||output.status!=='PENDING_PAYMENT')return false
+  if(!isCommitAwaitingPayment(output))return false
   // Standard VIP upgrade completes directly; only activity VIP requires payment.
   if(props.kind==='upgrade')return upgradeNeedsPayment.value
   return true
 }
 function presentCommitResult(output){
-  if(props.kind==='upgrade'&&output?.status==='PENDING_PAYMENT'&&!upgradeNeedsPayment.value){
-    return {...output,status:'APPLIED',orderId:undefined}
+  if(props.kind==='upgrade'&&(output?.status==='PENDING_PAYMENT'||output?.status==='CREATED')&&!upgradeNeedsPayment.value){
+    return {...output,status:'APPLIED',orderId:undefined,paymentId:undefined}
   }
   return output
 }
 async function commit(){if(busy.value||!quote.value||!canSubmit.value)return;if(!uncertain.value && quote.value.expiresAt<=quote.value.serverTime+Date.now()-receivedAt){operationError.value='预览已失效，请重新确认';confirmation.value=false;quote.value=null;return}const current=epoch;busy.value=true;operationError.value='';if(!key)key=`wholesale-${Date.now()}-${Math.random().toString(36).slice(2)}`;try{rememberBusinessOperationIntent(props.kind,context.value.id,quote.value,key,{...draft.value});uncertain.value=true;const output=await commitBusinessOperation(props.kind,context.value.id,quote.value.id,key,'',draft.value);if(!active||current!==epoch)return;result.value=presentCommitResult(output);uncertain.value=false;confirmation.value=false;if(shouldOpenCashier(output))pay()}catch(e){if(active&&current===epoch){uncertain.value=Boolean(getBusinessOperationIntent(props.kind,context.value.id,draft.value.targetAccountId)?.dispatched);operationError.value=operationErrorMessage(e);if(!uncertain.value)key=''}}finally{if(active)busy.value=false}}
-function pay(){uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(result.value.orderId)}`})}
+function pay(){const id=commitPaymentRef(result.value);if(!id)return;uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(id)}`})}
 function records(){uni.navigateTo({url:`/pages/wallet/withdrawals?contextId=${encodeURIComponent(context.value.id)}`})}
 function back(){if(uncertain.value){uni.showToast({title:'操作结果确认中，请勿重复提交',icon:'none'});return}if(getCurrentPages().length>1)uni.navigateBack();else uni.switchTab({url:'/pages/partners/index'})}
-async function refresh(){if(busy.value)return;if(result.value?.orderId){try{const value=await getCommerceOrder(result.value.orderId);if(value.order.status==='COMPLETED')result.value={...result.value,status:'PAID'};else if(value.order.status==='CANCELLED')result.value={...result.value,status:'CANCELLED'}}catch(e){operationError.value=e.message}return}if(!quote.value&&!result.value)load()}
+async function refresh(){if(busy.value)return;const paymentRef=commitPaymentRef(result.value);if(paymentRef){try{const value=await getCommerceOrder(paymentRef);if(value.order.status==='COMPLETED')result.value={...result.value,status:'PAID'};else if(value.order.status==='CANCELLED')result.value={...result.value,status:'CANCELLED'}}catch(e){operationError.value=e.message}return}if(!quote.value&&!result.value)load()}
 onUnmounted(()=>{clearTimeout(quoteTimer);active=false;++epoch});defineExpose({refresh})
 </script>
 <style>@import '../styles/wholesale.css';</style>

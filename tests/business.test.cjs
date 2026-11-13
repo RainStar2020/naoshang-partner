@@ -25,7 +25,7 @@ test('contexts are account-owned and contract wallets stay isolated across store
   const quote=await operations.previewBusinessOperation('withdraw',first.id,{accountType:'PERSONAL',payeeToken:'demo-personal',amount:'100.00'})
   const result=await operations.commitBusinessOperation('withdraw',first.id,quote.id,'withdraw-once');assert.equal(result.status,'PENDING_REVIEW')
   await operations.commitBusinessOperation('withdraw',first.id,quote.id,'withdraw-once')
-  assert.equal((await service.getBusinessOverview('costore',first.id)).available,190000)
+  assert.equal((await service.getBusinessOverview('costore',first.id)).available,199900)
   assert.equal((await service.getBusinessOverview('costore',second.id)).available,200000)
   assert.equal((await service.getBusinessWithdrawals(first.id)).items.length,4)
   assert.equal((await service.getBusinessWithdrawals(second.id)).items.length,3)
@@ -47,7 +47,7 @@ test('quota transfers are integer, scoped, versioned and idempotent; unpaid purc
 })
 test('expired quotes and mismatched personal/company recipients cannot reserve funds',async()=>{
   const {service,operations,advance}=await setup(),context=(await service.getBusinessContexts()).find(x=>x.module==='costore')
-  assert.equal(operations.parseAmount('10.10'),1010);assert.throws(()=>operations.parseAmount('1.001'),/两位/)
+  assert.equal(operations.parseAmount('10.10'),10.10);assert.throws(()=>operations.parseAmount('1.001'),/两位/)
   await assert.rejects(operations.previewBusinessOperation('withdraw',context.id,{accountType:'COMPANY',payeeToken:'demo-personal',amount:'100'}),/不匹配/)
   const quote=await operations.previewBusinessOperation('withdraw',context.id,{accountType:'COMPANY',payeeToken:'demo-company',amount:'100'})
   advance(300001);await assert.rejects(operations.commitBusinessOperation('withdraw',context.id,quote.id,'expired'),/失效/)
@@ -120,12 +120,33 @@ test('real errors, malformed lists and late responses cannot become full-permiss
   const result=late.service.getBusinessReport('wholesale','income',context.id);await new Promise(resolve=>setImmediate(resolve));late.session.token='new-session';finish({items:[],hasMore:false,nextCursor:null})
   await assert.rejects(result,/账号已变化/)
 })
-test('remote withdrawal quotes use integer cents, while the preview flag cannot bypass missing capabilities',async()=>{
+test('remote withdrawal quotes use yuan, while the preview flag cannot bypass missing capabilities',async()=>{
   const calls=[],context={id:'real-wallet-scope',module:'wholesale',accountId:'A',capabilities:['wallet:withdraw']}
   const {operations,service}=await setup({useMock:false,remote:async(url,options)=>{if(url==='/me/bootstrap')return {businessContexts:[context]};calls.push({url,options});return {id:'real-quote',details:[],expiresAt:Date.now()+10000,serverTime:Date.now()}}})
   await operations.previewBusinessOperation('withdraw',context.id,{amount:'10.10',accountType:'PERSONAL',payeeToken:'saved-payee'})
-  assert.equal(calls[0].options.data.amount,1010)
+  assert.equal(calls[0].options.data.amount,10.10)
   await assert.rejects(service.getBusinessReport('wholesale','income',context.id),/权限/)
+})
+test('periodic awards stay out of instant income and unsettled rows are not withdrawable',async()=>{
+  const context={id:'costore-ctx',module:'costore',accountId:'A',storeId:'s',contractId:'c',capabilities:['costore:income','costore:card-dividends']}
+  const {service}=await setup({useMock:false,remote:async url=>{
+    if(url==='/me/bootstrap')return {businessContexts:[context]}
+    if(url==='/income/entries')return {items:[
+      {id:'global-2026-10-a',title:'全球奖',category:'global',status:'pending',withdrawable:true,amount:0},
+      {id:'founding-2026-10-a',title:'创始奖',category:'founding',status:'pending',withdrawable:true,amount:0},
+      {id:'cs-1-storeService-a',title:'合店费',category:'costore',status:'pending',settlementStatus:'SETTLED',withdrawable:true,amount:10},
+    ],hasMore:false,nextCursor:null,metrics:[]}
+    if(url==='/costore/card-dividends')return {items:[{id:'card-1',title:'会员卡分红',amount:30}],metrics:[{label:'会员卡分红合计',kind:'money',value:30}],hasMore:false,nextCursor:null}
+    throw new Error(url)
+  }})
+  const income=await service.getBusinessReport('costore','income',context.id)
+  assert.equal(income.items.length,1)
+  assert.equal(income.items[0].id,'cs-1-storeService-a')
+  assert.equal(income.items[0].withdrawable,false)
+  const dividends=await service.getBusinessReport('costore','card-dividends',context.id)
+  assert.equal(dividends.items[0].title,'会员卡分红')
+  assert.equal(dividends.dividendPool,undefined)
+  assert.equal(dividends.metrics.some(item=>item.label==='门店分红池'),false)
 })
 test('wholesale team always hits /partner/team even when bootstrap already has members',async()=>{
   const calls=[]

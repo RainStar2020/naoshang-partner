@@ -143,12 +143,12 @@ export function quoteCheckout(draft){return scoped(async user=>{
   if(result.discountAmount==null)result.discountAmount=0
   return result
 })}
-export function createCheckoutOrder(quoteId,idempotencyKey){return scoped(async user=>{if(!quoteId||!idempotencyKey)throw new Error('请重新确认订单');return orderResult(config.useMock?mock.mockCreateOrder(user,quoteId,idempotencyKey):await request('/orders',{method:'POST',data:{quoteId,idempotencyKey,payLater:true}}),!config.useMock)})}
+export function createCheckoutOrder(quoteId,idempotencyKey,options={}){return scoped(async user=>{if(!quoteId||!idempotencyKey)throw new Error('请重新确认订单');const data={quoteId,idempotencyKey,payLater:true,...(options.storeId?{storeId:String(options.storeId)}:{}),...(options.deliveryType?{deliveryType:String(options.deliveryType)}:{})};return orderResult(config.useMock?mock.mockCreateOrder(user,quoteId,idempotencyKey):await request('/orders',{method:'POST',data}),!config.useMock)})}
 export function getCommerceOrders(options={}){return scoped(async user=>{const result=list(config.useMock?mock.mockOrders(user,options):await request('/orders',{data:options}));if(config.useMock||!Array.isArray(result.items))return result;return {...result,items:result.items.map(item=>{const wrapped=normalizeRemoteOrder({order:item});return wrapped.order})}})}
 export function getCommerceOrder(id,contextId){const read=async user=>{const result=orderResult(config.useMock?mock.mockOrder(user,id):await request(`/orders/${encodeURIComponent(id)}`,{data:contextId?{contextId}:undefined}),!config.useMock);return contextId?{...result,order:{...result.order,allowedActions:[]}}:result};return contextId?withBusinessContext(contextId,'agency:store-management',read):scoped(read)}
 export function changeOrder(id,action,version,idempotencyKey){return scoped(async user=>{if(!['cancel','confirm-receipt'].includes(action)||!idempotencyKey)throw new Error('订单操作无效');return orderResult(config.useMock?mock.mockOrderAction(user,id,action,version,idempotencyKey):await request(`/orders/${encodeURIComponent(id)}/${action === 'cancel' ? 'cancellations' : 'receipts'}`,{method:'POST',data:{version,idempotencyKey}}),!config.useMock)})}
 export function getPaymentChannels(id){return scoped(async user=>{const result=config.useMock?{platformLabel:mock.mockCashierPlatform,items:mock.mockPaymentChannelsFor(mock.mockOrder(user,id).order)}:await request(`/orders/${encodeURIComponent(id)}/payment-channels`);if(!Array.isArray(result?.items)||!result.items.length||result.items.some(item=>!item?.id||!item?.label))throw new Error('支付方式格式异常');return {platformLabel:typeof result.platformLabel==='string'?result.platformLabel:'',items:result.items.map(item=>({id:String(item.id),label:String(item.label),kind:item.kind?String(item.kind):'',hint:typeof item.hint==='string'?item.hint:''}))}})}
-export function startPayment(id,channel,idempotencyKey){return scoped(async user=>{if(!idempotencyKey)throw new Error('缺少支付请求编号');const token=getSession()?.token;const previous=getPendingPayment(id);if(previous?.attemptId)return {id:previous.attemptId,status:'PROCESSING',channel:previous.channel};if(previous&&previous.channel!==channel)throw new Error('上一笔支付结果待确认，请使用原支付方式重试');const intent=previous||{channel,key:idempotencyKey};uni.setStorageSync(paymentStateKey(id),intent);let attempt;try{attempt=config.useMock?mock.mockPay(user,id,intent.channel,intent.key):await request('/payments/attempts',{method:'POST',data:{orderId:id,channel:intent.channel,idempotencyKey:intent.key}})}catch(e){if(config.useMock)uni.removeStorageSync(paymentStateKey(id));throw e}if(getSession()?.user?.id!==user.id||getSession()?.token!==token)throw new Error('账号已变化');if(!attempt?.id)throw new Error('支付请求结果未知，请重试原请求');uni.setStorageSync(paymentStateKey(id),{...intent,attemptId:attempt.id});uni.setStorageSync(`naoshang-payment-attempt:${user.id}:${attempt.id}`,id);return attempt})}
+export function startPayment(id,channel,idempotencyKey){return scoped(async user=>{if(!idempotencyKey)throw new Error('缺少支付请求编号');const token=getSession()?.token;const previous=getPendingPayment(id);if(previous?.attemptId)return {id:previous.attemptId,status:'PROCESSING',channel:previous.channel};if(previous&&previous.channel!==channel)throw new Error('上一笔支付结果待确认，请使用原支付方式重试');const intent=previous||{channel,key:idempotencyKey};const wireChannel=intent.channel==='bank-card'?'bank_card':intent.channel;uni.setStorageSync(paymentStateKey(id),intent);let attempt;try{attempt=config.useMock?mock.mockPay(user,id,intent.channel,intent.key):await request('/payments/attempts',{method:'POST',data:{orderId:id,channel:wireChannel,idempotencyKey:intent.key}})}catch(e){if(config.useMock)uni.removeStorageSync(paymentStateKey(id));throw e}if(getSession()?.user?.id!==user.id||getSession()?.token!==token)throw new Error('账号已变化');if(!attempt?.id)throw new Error('支付请求结果未知，请重试原请求');uni.setStorageSync(paymentStateKey(id),{...intent,attemptId:attempt.id});uni.setStorageSync(`naoshang-payment-attempt:${user.id}:${attempt.id}`,id);return attempt})}
 export function queryPayment(id){return scoped(async user=>{const token=getSession()?.token;const result=config.useMock?mock.mockPaymentResult(user,id):await request(`/payments/attempts/${encodeURIComponent(id)}`);if(result?.id!==id||!['PROCESSING','SUCCEEDED','FAILED','CANCELLED'].includes(result.status))throw new Error('支付结果未知，请查询订单');const orderId=result.order?.id||uni.getStorageSync(`naoshang-payment-attempt:${user.id}:${id}`);if(result.status!=='PROCESSING'&&orderId&&getSession()?.user?.id===user.id&&getSession()?.token===token){uni.removeStorageSync(paymentStateKey(orderId));uni.removeStorageSync(`naoshang-payment-attempt:${user.id}:${id}`)}return result})}
 export function getColumn(id){return scoped(async user=>config.useMock?mock.mockColumn(user,id):request(`/columns/${encodeURIComponent(id)}`))}
 export function activateColumn(id,code,idempotencyKey){return scoped(async user=>config.useMock?mock.mockActivateColumn(user,id,String(code).trim(),idempotencyKey):request('/activations',{method:'POST',data:{targetType:'column',targetId:id,code,idempotencyKey}}))}
@@ -172,6 +172,24 @@ export function rememberPendingCheckout(draft,quote,key){const intent={draft:{..
 export function clearPendingCheckout(draft){uni.removeStorageSync(checkoutIntentKey(draft))}
 const paymentStateKey=id=>`naoshang-payment-intent:${getSession()?.user?.id}:${id}`
 export function getPendingPayment(id){return uni.getStorageSync(paymentStateKey(id))||null}
+export function isPlaceholderOrderId(orderId){
+  const id=String(orderId||'').trim()
+  if(!id)return true
+  return /^(no_such_order|null|undefined)([_-]|$)/i.test(id)
+}
+/** Display-only guard: do not treat unverifiable SUCCEEDED payments as settled. */
+export function shouldDisplayPaymentSuccess(result,requestedOrderId,orderVerified){
+  if(result?.status!=='SUCCEEDED')return false
+  const resultOrderId=String(result.orderId||result.order?.id||'').trim()
+  if(isPlaceholderOrderId(resultOrderId)||isPlaceholderOrderId(requestedOrderId))return false
+  if(resultOrderId&&requestedOrderId&&resultOrderId!==String(requestedOrderId).trim())return false
+  const released=result.releasedCommissions
+  const zeroReleased=released===0||released==='0'
+  if(zeroReleased&&!orderVerified)return false
+  if(!orderVerified&&(isPlaceholderOrderId(resultOrderId)||!resultOrderId))return false
+  return true
+}
+
 
 // Proposed business rejection contract: these responses guarantee no new order was created.
 export const isCheckoutRejection=error=>[400,422].includes(error?.statusCode)||(error?.statusCode===409&&['QUOTE_EXPIRED','ADDRESS_INVALID','OUT_OF_STOCK','COUPON_UNAVAILABLE'].includes(error?.code))

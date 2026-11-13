@@ -47,18 +47,23 @@ function normalizeMeStore(store) {
   if (!store || typeof store !== 'object' || store.id == null || store.id === '') return null
   const manager = store.manager && typeof store.manager === 'object' ? store.manager : null
   return {
+    ...store,
     id: String(store.id),
     name: String(store.name || store.storeName || ''),
     number: String(store.number || store.storeNo || store.storeCode || ''),
-    address: String(storeDisplayAddress(store) || store.address || ''),
-    fullAddress: String(storeDisplayAddress(store) || store.address || ''),
+    address: String(store.address || store.storeAddress || ''),
+    fullAddress: String(storeDisplayAddress(store) || ''),
     managerName: String(store.managerName || manager?.name || ''),
     managerPhone: String(store.managerPhone || store.phone || manager?.phone || ''),
     phone: String(store.phone || store.managerPhone || manager?.phone || ''),
-    coverUrl: String(storePhotoUrl(store)),
-    storefrontUrl: String(storePhotoUrl(store)),
+    coverUrl: String(storePhotoUrl(store) || ''),
+    storefrontUrl: String(store.storefrontUrl || storePhotoUrl(store) || ''),
     storefrontAssetId: String(store.storefrontAssetId || ''),
     feeAmount: storeFeeAmount(store),
+    regionNames: Array.isArray(store.regionNames) ? store.regionNames : [],
+    regionCodes: Array.isArray(store.regionCodes) ? store.regionCodes : [],
+    isHeadquarters: store.isHeadquarters === true,
+    boundAt: store.boundAt ?? null,
   }
 }
 
@@ -85,7 +90,7 @@ function mockMePayload(user) {
     support: { phone: '', description: '' },
     exclusiveAccess: {
       accountId: user.id,
-      contextId: `account:${user.id}`,
+      contextId: `partner:${user.id}`,
       capabilities: ['agency-code:read', 'family-members:manage'],
     },
     agencyPromotionCode: MOCK_PARTNER_AGENCY_PROMOTION_CODE,

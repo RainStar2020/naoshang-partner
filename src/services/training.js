@@ -24,7 +24,7 @@ export async function getCoachWorkspace(contextId){
     if(!result?.store?.id||!result.contextId||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常')
     return actions({...result,store:normalizeTransferStore(result.store),childMembers:workspaceChildren(result).map(normalizeStoreMember)})
   }
-  return scoped(contextId,async(user,context)=>{const members=config.useMock?mock.mockCoachMembers(user):null;const result=config.useMock?{contextId:context.id,name:user.name||'健脑官',store:mock.mockCoachStore(user,context,members[0].id),members,allowedActions:['manage-members','read-orders','write-feedback']}:await request('/coach/workspace',{data:{contextId:context.id}});if(!result?.store?.id||!Array.isArray(result.members))throw new Error('健脑官工作台数据异常');return actions({...result,store:normalizeTransferStore(result.store),childMembers:workspaceChildren(result).map(normalizeStoreMember)})})
+  throw new Error('请使用健脑官身份登录后再进入工作台')
 }
 function selfStudyText(pack,fallback=''){
   if(typeof fallback==='string'&&fallback.trim())return fallback

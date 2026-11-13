@@ -41,7 +41,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
-import { getCommerceOrder, getPaymentChannels, startPayment, queryPayment, commerceRequestKey, getPendingPayment, parseCommerceTime } from '../../services/commerce'
+import { getCommerceOrder, getPaymentChannels, startPayment, queryPayment, commerceRequestKey, getPendingPayment, parseCommerceTime, shouldDisplayPaymentSuccess, isPlaceholderOrderId } from '../../services/commerce'
 import { money } from '../../features/exclusive/format'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
@@ -85,7 +85,24 @@ async function check() {
   try {
     const result = await queryPayment(attemptId.value)
     if (!active) return
-    if (result.status === 'SUCCEEDED') { uni.showToast({ title: '支付成功', icon: 'success' }); details() }
+    if (result.status === 'SUCCEEDED') {
+      let orderVerified = !!order.value?.id && !isPlaceholderOrderId(order.value.id) && !isPlaceholderOrderId(id)
+      if (!orderVerified) {
+        try {
+          const looked = await getCommerceOrder(id)
+          orderVerified = !!looked?.order?.id && !isPlaceholderOrderId(looked.order.id)
+          if (orderVerified) order.value = looked.order
+        } catch (error) {
+          orderVerified = false
+        }
+      }
+      if (!shouldDisplayPaymentSuccess(result, id, orderVerified)) {
+        message.value = '支付结果无法核对，订单不存在或尚未入账'
+      } else {
+        uni.showToast({ title: '支付成功', icon: 'success' })
+        details()
+      }
+    }
     else if (result.status === 'PROCESSING') message.value = '支付处理中，请稍后查询'
     else {
       message.value = result.status === 'CANCELLED' ? '支付已取消，可重新发起' : '支付失败，请重新选择支付方式'
@@ -109,7 +126,7 @@ async function pay() {
   finally { if (active) busy.value = false }
   if (attemptId.value) await check()
 }
-const paymentMark = value => ({ wechat: '微', alipay: '支', unionpay: '银', 'bank-card': '卡' }[value] || '付')
+const paymentMark = value => ({ wechat: '微', alipay: '支', unionpay: '银', 'bank-card': '卡', bank_card: '卡' }[value] || '付')
 onLoad(query => { id = query.orderId || ''; loaded = true; timer = setInterval(() => { now.value = Date.now() }, 1000) })
 onShow(() => { if (loaded) { load(); if (attemptId.value) check() } })
 onUnload(() => { active = false; clearInterval(timer) })

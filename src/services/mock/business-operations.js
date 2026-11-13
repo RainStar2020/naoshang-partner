@@ -44,7 +44,7 @@ export function mockOperationPreview(kind,account,context,input,entryId,payload)
     if(kind==='bind-store'){if(!['demo-store-1','demo-store-2','headquarters'].includes(input.storeId))throw new Error('请选择授权门店');details.push({label:'目标门店',value:input.storeId==='headquarters'?'总部服务':input.storeId==='demo-store-1'?'梧桐街店':'文化路店'})}
     if(kind==='entitlement'){if(input.planId!=='demo-annual')throw new Error('请选择年度套餐');amount=200;details.push({label:'套餐费用',kind:'money',value:amount},{label:'权益状态',value:'未支付，不开通或续期权益'})}
     if(kind==='withdraw'){
-      amount=parseAmount(input.amount);if(amount<1000)throw new Error('兑换积分至少10');if(amount>state.available)throw new Error('可兑换积分不足');fee=0;netAmount=amount
+      amount=parseAmount(input.amount);if(amount<10)throw new Error('兑换积分至少10');if(amount>state.available)throw new Error('可兑换积分不足');fee=0;netAmount=amount
       details.push({label:'兑换积分',kind:'money',value:amount},{label:'预计到账',kind:'money',value:netAmount})
     }
     if(kind==='allocation'){

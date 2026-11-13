@@ -47,7 +47,6 @@ import {onLoad,onShow} from '@dcloudio/uni-app'
 import {computed,ref} from 'vue'
 import {useAuth} from '../../composables/useAuth'
 import {useAsyncPage} from '../../composables/useAsyncPage'
-import {getBusinessContexts} from '../../services/business'
 import {getCoachWorkspace} from '../../services/training'
 import {logout,getSession} from '../../services/api'
 import {isCoachAccount} from '../../services/account-channel'
@@ -58,7 +57,7 @@ import { storeDisplayAddress, storePhotoUrl } from '../../features/store-display
 useAuth()
 const isStaff=isCoachAccount(getSession()),storeOpen=ref(false)
 const contextId=ref('')
-const {data,status,error,load}=useAsyncPage(async()=>{if(!contextId.value&&!isStaff){const contexts=await getBusinessContexts();contextId.value=contexts.find(x=>x.module==='agency'&&x.agencyType==='STORE')?.id||'';if(!contextId.value)throw new Error('当前账号没有健脑官工作台权限')}const result=await getCoachWorkspace(contextId.value);contextId.value=result.contextId||contextId.value;return result},false)
+const {data,status,error,load}=useAsyncPage(async()=>{if(!isStaff)throw new Error('请使用健脑官身份登录后再进入工作台');const result=await getCoachWorkspace();contextId.value=result.contextId||contextId.value;return result},false)
 const children=computed(()=>data.value?.childMembers||[])
 const coachActions=computed(()=>{
  const allowed=[...(data.value?.allowedActions||[])]

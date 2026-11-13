@@ -25,6 +25,7 @@
           </view>
           <view class="apply-card">
             <view class="panel-heading">开通时长</view>
+            <view class="months-input-row"><text>月数</text><input v-model="monthsText" type="number" :disabled="submitting" maxlength="4" placeholder="至少6个月" @blur="refreshQuote" /></view>
             <view class="duration-options">
               <button v-for="option in data.durations" :key="option.id" :class="{ selected: durationId === option.id }" :disabled="submitting" @click="selectDuration(option.id)">{{ option.label }}</button>
             </view>
@@ -91,15 +92,17 @@ import FeaturePageState from '../../components/FeaturePageState.vue'
 import ManagedRichContent from '../../components/ManagedRichContent.vue'
 import EmptyState from '../../components/EmptyState.vue'
 useAuth()
-const isMock = config.useMock, storeId = ref(''), durationId = ref(''), storeOpen = ref(false), agreementOpen = ref(false), agreed = ref(false), quote = ref(null), quoting = ref(false), quoteError = ref(''), submitError = ref(''), submitting = ref(false)
+const isMock = config.useMock, storeId = ref(''), durationId = ref(''), monthsText = ref('6'), storeOpen = ref(false), agreementOpen = ref(false), agreed = ref(false), quote = ref(null), quoting = ref(false), quoteError = ref(''), submitError = ref(''), submitting = ref(false)
 let epoch = 0, active = true, attemptKey = '', quoteReceivedAt = 0
 const pendingIntent=ref(getCostoreApplicationIntent())
 const { data, status, error, load } = useAsyncPage(async () => {
   const result = await getCostoreOptions()
   if (!active) return result
-  if(pendingIntent.value?.quote){const pending=pendingIntent.value;quote.value=pending.quote;storeId.value=pending.quote.storeId;durationId.value=pending.quote.durationId;attemptKey=pending.idempotencyKey;return result}
+  if(pendingIntent.value?.quote){const pending=pendingIntent.value;quote.value=pending.quote;storeId.value=pending.quote.storeId;monthsText.value=String(pending.quote.months ?? pending.quote.durationId ?? 6);durationId.value=String(monthsText.value);attemptKey=pending.idempotencyKey;return result}
   storeId.value = result.stores.some(item => item.id === storeId.value) ? storeId.value : result.stores[0]?.id || ''
-  durationId.value = result.durations.some(item => item.id === durationId.value) ? durationId.value : result.durations[0]?.id || ''
+  const defaultMonths = Number(result.durations[0]?.months ?? result.durations[0]?.id ?? 6)
+  monthsText.value = String(Number.isInteger(defaultMonths) && defaultMonths >= 6 ? defaultMonths : 6)
+  durationId.value = monthsText.value
   await refreshQuote()
   return result
 }, false)
@@ -111,9 +114,12 @@ async function refreshQuote() {
   attemptKey = ''
   quoteError.value = ''
   submitError.value = ''
-  if (!storeId.value || !durationId.value) return
+  const months = Number(String(monthsText.value || '').trim())
+  if (!Number.isInteger(months) || months < 6) { quoteError.value = '请输入不小于6的整数月数'; return }
+  durationId.value = String(months)
+  if (!storeId.value) return
   quoting.value = true
-  try { const result = await quoteCostore(storeId.value, durationId.value); if (current === epoch && active) { quote.value = result; quoteReceivedAt = Date.now() } }
+  try { const result = await quoteCostore(storeId.value, durationId.value, months); if (current === epoch && active) { quote.value = result; monthsText.value = String(result.months ?? months); durationId.value = String(result.durationId ?? months); quoteReceivedAt = Date.now() } }
   catch (reason) { if (current === epoch && active) quoteError.value = reason.message }
   finally { if (current === epoch && active) quoting.value = false }
 }
@@ -155,13 +161,15 @@ function selectDuration(id) {
       success: (result) => {
         if (!result.confirm || !active) return
         abandonPendingIntent()
-        durationId.value = id
+        monthsText.value = String(data.value.durations.find(item => String(item.id) === String(id))?.months ?? id)
+        durationId.value = monthsText.value
         refreshQuote()
       },
     })
     return
   }
-  durationId.value = id
+  monthsText.value = String(data.value.durations.find(item => String(item.id) === String(id))?.months ?? id)
+  durationId.value = monthsText.value
   refreshQuote()
 }
 function openApplications() { uni.navigateTo({ url: '/pages/application/list' }) }
@@ -211,6 +219,9 @@ onUnload(() => { active = false; ++epoch })
 .duration-options .selected { border-color: #2f9dff; background: #1d3f78; color: #59b6ff; }
 .quote-total { margin: .9em 0 .2em; padding: .7em; border-radius: 2em; background: #4a516c; text-align: center; color: #d5dced; }
 .quote-total text { color: #ff4676; font-weight: 700; }
+.months-input-row { display: flex; align-items: center; justify-content: space-between; gap: .8em; padding: .65em .75em; border-radius: .5em; background: #444b6a; }
+.months-input-row text { color: #d5dced; }
+.months-input-row input { flex: 1; min-width: 0; text-align: right; color: #fff; }
 .agreement-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .2em; margin: .8em 0; color: #c5cadb; font-size: .9em; }
 .apply-note, .apply-error { display: block; margin: .6em 0; color: #9aa3bd; font-size: .86em; line-height: 1.5; text-align: center; }
 .apply-error { color: #ffabbc; }

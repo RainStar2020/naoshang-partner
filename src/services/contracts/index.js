@@ -982,7 +982,7 @@ export const postPartnerQuotaOrders = (input = {}) => callEndpoint("POST /partne
  * GET /partner/upgrade-options
  * 参数：contextId
  * 返回：{members, upgradePlans, 余额}
- * - **开通/升级**：GET `/partner/upgrade-options`，POST `/partner/upgrade-quotes`，POST `/partner/upgrades`。报价 targetAccountId、targetLevel 必填；standardQuantity、activityQuantity 按名额组合条件必填，均为 0–9999 的整数。options 返回 members、upgradePlans、standardRemaining、activityRemaining；报价返回所需总名额、消耗组合、服务费用。
+ * - **开通/升级**：GET `/partner/upgrade-options`，POST `/partner/upgrade-quotes`，POST `/partner/upgrades`。报价和提交均使用 `targetAccountId`、`targetLevel`、`activityQuota`、`standardQuota`；两种名额之和必须等于本次升级所需名额。活动名额服务费按每个 2000 元计收，总部直供时 `activityQuota` 必须为 0。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
@@ -993,7 +993,7 @@ export const getPartnerUpgradeOptions = (input = {}) => callEndpoint("GET /partn
  * POST /partner/upgrade-quotes
  * 参数：targetAccountId, targetLevel
  * 返回：{金额}
- * - **开通/升级**：GET `/partner/upgrade-options`，POST `/partner/upgrade-quotes`，POST `/partner/upgrades`。报价 targetAccountId、targetLevel 必填；standardQuantity、activityQuantity 按名额组合条件必填，均为 0–9999 的整数。options 返回 members、upgradePlans、standardRemaining、activityRemaining；报价返回所需总名额、消耗组合、服务费用。
+ * - **开通/升级**：GET `/partner/upgrade-options`，POST `/partner/upgrade-quotes`，POST `/partner/upgrades`。报价和提交均使用 `targetAccountId`、`targetLevel`、`activityQuota`、`standardQuota`；两种名额之和必须等于本次升级所需名额。活动名额服务费按每个 2000 元计收，总部直供时 `activityQuota` 必须为 0。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
@@ -1004,7 +1004,7 @@ export const postPartnerUpgradeQuotes = (input = {}) => callEndpoint("POST /part
  * POST /partner/upgrades
  * 参数：quoteId
  * 返回：{status, operationId, orderId}
- * - **开通/升级**：GET `/partner/upgrade-options`，POST `/partner/upgrade-quotes`，POST `/partner/upgrades`。报价 targetAccountId、targetLevel 必填；standardQuantity、activityQuantity 按名额组合条件必填，均为 0–9999 的整数。options 返回 members、upgradePlans、standardRemaining、activityRemaining；报价返回所需总名额、消耗组合、服务费用。
+ * - **开通/升级**：GET `/partner/upgrade-options`，POST `/partner/upgrade-quotes`，POST `/partner/upgrades`。报价和提交均使用 `targetAccountId`、`targetLevel`、`activityQuota`、`standardQuota`；两种名额之和必须等于本次升级所需名额。活动名额服务费按每个 2000 元计收，总部直供时 `activityQuota` 必须为 0。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */

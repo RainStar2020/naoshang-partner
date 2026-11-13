@@ -37,7 +37,7 @@
             </view>
             <view v-if="isStoreApplication" class="agency-row">
               <text>门店名称</text>
-              <input v-model="draft.storeName" placeholder="请输入门店名称" maxlength="255" />
+              <input v-model="draft.storeName" placeholder="请输入门店名称" maxlength="60" />
             </view>
             <view v-if="data.requiresAddress" class="agency-row address-row">
               <text>门店地址</text>
@@ -54,8 +54,8 @@
           <view class="agency-card">
             <view class="agency-line"><text>代理推广码</text><text>{{ data.promotionId }}</text></view>
             <view class="agency-line"><text>申请代理等级</text><text>{{ data.label }}</text></view>
-            <view class="agency-line"><text>代理费用合计</text><text class="agency-price">{{ data.payableWan }}万</text></view>
-            <text v-if="data.feeNote" class="fee-note">{{ data.feeNote }} = {{ data.payableWan }}万</text>
+            <view class="agency-line"><text>代理费用合计</text><text class="agency-price">{{ payableLabel }}</text></view>
+            <text v-if="feeNote" class="fee-note">{{ feeNote }}</text>
             <text v-if="actionError" class="agency-error">{{ actionError }}</text>
             <text v-if="submitted" class="agency-done">申请已提交，等待审核</text>
             <view v-if="!submitted" class="agreement-line">
@@ -102,7 +102,7 @@ import { getSession } from '../../services/api'
 import { getMyProfile, uploadProfileImage } from '../../services/profile'
 import {assetUrl} from '../../services/asset-url'
 import { uploadAsset, discardAsset } from '../../services/asset-upload'
-import { getAgencyApplicationOptions, submitAgencyApplication, applyCityTier, checkAgencyRegionAvailability } from '../../services/agency-application'
+import { getAgencyApplicationOptions, submitAgencyApplication, applyCityTier, checkAgencyRegionAvailability, agencyPayableLabel, agencyFeeNote } from '../../services/agency-application'
 import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
 import { commerceRequestKey } from '../../services/commerce'
@@ -155,6 +155,8 @@ const { data, status, error, load } = useAsyncPage(async () => {
   return options
 }, false)
 const isStoreApplication = computed(() => String(data.value?.agencyType || '').toUpperCase() === 'STORE')
+const payableLabel = computed(() => agencyPayableLabel(data.value))
+const feeNote = computed(() => agencyFeeNote(data.value))
 const regionFieldLabel = computed(() => (data.value?.requiresAddress ? '门店地区' : '代理地区'))
 async function verifySelectedRegion() {
   const seq = ++regionCheckSeq
@@ -189,10 +191,20 @@ function regionChanged(value) {
   actionError.value = ''
   verifySelectedRegion()
 }
-function selectCityTier(tierId) {
+async function selectCityTier(tierId) {
   if (!data.value || draft.value.cityTierId === tierId || busy.value || uploading.value) return
+  const previous = draft.value.cityTierId
   draft.value.cityTierId = tierId
-  data.value = applyCityTier(data.value, tierId)
+  if (config.useMock) {
+    data.value = applyCityTier(data.value, tierId)
+    return
+  }
+  try {
+    data.value = await getAgencyApplicationOptions(type, promotionId, tierId, draft.value.promotionCode)
+  } catch (reason) {
+    draft.value.cityTierId = previous
+    actionError.value = reason.message || '费用信息暂时无法更新，请稍后重试'
+  }
 }
 async function upload() {
   uploading.value = true

@@ -8,6 +8,7 @@ import { mockMeBootstrap,mockBusinessOverview,mockBusinessReport,mockBusinessSta
 import { incomePresentation } from './mock/income-detail'
 import { buildRegisterInviteUrl } from './agency-promotion-link'
 import { normalizeAgencyTeamItem, normalizeAgencyStore, fillAgencyTeamMetrics } from '../features/agency/team-display'
+import { normalizeIncomeEntry, presentIncomeEntries } from '../features/business/income-status'
 const selectionKey=id=>`naoshang-business-context:${id}`
 const promotionCache=new Map()
 const globalAwardsCache=new Map()
@@ -356,8 +357,9 @@ async function fetchAgencyIncomeReport(account,context,{force=false}={}){
     checkBusinessAccount(account)
     if(!raw||typeof raw!=='object')return null
     const report=presentAwardCopy(normalizeList(raw))
-    agencyIncomeCache.set(context.id,report)
-    return report
+    const incomeReport={...report,items:presentIncomeEntries(report.items)}
+    agencyIncomeCache.set(context.id,incomeReport)
+    return incomeReport
   }catch{
     return null
   }
@@ -444,7 +446,7 @@ function matchBusinessContext(item,id,module){
 function validateBusinessContexts(account,result){
   if(!Array.isArray(result?.businessContexts))throw new Error('经营身份数据格式异常')
   result.businessContexts=result.businessContexts.map(item=>normalizeBusinessContext(item,account))
-  const rows=result.businessContexts.filter(item=>item.accountId===account.id&&businessModules.some(module=>module.id===item.module)&&(!item.validUntil||Date.parse(item.validUntil)>Date.now()))
+  const rows=result.businessContexts.filter(item=>item.accountId===account.id&&businessModules.some(module=>module.id===item.module)&&(item.module==='costore'||!item.validUntil||Date.parse(item.validUntil)>Date.now()))
   if(rows.some(item=>!item.id||!Array.isArray(item.capabilities)||(item.module==='costore'&&(!item.storeId||!item.contractId))||(item.module==='agency'&&(!item.assignmentId||!['STORE','COUNTY','CITY','PROVINCE'].includes(item.agencyType))))||new Set(rows.map(item=>item.id)).size!==rows.length)throw new Error('经营身份配置异常')
   return rows
 }
@@ -567,7 +569,12 @@ export async function getBusinessOverview(module,id){
   if(module!=='wholesale'){
     clearPartnerPromotionCache()
     const merged={...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? null)}
-    return {...merged,context,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
+    const overviewStore=result?.store&&typeof result.store==='object'?result.store:null
+    const contextStore=context?.store&&typeof context.store==='object'?context.store:null
+    const store={...(contextStore||{}),...(overviewStore||{})}
+    if(store.daysRemaining==null&&result?.daysRemaining!=null)store.daysRemaining=result.daysRemaining
+    const nextContext=context?{...context,store:Object.keys(store).length?store:context.store}:context
+    return {...merged,context:nextContext,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
   }
   clearPartnerPromotionCache(context.id)
   const base=applyWholesaleBootstrap(result,bootstrap)
@@ -766,7 +773,10 @@ export function getBusinessReport(module,id,contextId,params={}){
     if(module==='wholesale'&&resource.id==='team'&&!normalized.items.length&&Array.isArray(bootstrap?.team?.members)){
       normalized={...normalized,items:filterBootstrapMembers(bootstrap.team.members,params.keyword),summary:bootstrap.team.summary||null}
     }
-    const presented=(resource.type==='income'||resource.id==='global-awards')?presentAwardCopy(normalized):normalized
+    let presented=(resource.type==='income'||resource.id==='global-awards')?presentAwardCopy(normalized):normalized
+    if(resource.type==='income'){
+      presented={...presented,items:presentIncomeEntries(presented.items)}
+    }
     const payload={...presented,qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
     if(defaultIncomePage)agencyIncomeCache.set(context.id,payload)
     if(module==='wholesale'&&resource.id==='team')rememberQuotaTransferSnapshot(context.id,{members:payload.items})
@@ -778,8 +788,9 @@ export function getBusinessIncomeDetail(contextId,id){
   return withBusinessContext(contextId,context=>`${context.module}:income`,async(account,context)=>{
     const result=config.useMock?mockClone(mockBusinessState(account,context).entries.find(item=>item.id===id)):await request(`/income/entries/${encodeURIComponent(id)}`,{data:{contextId:context.id}})
     if(!result?.id)throw new Error('收益记录不存在或无权访问')
-    if(config.useMock)result.presentation=incomePresentation(result,context)
-    return result
+    const entry=normalizeIncomeEntry(result)
+    if(config.useMock)entry.presentation=incomePresentation(entry,context)
+    return entry
   })
 }
 /** Live `/agency/team/{id}` returns `{node,members,stores}`; mock keeps a flat node. */

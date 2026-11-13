@@ -49,8 +49,9 @@
             <view class="store-performance">
               <view class="store-performance-head"
                 ><text>业绩统计</text
-                ><view
-                  >距合店到期还有 <em>{{ dayText(owner.daysRemaining) }}</em
+                ><view v-if="owner.daysRemaining == null">合店到期日未提供</view
+                ><view v-else
+                  >距合店到期还有 <em>{{ owner.daysRemaining }}</em
                   >天</view
                 ></view
               >
@@ -281,7 +282,7 @@
             ><input
               v-model="draft.storeName"
               :disabled="saving"
-              maxlength="255"
+              maxlength="60"
               placeholder="请输入"
           /></view>
           <view class="edit-row"
@@ -866,8 +867,8 @@
       return;
     }
     const storeName = String(draft.value.storeName || "").trim();
-    if (!storeName || Array.from(storeName).length > 255) {
-      saveError.value = "请填写1—255字门店名称";
+    if (!storeName || Array.from(storeName).length > 60) {
+      saveError.value = "请填写1—60字门店名称";
       return;
     }
     const feeAmount = parseYuan(draft.value.feeText);
@@ -953,7 +954,9 @@
       await load();
     } catch (reason) {
       if (active)
-        saveError.value = reason.message || "审核未提交，请检查后重试";
+        saveError.value = reason.code === "COSTORE_RECORD_MISMATCH"
+          ? "合店记录不存在或门店不匹配，无法审批结算"
+          : reason.message || "审核未提交，请检查后重试";
     } finally {
       if (active) saving.value = false;
     }

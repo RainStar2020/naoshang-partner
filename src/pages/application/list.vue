@@ -22,7 +22,7 @@
             <view v-if="item.rejectionReason" class="apply-error">{{ item.rejectionReason }}</view>
             <view class="application-states"><text>支付：{{ paymentLabel(item.paymentStatus) }}</text><text>合同：{{ item.contractStatus === 'SIGNED' ? '已签署' : item.contractStatus === 'NOT_SIGNED' ? '未签署' : '待确认' }}</text><text>权益：{{ item.entitlementStatus === 'OPEN' ? '已开通' : item.entitlementStatus === 'NOT_OPEN' ? '未开通' : '待确认' }}</text></view>
             <view v-if="item.refundStatus" class="application-row"><text>合店退款</text><text>{{ ({PENDING:'退款处理中',SUCCEEDED:'已退款',FAILED:'退款失败'})[item.refundStatus] || item.refundStatus }}</text></view>
-            <button v-if="item.applicationStatus === 'PENDING_PAYMENT' && item.orderId" class="secondary" @click="pay(item.orderId)">继续付款</button>
+            <button v-if="canPayApplication(item)" class="secondary" @click="pay(applicationOrderRef(item))">继续付款</button>
           </view>
           <button v-if="hasMore" class="secondary" :disabled="loadingMore" @click="more">{{ loadingMore ? '加载中…' : '加载更多' }}</button>
           <text v-if="moreError" class="apply-error">{{ moreError }}</text>
@@ -49,9 +49,11 @@ const { data, status, error, load } = useAsyncPage(() => getMyApplications())
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
 watch(data, result => { if (result) { items.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })
 const dateLabel = value => value ? businessDateLabel(value) : ''
-function pay(orderId){uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(orderId)}`})}
+function applicationOrderRef(item){const value=item?.orderId||item?.orderNo;return typeof value==='string'&&value.trim()?value.trim():''}
+function canPayApplication(item){return ['PENDING_PAYMENT','WAITING_PAYMENT'].includes(item?.applicationStatus)&&!!applicationOrderRef(item)}
+function pay(orderId){if(!orderId)return;uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(orderId)}`})}
 const paymentLabel = value => ({ NOT_STARTED: '未付款', PENDING: '待付款', PAID: '已付款', CANCELLED: '已取消' }[value] || '待确认')
-const statusClass = value => ({ PENDING_REVIEW: 'pending', APPROVED: 'approved', REJECTED: 'rejected' }[value] || '')
+const statusClass = value => ({ PENDING_REVIEW: 'pending', PENDING_PAYMENT: 'pending', WAITING_PAYMENT: 'pending', APPROVED: 'approved', REJECTED: 'rejected' }[value] || '')
 async function more() {
   if (loadingMore.value || !hasMore.value) return
   const current = epoch

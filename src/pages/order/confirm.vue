@@ -379,7 +379,10 @@ async function submit() {
     if (!quote.value) return
     if (!pendingCreation.value) pendingCreation.value = rememberPendingCheckout(draft.value, quote.value, attemptKey)
     const intent = pendingCreation.value
-    const result = await createCheckoutOrder(intent.quote.id, intent.key)
+    const result = await createCheckoutOrder(intent.quote.id, intent.key, {
+      storeId: intent.draft.storeId,
+      deliveryType: intent.draft.deliveryType,
+    })
     clearPendingCheckout(intent.draft)
     if (!active) return
     submitted = true

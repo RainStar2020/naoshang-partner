@@ -12,7 +12,7 @@
       <button v-if="canWallet('withdraw')" class="wh-primary wh-pill" @click="wallet('withdraw-apply')">申请提现</button>
      </view>
      <view class="wh-section-heading"><text/>收益明细</view>
-     <WholesaleRecordCard v-for="item in items" :key="item.id" :kicker="item.sourceName" :title="item.title" :caption="date(item.createdAt)" :amount="plusAmount(item.amount)" :badge="item.channel || '收益'" accent>
+     <WholesaleRecordCard v-for="item in items" :key="item.id" :kicker="item.sourceName" :title="item.title" :caption="incomeCaption(item)" :amount="plusAmount(item.amount)" :badge="item.channel || '收益'" accent>
       <WholesaleStatSplit v-if="item.details?.length" divided :items="item.details.map(detail=>({label:detail.label,value:show(detail.value,detail.kind)}))"/>
      </WholesaleRecordCard>
      <EmptyState v-if="!items.length" text="暂无收益"/>
@@ -25,8 +25,16 @@
       <view class="wh-metrics"><view v-for="metric in report.metrics" :key="metric.label"><text>{{metric.label}}</text><view v-if="!metricCellPending(metric)">{{show(metric.value,metric.kind)}}</view><MetricSkeleton v-else size="compact" :inline="false"/></view></view>
       <view class="wh-split wh-summary-four wh-divided"><view v-for="metric in report.summary || []" :key="metric.label"><text>{{metric.label}}</text><view v-if="!metricCellPending(metric)">{{show(metric.value,metric.kind)}}</view><MetricSkeleton v-else size="compact" :inline="false"/></view></view>
      </view>
-     <view class="wh-table-frame"><scroll-view scroll-x class="wh-table-scroll"><view class="wh-table"><view class="wh-tr head"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{column.label}}</text></view><view v-for="item in items" :key="item.id" class="wh-tr"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{show(item[column.key],column.kind)}}</text></view></view></scroll-view></view>
-     <EmptyState v-if="!items.length" text="暂无分红"/>
+     <view v-if="poolAmount!=null" class="costore-pool">
+      <text>门店分红池</text>
+      <view>{{money(poolAmount)}}</view>
+      <text>不可提现，按周期结算</text>
+     </view>
+     <view v-if="report.columns?.length" class="wh-table-frame"><scroll-view scroll-x class="wh-table-scroll"><view class="wh-table"><view class="wh-tr head"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{column.label}}</text></view><view v-for="item in items" :key="item.id" class="wh-tr"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{show(item[column.key],column.kind)}}</text></view></view></scroll-view></view>
+     <template v-else>
+      <WholesaleRecordCard v-for="item in items" :key="item.id" :title="item.title" :caption="date(item.createdAt)" :amount="plusAmount(item.amount)" :badge="item.channel || item.title || '收益'" accent/>
+     </template>
+     <EmptyState v-if="!items.length && poolAmount==null" text="暂无分红"/>
     </template>
    </template>
   </view>
@@ -40,6 +48,7 @@ import {money, percent} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
 import {pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext, getBusinessReport} from '../services/business'
+import { unsettledIncomeNote } from '../features/business/income-status'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
 import MetricSkeleton from './MetricSkeleton.vue'
@@ -54,6 +63,8 @@ const monthTitle=computed(()=>{const index=Number(String(month.value).slice(5,7)
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('costore',props.pageQuery?.contextId);context.value=ctx;return getBusinessReport('costore',props.toolId,ctx.id,{month:month.value})},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 watch(report,value=>{items.value=value?.items||[]})
+const poolAmount=computed(()=>{const amount=Number(report.value?.dividendPool);return Number.isFinite(amount)?amount:null})
+function incomeCaption(item){const parts=[date(item.createdAt),item.withdrawable===false||item.pendingNote?item.pendingNote||unsettledIncomeNote(item):''];return parts.filter(Boolean).join(' · ')}
 const metricNumber=value=>pickMetricNumber(value)
 const metricCellPending=metric=>metric?.kind==='percent'?metric?.value==null||metric?.value==='':pickMetricNumber(metric?.value)==null
 const show=(value,kind)=>kind==='money'?money(value):kind==='percent'?percent(value):(value??0)
@@ -80,4 +91,8 @@ defineExpose({refresh(opts){if(active)load(opts)}})
 .wh-global-summary{margin:0 -.75em 1em;background:#353a59;padding:.8em .5em}
 .wh-global-summary .wh-center{margin-bottom:.5em}
 .wh-eligibility-note{display:block;margin-top:.15em;padding:0 .4em;font-size:.78em;line-height:1.6;overflow-wrap:anywhere}
+.costore-pool{margin:0 0 1em;padding:.85em .9em;border-radius:.75em;background:#353a59;text-align:center}
+.costore-pool>text:first-child{display:block;color:#989eb6;font-size:.82em}
+.costore-pool>view{margin:.2em 0;color:#fff;font-size:1.4em;font-weight:700}
+.costore-pool>text:last-child{display:block;color:#989eb6;font-size:.78em}
 </style>

@@ -27,6 +27,18 @@ const capability=(kind,context)=>kind==='withdraw'?null:kind==='allocation'?`${c
 const guardKind=kind=>{if(!known.includes(kind))throw new Error('当前功能暂不可用，请返回后重试')}
 function scopeKind(kind,context){if(!['withdraw','allocation'].includes(kind)&&context.module!=='wholesale')throw new Error('当前身份不支持此操作')}
 export const parseAmount=parseBusinessAmount
+export const COMMIT_SUCCESS_STATUSES=['PENDING_PAYMENT','PENDING_REVIEW','PENDING_SETTLEMENT','DEMO_APPLIED','APPLIED','SUCCEEDED','COMPLETED','PAID','CREATED']
+export function commitPaymentRef(result){
+  if(!result||typeof result!=='object')return ''
+  for(const key of ['orderId','orderNo']){
+    const value=result[key]
+    if(typeof value==='string'&&value.trim())return value.trim()
+  }
+  return ''
+}
+export function isCommitAwaitingPayment(result){
+  return !!result&&['PENDING_PAYMENT','CREATED'].includes(result.status)&&!!commitPaymentRef(result)
+}
 function quoteEndpoint(kind,entryId){return {withdraw:'/wallet/withdrawal-quotes',allocation:`/income/entries/${encodeURIComponent(entryId||'')}/allocation-quotes`,'quota-transfer':'/partner/quota-transfer-quotes','quota-purchase':'/partner/quota-purchase-quotes',upgrade:'/partner/upgrade-quotes',entitlement:'/partner/entitlement-quotes','bind-store':'/partner/store-binding-quotes'}[kind]}
 function optionsEndpoint(kind,entryId){return {withdraw:'/wallet/withdrawal-options',allocation:`/income/entries/${encodeURIComponent(entryId||'')}/allocation-options`,'quota-transfer':'/partner/quota-transfer-options','quota-purchase':'/partner/quota-purchase-options',upgrade:'/partner/upgrade-options',entitlement:'/partner/entitlement-options','bind-store':'/partner/store-binding-options'}[kind]}
 function pickRemaining(...values){
@@ -170,7 +182,7 @@ function normalizeBusinessOperationOptions(kind,result){
     :['quote','submit']
   // Activity VIP upgrade fee: ¥2000 per quota when the API omits a positive unit price.
   const ACTIVITY_UPGRADE_UNIT=2000
-  let activityUnitAmount=Number(result.activityUnitAmount??result.serviceFeeRule?.perActivityQuota??result.serviceFeePerActivity)
+  let activityUnitAmount=Number(result.serviceFeeRule?.perActivityQuota??result.activityUnitAmount??result.serviceFeePerActivity)
   if(kind==='upgrade'&&!(Number.isFinite(activityUnitAmount)&&activityUnitAmount>0))activityUnitAmount=ACTIVITY_UPGRADE_UNIT
   const sellerStandardRemaining=pickRemaining(result.sellerBalances?.standard,standardRemaining)
   const sellerActivityRemaining=pickRemaining(result.sellerBalances?.activity,activityRemaining)
@@ -204,8 +216,10 @@ export function previewBusinessOperation(kind,contextId,input,entryId=''){
   return withBusinessContext(contextId,context=>capability(kind,context),async(account,context)=>{
     scopeKind(kind,context)
     if(['quota-transfer','quota-purchase'].includes(kind)&&!/^[1-9]\d{0,3}$/.test(String(input.quantity)))throw new Error('请输入 1–9999 的整数名额')
-    if(kind==='upgrade' && [input.standardQuantity,input.activityQuantity].some(value=>value!=null && (!Number.isInteger(Number(value))||Number(value)<0||Number(value)>9999)))throw new Error('使用名额须为0—9999的整数')
-    const payload={planId:input.planId,targetAccountId:input.targetAccountId,quantity:['quota-transfer','quota-purchase'].includes(kind)?Number(input.quantity):undefined,targetLevel:input.targetLevel,standardQuantity:kind==='upgrade'&&input.standardQuantity!=null?Number(input.standardQuantity):undefined,activityQuantity:kind==='upgrade'&&input.activityQuantity!=null?Number(input.activityQuantity):undefined,storeId:input.storeId,accountType:input.accountType,payeeToken:input.payeeToken,amount:kind==='withdraw'?parseAmount(input.amount):undefined,targetId:input.targetId}
+    if(kind==='upgrade' && [input.standardQuantity,input.activityQuantity,input.standardQuota,input.activityQuota].some(value=>value!=null && (!Number.isInteger(Number(value))||Number(value)<0||Number(value)>9999)))throw new Error('使用名额须为0—9999的整数')
+    const standardQuota=kind==='upgrade'&&input.standardQuota!=null?Number(input.standardQuota):kind==='upgrade'&&input.standardQuantity!=null?Number(input.standardQuantity):undefined
+    const activityQuota=kind==='upgrade'&&input.activityQuota!=null?Number(input.activityQuota):kind==='upgrade'&&input.activityQuantity!=null?Number(input.activityQuantity):undefined
+    const payload={planId:input.planId,targetAccountId:input.targetAccountId,quantity:['quota-transfer','quota-purchase'].includes(kind)?Number(input.quantity):undefined,targetLevel:input.targetLevel,standardQuota,activityQuota,storeId:input.storeId,accountType:input.accountType,payeeToken:input.payeeToken,amount:kind==='withdraw'?parseAmount(input.amount):undefined,targetId:input.targetId}
     if(kind==='allocation')Object.assign(payload,{agentId:input.agentId,percent:input.percent??100,allocationKind:allocationKind(input.allocationKind),targets:input.targets})
     if(!config.useMock){const result=await request(quoteEndpoint(kind,entryId),{method:'POST',data:{...payload,contextId:context.id,entryId}});if(kind==='allocation')validAllocationQuote(result);validateQuote(result);return result}
     return mockOperationPreview(kind,account,context,input,entryId,payload)
@@ -244,14 +258,21 @@ export function commitBusinessOperation(kind,contextId,quoteId,idempotencyKey,en
         if(kind==='quota-transfer'){
           result=await request('/partner/quota-transfers',{method:'POST',data:buildQuotaTransferPayload({contextId:context.id,targetAccountId,quantity:input.quantity,idempotencyKey})})
         }else{
-          const endpoint={withdraw:'/wallet/withdrawals',allocation:`/income/entries/${encodeURIComponent(entryId)}/allocations`,'quota-purchase':'/partner/quota-orders',upgrade:'/partner/upgrades',entitlement:'/partner/entitlement-orders','bind-store':'/partner/store-bindings'}[kind];result=await request(endpoint,{method:'POST',data:kind==='upgrade'?{contextId:context.id,targetAccountId,targetLevel:input.targetLevel,idempotencyKey,quoteId}:{contextId:context.id,quoteId,idempotencyKey}})
+          const endpoint={withdraw:'/wallet/withdrawals',allocation:`/income/entries/${encodeURIComponent(entryId)}/allocations`,'quota-purchase':'/partner/quota-orders',upgrade:'/partner/upgrades',entitlement:'/partner/entitlement-orders','bind-store':'/partner/store-bindings'}[kind];result=await request(endpoint,{method:'POST',data:kind==='upgrade'?{contextId:context.id,targetAccountId,targetLevel:input.targetLevel,activityQuota:input.activityQuota??input.activityQuantity??0,standardQuota:input.standardQuota??input.standardQuantity??0,idempotencyKey,quoteId}:{contextId:context.id,quoteId,idempotencyKey}})
         }
       }
       else result=mockOperationCommit(kind,account,context,quoteId,idempotencyKey,entryId,input)
       checkBusinessAccount(account)
-      if(!result || typeof result!=='object' || !['PENDING_PAYMENT','PENDING_REVIEW','PENDING_SETTLEMENT','DEMO_APPLIED','APPLIED','SUCCEEDED','COMPLETED','PAID'].includes(result.status))throw new Error('操作结果待确认，请勿重复提交，可稍后查看记录')
+      if(!result || typeof result!=='object' || !COMMIT_SUCCESS_STATUSES.includes(result.status))throw new Error('操作结果待确认，请勿重复提交，可稍后查看记录')
       const validId=value=>typeof value==='string' && value.trim().length>0
-      if(result.status==='PENDING_PAYMENT'?!validId(result.orderId):![result.operationId,result.id,result.withdrawalId].some(validId))throw new Error('操作回执不完整，结果待确认，请勿重复提交')
+      const paymentRef=commitPaymentRef(result)
+      if(result.status==='PENDING_PAYMENT'){
+        if(!paymentRef)throw new Error('操作回执不完整，结果待确认，请勿重复提交')
+      }else if(result.status==='CREATED'){
+        // CREATED remains a successful commit for compatibility, but cashier requires orderId/orderNo.
+      }else if(![result.operationId,result.id,result.withdrawalId,result.paymentId].some(validId)){
+        throw new Error('操作回执不完整，结果待确认，请勿重复提交')
+      }
       if(tracked)uni.removeStorageSync(storageKey)
       if(kind==='withdraw')clearAgencyIncomeCache(context.id)
       return result
