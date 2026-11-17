@@ -4,8 +4,15 @@ import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../store-dis
 
 export function agencyTeamRegionLabel(item = {}) {
   const raw = String(item.regionLabel || item.scopeLabel || "").trim();
-  if (raw && !/^\d+$/.test(raw)) return raw;
-  const code = String(item.regionCode || item.areaCode || "").trim();
+  // API may return an administrative code with a store suffix, e.g.
+  // `410201-S1`; it is still a region code and must be resolved by its
+  // six-digit prefix rather than displayed verbatim.
+  if (raw && !/^\d{6}(?:-[^\s]+)?$/.test(raw)) return raw;
+  // Territory entries may carry a store suffix such as `410101-S1`.
+  // Resolve the administrative code itself before looking up its name.
+  const code = String(item.regionCode || item.areaCode || "")
+    .trim()
+    .split("-")[0];
   if (!/^\d{6}$/.test(code)) return raw || code;
   const provinceCode = `${code.slice(0, 2)}0000`;
   const cityCode = `${code.slice(0, 4)}00`;
@@ -13,8 +20,13 @@ export function agencyTeamRegionLabel(item = {}) {
   const province = areas["86"]?.[provinceCode];
   const city = areas[provinceCode]?.[cityCode];
   const district = areas[cityCode]?.[code];
-  if (type === "PROVINCE") return province || raw || code;
-  if (type === "CITY") return city || raw || code;
+  // The current agent type describes the owner of the territory, not
+  // necessarily the level of each territory item. A city agent can manage
+  // several district codes, so choose the label from the code depth first.
+  if (code.endsWith("0000")) return province || raw || code;
+  if (code.endsWith("00")) return city || raw || code;
+  if (type === "PROVINCE" && province) return province || raw || code;
+  if (type === "CITY" && district) return district || raw || code;
   if (type === "COUNTY" || type === "DISTRICT") return district || raw || code;
   return raw || district || city || province || code;
 }
@@ -81,21 +93,38 @@ export function agencyTeamOwnerCount(item = {}) {
 
 export function agencyTeamRegionNames(item = {}) {
   const lists = [
-    item.territoryList,
-    item.regionNames,
+    // regions / regionLabels are the agent's authorized regions returned by
+    // the API. territoryList describes its downstream coverage and must not
+    // replace the authorized-region summary.
+    item.regionLabels,
     item.regions,
+    item.regionNames,
     item.areas,
+    item.territoryList,
   ];
   for (const list of lists) {
     if (!Array.isArray(list) || !list.length) continue;
     const names = list
       .map((entry) => {
         if (entry == null) return "";
-        if (typeof entry === "string" || typeof entry === "number")
-          return String(entry).trim();
-        return String(
-          entry.name || entry.label || entry.regionLabel || entry.title || "",
+        if (typeof entry === "string" || typeof entry === "number") {
+          const value = String(entry).trim();
+          return agencyTeamRegionLabel({
+            ...item,
+            regionCode: value,
+            regionLabel: value,
+          });
+        }
+        const value = String(
+          entry.name || entry.label || entry.regionLabel || entry.title ||
+            entry.code || entry.regionCode || "",
         ).trim();
+        return agencyTeamRegionLabel({
+          ...item,
+          ...entry,
+          regionCode: entry.regionCode || entry.areaCode || entry.code || value,
+          regionLabel: value,
+        });
       })
       .filter(Boolean);
     if (names.length) return names;
@@ -143,6 +172,11 @@ export function agencyTeamScopeSummary(item = {}) {
       unit,
       count,
       preview: names.slice(0, 2).join("、"),
+      text: names.length
+        ? count <= 1
+          ? `代理${names[0]}`
+          : `代理${names.slice(0, 2).join("、")}等${count}个${unit}`
+        : `代理${count}个${unit}`,
     };
   }
   return {

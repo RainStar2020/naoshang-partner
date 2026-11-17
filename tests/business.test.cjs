@@ -165,3 +165,20 @@ test('wholesale team always hits /partner/team even when bootstrap already has m
   assert.equal(report.items[0].id,'live-1')
   assert.equal(report.items[0].quotaRemaining,5)
 })
+test('global awards normalizes object summaries so loaded totals do not render as pending',async()=>{
+  const context={id:'global-awards-scope',module:'wholesale',accountId:'A',capabilities:['wholesale:global-awards']}
+  const payload={
+    eligibilityLabel:'符合全球奖资格',
+    metrics:[{label:'你的全球奖',kind:'money',value:3120},{label:'奖池总额',kind:'money',value:15450}],
+    summary:{total:3120,pool:15450},
+    columns:[],
+    items:[{month:'2026-03',eligibility:'ELIGIBLE',amount:495,weightedAmount:495,performanceAmount:495,salesAmount:2700,shareBps:1800,people:1,poolAmount:15450}],
+  }
+  const {service}=await setup({useMock:false,remote:async url=>url==='/me/bootstrap'?{businessContexts:[context]}:payload})
+  const report=await service.getBusinessReport('wholesale','global-awards',context.id,{month:'2026-11'})
+  assert.deepEqual(JSON.parse(JSON.stringify(report.summary)),[
+    {label:'你的全球奖',kind:'money',value:3120},
+    {label:'奖池总额',kind:'money',value:15450},
+  ])
+  assert.ok(report.columns.length>0)
+})

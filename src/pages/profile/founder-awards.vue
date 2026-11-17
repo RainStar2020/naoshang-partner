@@ -13,7 +13,7 @@
             <view v-if="!amountPending" class="award-total">{{ amountLabel }}积分</view>
             <MetricSkeleton v-else size="block" :inline="false" class="award-total-skeleton" />
             <view class="award-metrics">
-              <view><text>本人身份</text><text>{{ data.summary?.identityLabel || '' }}</text></view>
+              <view><text>本人身份</text><text>{{ data.identityLabel }}</text></view>
               <view>
                 <text>本月VIP数量</text>
                 <text v-if="!vipCountPending">{{ vipCountLabel }}</text>
@@ -63,14 +63,14 @@ const { data, status, error, load } = useAsyncPage(() => getFounderAwards(month.
 watch(data, result => { if (result) { rows.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
 const summaryReady = computed(() => data.value?.summary != null)
-const amountValue = computed(() => pickMetricNumber(data.value?.summary?.amount))
+const amountValue = computed(() => pickMetricNumber(data.value?.displayAmount))
 const amountPending = computed(() => !summaryReady.value)
 const amountLabel = computed(() => money(amountValue.value ?? 0))
-const vipCountValue = computed(() => pickMetricNumber(data.value?.summary?.vipCount))
+const vipCountValue = computed(() => pickMetricNumber(data.value?.displayVipCount))
 const vipCountPending = computed(() => !summaryReady.value)
 const vipCountLabel = computed(() => String(vipCountValue.value ?? 0))
 const ratePending = computed(() => !summaryReady.value)
-const rateLabel = computed(() => percent(data.value?.summary?.rateBps))
+const rateLabel = computed(() => percent(data.value?.displayRateBps))
 function rowVipLabel(row) {
   return String(pickMetricNumber(row?.vipCount) ?? 0)
 }

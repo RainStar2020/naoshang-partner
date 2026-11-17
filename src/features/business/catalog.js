@@ -1,7 +1,7 @@
 export const businessModules = [
   { id: 'wholesale', title: '脑商批发中心', label: '批发商', icon: '/static/partner/icon-wholesale.png' },
-  { id: 'costore', title: '脑商合店中心', label: '合店老板', icon: '/static/partner/icon-costore.png' },
-  { id: 'agency', title: '脑商代理中心', label: '区域代理', icon: '/static/partner/icon-agency.png' },
+  { id: 'costore', title: '脑商合店中心', label: '健脑官', icon: '/static/partner/icon-costore.png' },
+  { id: 'agency', title: '脑商代理中心', label: '俱乐部', icon: '/static/partner/icon-agency.png' },
 ]
 const tool = (id,module,label,path,icon,type,endpoint) => ({ id,module,label,path,icon:`/static/${icon}.png`,type,endpoint,capability:`${module}:${id}` })
 export const businessTools = [
@@ -30,6 +30,11 @@ export const businessTools = [
 ]
 export const toolKey = item => `${item.module}/${item.id}`
 export function findBusinessTool(module,id) { return businessTools.find(item=>item.module===module&&item.id===id) }
+export const businessModuleOrder = ['wholesale', 'costore', 'agency']
+export const businessModuleLabel = item => item?.label || ''
+export function sortBusinessModules(items = []) {
+  return [...items].sort((left, right) => businessModuleOrder.indexOf(left.id) - businessModuleOrder.indexOf(right.id))
+}
 export function businessPreview(config) { return config.useMock === true && config.previewAllBusinessFeatures === true }
 export function visibleBusinessTools(context,config) {
   return businessTools.filter(item=>{

@@ -523,21 +523,20 @@
                   class="wh-month-arrow"
                   src="/static/common/icon-chevron-right.png"
                   mode="aspectFit" /></view></picker
-            ><view class="wh-muted wh-center">{{
-              report.eligibilityLabel
-            }}</view
+            ><view class="wh-muted wh-center">{{ report.rights?.label || globalAwardEligibility }}</view
             ><view
-              v-if="report.eligibilityNote"
+              v-if="report.rights?.text || report.eligibilityNote"
               class="wh-muted wh-center wh-eligibility-note"
-              >{{ report.eligibilityNote }}</view
+              >{{ report.rights?.text || report.eligibilityNote }}</view
+            ><view v-if="report.dividendRights" class="wh-muted wh-center wh-eligibility-note">{{ report.dividendRights.label }}</view
             ><view class="wh-metrics"
-              ><view v-for="metric in report.metrics" :key="metric.label"
+              ><view v-for="metric in globalAwardTotals" :key="metric.label"
                 ><text>{{ metric.label }}</text
                 ><view v-if="!metricCellPending(metric)">{{ show(metric.value, metric.kind) }}</view
                 ><MetricSkeleton v-else size="compact" :inline="false"/></view
               ></view
             ><view class="wh-split wh-summary-four wh-divided"
-              ><view v-for="metric in report.summary || []" :key="metric.label"
+              ><view v-for="metric in globalAwardMonthMetrics" :key="metric.label"
                 ><text>{{ metric.label }}</text
                 ><view v-if="!metricCellPending(metric)">{{ show(metric.value, metric.kind) }}</view
                 ><MetricSkeleton v-else size="compact" :inline="false"/></view
@@ -553,7 +552,7 @@
                     class="wh-td"
                     >{{ column.label }}</text
                   ></view
-                ><view v-for="item in items" :key="item.id" class="wh-tr"
+                ><view v-for="item in globalAwardItems" :key="item.id" class="wh-tr"
                   ><text
                     v-for="column in report.columns"
                     :key="column.key"
@@ -652,6 +651,7 @@
     bindBusinessSuperior,
   } from "../services/business";
   import { rememberQuotaTransferSnapshot } from "../features/business/quota-transfer";
+  import { getBusinessOperationOptions } from "../services/business-operations";
   import { useAsyncPage } from "../composables/useAsyncPage";
   import BusinessQrCode from "./BusinessQrCode.vue";
   import FeaturePageState from "./FeaturePageState.vue";
@@ -674,6 +674,7 @@
     filter = ref("promotion"),
     promotionTab = ref("difference"),
     qr = ref(null);
+  const quotaPurchaseOptions = ref(null);
   const titles = {
       superior: "运营商信息",
       promotion: "升级批发商",
@@ -694,15 +695,22 @@
       props.pageQuery?.contextId,
     );
     context.value = ctx;
-    return getBusinessReport(
-      "wholesale",
-      props.toolId,
-      ctx.id,
-      wholesaleReportParams(props.toolId, {
-        month: month.value,
-        filter: filter.value,
-      }),
-    );
+    const [nextReport, nextQuotaPurchaseOptions] = await Promise.all([
+      getBusinessReport(
+        "wholesale",
+        props.toolId,
+        ctx.id,
+        wholesaleReportParams(props.toolId, {
+          month: month.value,
+          filter: filter.value,
+        }),
+      ),
+      getBusinessOperationOptions("quota-purchase", ctx.id, "", {}).catch(
+        () => null,
+      ),
+    ]);
+    quotaPurchaseOptions.value = nextQuotaPurchaseOptions;
+    return nextReport;
   }, false);
   watch(
     () => props.pageQuery,
@@ -736,6 +744,33 @@
         : value ?? 0;
   const show = (value, kind) => format(value, kind);
   const metricsSettled = computed(() => status.value === "ready");
+    const globalAwardRow = computed(() => {
+      if (report.value?.currentMonth) return report.value.currentMonth;
+    const rows = report.value?.items || [];
+    return rows.find((item) => item.month === month.value) || rows[rows.length - 1] || {};
+  });
+  const globalAwardItems = computed(() =>
+    [...items.value].sort((left, right) =>
+      String(right.month || "").localeCompare(String(left.month || "")),
+    ),
+  );
+  const globalAwardEligibility = computed(() => {
+    const value = String(globalAwardRow.value?.eligibility || "").trim();
+    if (value === "ELIGIBLE") return "符合全球奖资格";
+    if (value === "INELIGIBLE") return "暂无全球奖资格";
+    return report.value?.eligibilityLabel || value;
+  });
+  const globalAwardTotals = computed(() => [
+    { label: "总分红", value: globalAwardRow.value?.amount, kind: "money" },
+    { label: "加权分红", value: globalAwardRow.value?.weightedAmount, kind: "money" },
+    { label: "业绩分红", value: globalAwardRow.value?.performanceAmount, kind: "money" },
+  ]);
+  const globalAwardMonthMetrics = computed(() => [
+     { label: "本月VIP卖出", value: globalAwardRow.value?.vipSold ?? globalAwardRow.value?.salesAmount },
+    { label: "个人业绩占比", value: globalAwardRow.value?.shareBps, kind: "percent" },
+    { label: "参与人数", value: globalAwardRow.value?.people },
+    { label: "本月奖池累计", value: globalAwardRow.value?.poolAmount, kind: "money" },
+  ]);
   function summaryCount(primary, fallback, suffix = "") {
     return formatMetricCountOrNull(pickMetricNumber(primary, fallback), {
       settled: metricsSettled.value,
@@ -870,8 +905,11 @@
     if (!item.layoutOnly) incomeDetail(item.id);
   }
   const can = (id) =>
-    businessPreview(config) ||
-    context.value?.capabilities?.includes(`wholesale:${id}`);
+    (id !== "quota-purchase" && businessPreview(config)) ||
+    (context.value?.capabilities?.includes(`wholesale:${id}`) &&
+      (id !== "quota-purchase" ||
+        (quotaPurchaseOptions.value?.purchaseMode === "PAYMENT" &&
+          quotaPurchaseOptions.value?.allowedActions?.includes("quote"))));
   const canWallet = (id) =>
     businessPreview(config) ||
     context.value?.capabilities?.includes(`wallet:${id}`);

@@ -20,7 +20,6 @@
             <view class="application-row"><text>申请时间</text><text>{{ dateLabel(item.createdAt) }}</text></view>
             <view v-if="item.reviewedAt" class="application-row"><text>审核时间</text><text>{{ dateLabel(item.reviewedAt) }}</text></view>
             <view v-if="item.rejectionReason" class="apply-error">{{ item.rejectionReason }}</view>
-            <view class="application-states"><text>支付：{{ paymentLabel(item.paymentStatus) }}</text><text>合同：{{ item.contractStatus === 'SIGNED' ? '已签署' : item.contractStatus === 'NOT_SIGNED' ? '未签署' : '待确认' }}</text><text>权益：{{ item.entitlementStatus === 'OPEN' ? '已开通' : item.entitlementStatus === 'NOT_OPEN' ? '未开通' : '待确认' }}</text></view>
             <view v-if="item.refundStatus" class="application-row"><text>合店退款</text><text>{{ ({PENDING:'退款处理中',SUCCEEDED:'已退款',FAILED:'退款失败'})[item.refundStatus] || item.refundStatus }}</text></view>
             <button v-if="canPayApplication(item)" class="secondary" @click="pay(applicationOrderRef(item))">继续付款</button>
           </view>
@@ -52,7 +51,6 @@ const dateLabel = value => value ? businessDateLabel(value) : ''
 function applicationOrderRef(item){const value=item?.orderId||item?.orderNo;return typeof value==='string'&&value.trim()?value.trim():''}
 function canPayApplication(item){return ['PENDING_PAYMENT','WAITING_PAYMENT'].includes(item?.applicationStatus)&&!!applicationOrderRef(item)}
 function pay(orderId){if(!orderId)return;uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(orderId)}`})}
-const paymentLabel = value => ({ NOT_STARTED: '未付款', PENDING: '待付款', PAID: '已付款', CANCELLED: '已取消' }[value] || '待确认')
 const statusClass = value => ({ PENDING_REVIEW: 'pending', PENDING_PAYMENT: 'pending', WAITING_PAYMENT: 'pending', APPROVED: 'approved', REJECTED: 'rejected' }[value] || '')
 async function more() {
   if (loadingMore.value || !hasMore.value) return
@@ -90,7 +88,6 @@ onUnload(() => { ++epoch })
 .application-row { display: flex; justify-content: space-between; gap: .8em; margin-top: .7em; line-height: 1.45; }
 .application-row > text:first-child { color: #b7bdd2; flex-shrink: 0; }
 .application-row > text:last-child { min-width: 0; text-align: right; overflow-wrap: anywhere; }
-.application-states { display: flex; flex-wrap: wrap; gap: .35em .7em; margin-top: .75em; color: #9aa3bd; font-size: .82em; }
 .apply-error { display: block; margin-top: .5em; color: #ffabbc; }
 .secondary { margin-top: .4em; border-radius: 2em; background: #454b6b; color: #fff; }
 </style>

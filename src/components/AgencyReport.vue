@@ -20,7 +20,7 @@
      <view class="agency-team-performance">
       <view class="agency-performance-heading">
        <text>业绩统计</text>
-       <view v-if="scopeSummary(item).kind==='regional'" class="agency-store-summary">代理<template v-if="scopeSummary(item).preview">{{scopeSummary(item).preview}}等</template><em>{{scopeSummary(item).count}}</em>个{{scopeSummary(item).unit}}</view>
+       <view v-if="scopeSummary(item).kind==='regional'" class="agency-store-summary">{{scopeSummary(item).text}}</view>
        <view v-else class="agency-store-summary">代理 <em>{{scopeSummary(item).storeCount}}</em> 个门店，<em>{{scopeSummary(item).ownerCount}}</em> 个合店老板</view>
       </view>
       <view class="agency-metric-row">
@@ -83,7 +83,7 @@ const totalAmountRaw=computed(()=>pickMetricNumber(metric('收益合计'),metric
 const totalAmountPending=computed(()=>totalAmountRaw.value==null&&!(items.value||[]).length&&!report.value?.metrics)
 const totalAmount=computed(()=>totalAmountRaw.value??(items.value||[]).reduce((sum,item)=>sum+(Number(item.amount)||0),0))
 const signedAmount=value=>formatSignedMetricMoney(value,money)
-const channelLabel=item=>item.incomeChannelLabel||item.incomeChannel||item.channel||({supply:'供应链',b:'B端',c:'C端'}[String(item.category||'').toLowerCase()]||'C端')
+const channelLabel=item=>item.bizChannelLabel||item.incomeChannelLabel||item.incomeChannel||item.channel||({supply:'供应链',b:'B端',c:'C端'}[String(item.category||'').toLowerCase()]||'C端')
 const memberLabel=item=>{const member=item.recommendedBy||item.party||item.beneficiary;return member?(member.phone?`${member.name||''}/${member.phone}`:member.name||''):(item.partyLabel||item.beneficiaryName||'')}
 const timeLabel=item=>item.createdAt?date(item.createdAt):(item.occurredAt?date(item.occurredAt):(item.updatedAt?date(item.updatedAt):''))
 function setFilter(value){if(filter.value!==value){filter.value=value;load()}}

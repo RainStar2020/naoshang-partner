@@ -1,3 +1,4 @@
+// @deprecated 本目录 mock 数据已废弃（config.useMock 已关闭），禁止新增或继续使用，统一走真实接口；详见目录 README.md
 // MOCK-ONLY / TODO(API): remove this adapter when the member progress API is connected.
 const key = identity => `naoshang-mock-learning-progress:${identity.accountId}:${identity.memberId}`
 export function mockChapterProgress(identity, levelId, chapterId) {

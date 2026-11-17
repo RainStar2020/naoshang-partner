@@ -60,13 +60,13 @@ function cacheGlobalAwards(contextId,month,report){
 async function fetchPartnerGlobalAwards(account,context,params={}){
   const month=params.month||currentAwardMonth()
   const cached=globalAwardsCache.get(context.id)
-  if(cached&&cached.month===month&&!params.force)return cached
+  if(cached&&cached.month===month&&!params.force&&!params.cursor&&!params.offset&&!params.keyword&&!params.filter)return cached
   const resource=findBusinessTool('wholesale','global-awards')
   const result=config.useMock
     ?mockBusinessReport(account,context,resource,{month,filter:params.filter||'promotion',keyword:params.keyword||''})
-    :await request('/partner/global-awards',{data:{month,filter:params.filter||'promotion',keyword:params.keyword||'',contextId:context.id,contractId:context.contractId||'',assignmentId:context.assignmentId||'',pageSize:20}})
+    :await request('/partner/global-awards',{data:{month,filter:params.filter||'',keyword:params.keyword||'',cursor:params.cursor,offset:params.offset,contextId:context.id,pageSize:params.pageSize||20}})
   checkBusinessAccount(account)
-  const normalized=presentAwardCopy(normalizeList(result))
+  const normalized=presentAwardCopy(normalizeGlobalAwardsReport(normalizeList(result)))
   const eligibility=cacheGlobalAwards(context.id,month,normalized)
   return {month,report:normalized,eligibility}
 }
@@ -542,9 +542,15 @@ export async function getBusinessOverview(module,id){
   checkBusinessAccount(account)
   let result=config.useMock?mockBusinessOverview(account,context):await request(module==='wholesale'?'/partner/workspace':module==='agency'?'/agency/overview':'/costore/overview',{data:{contextId:context.id,assignmentId:context.assignmentId,contractId:context.contractId}})
   checkBusinessAccount(account)
+  if(config.useMock&&module==='costore'){
+    result={...result,store:result.store||context.store||null,earnings:result.earnings||{}}
+  }
   // Old servers gated /partner/workspace with an empty list shell; map it to the ordinary home.
   if(module==='wholesale'&&isEntitlementListShell(result))result=ordinaryWholesaleOverviewShell(account,context,result.entitlement)
-  if(result?.accountId!==account.id||result.contextId!==context.id||!Array.isArray(result.benefits)){
+  const hasValidCostoreResult=module==='costore'
+    ? result?.store&&typeof result.store==='object'&&Object.prototype.hasOwnProperty.call(result,'earnings')
+    : Array.isArray(result?.benefits)
+  if((module!=='costore'&&result?.accountId!==account.id)||result.contextId!==context.id||!hasValidCostoreResult){
     const reason=result?.entitlement?.reason||result?.message
     const error=new Error(reason||'工作台身份或数据格式异常')
     if(result?.entitlement?.code)error.code=result.entitlement.code
@@ -574,7 +580,7 @@ export async function getBusinessOverview(module,id){
     const store={...(contextStore||{}),...(overviewStore||{})}
     if(store.daysRemaining==null&&result?.daysRemaining!=null)store.daysRemaining=result.daysRemaining
     const nextContext=context?{...context,store:Object.keys(store).length?store:context.store}:context
-    return {...merged,context:nextContext,tools:visibleBusinessTools(context,config),benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}
+    return {...merged,context:nextContext,tools:visibleBusinessTools(context,config),...(module==='agency'?{benefits:result.benefits.map(item=>({...item,content:normalizeContent(item.content)}))}: {})}
   }
   clearPartnerPromotionCache(context.id)
   const base=applyWholesaleBootstrap(result,bootstrap)
@@ -612,6 +618,68 @@ function normalizeList(result){
   if(result.hasMore==null)return {...result,hasMore:false,nextCursor:null}
   if(typeof result.hasMore!=='boolean'||(result.hasMore&&(typeof result.nextCursor!=='string'||!result.nextCursor)))throw new Error('经营列表格式异常')
   return result
+}
+function normalizeGlobalAwardsReport(report){
+  const summary=Array.isArray(report.summary)
+    ?report.summary
+    :[
+      report.summary?.total!=null?{label:'你的全球奖',value:report.summary.total,kind:'money'}:null,
+      report.summary?.pool!=null?{label:'奖池总额',value:report.summary.pool,kind:'money'}:null,
+    ].filter(Boolean)
+  const columns=Array.isArray(report.columns)&&report.columns.length
+    ?report.columns
+    :[
+      {key:'month',label:'月份'},
+      {key:'eligibility',label:'分红资格'},
+      {key:'amount',label:'总分红',kind:'money'},
+      {key:'weightedAmount',label:'加权分红',kind:'money'},
+      {key:'performanceAmount',label:'业绩分红',kind:'money'},
+      {key:'vipSold',label:'本月VIP卖出'},
+      {key:'shareBps',label:'个人业绩占比',kind:'percent'},
+      {key:'people',label:'参与人数'},
+      {key:'poolAmount',label:'本月奖池累计',kind:'money'},
+    ]
+  const items=report.items.map((item,index)=>({
+    ...item,
+    vipSold:item.vipSold??item.salesAmount??null,
+    salesAmount:item.salesAmount??item.vipSold??null,
+    id:item.id||`global-award-${item.month||index}`,
+  }))
+  return {...report,summary,columns,items,currentMonth:report.currentMonth?{...report.currentMonth,vipSold:report.currentMonth.vipSold??report.currentMonth.salesAmount??null,salesAmount:report.currentMonth.salesAmount??report.currentMonth.vipSold??null}:null}
+}
+function normalizeCostoreDividendReport(report,kind){
+  const card=kind==='card-dividends'
+  const current=report.currentMonth&&typeof report.currentMonth==='object'?report.currentMonth:null
+  const normalizeRow=(row,index)=>({
+    ...row,
+    id:row.id||`${kind}-${row.month||index}`,
+    performanceValue:row.performanceValue??row.salesAmount??0,
+    salesAmount:row.salesAmount??row.performanceValue??0,
+    people:row.people??row.ownerCount??0,
+    ownerCount:row.ownerCount??row.people??0,
+  })
+  const columns=Array.isArray(report.columns)&&report.columns.length?report.columns:[
+    {key:'month',label:'月份'},
+    ...(card?[{key:'eligibility',label:'分红资格'}]:[]),
+    {key:'amount',label:'总分红',kind:'money'}, {key:'weightedAmount',label:'加权分红',kind:'money'},
+    {key:'performanceAmount',label:'业绩分红',kind:'money'},
+    {key:'performanceValue',label:card?'本月会员卡业绩':'本月推广业绩',kind:'money'},
+    {key:'shareBps',label:'个人业绩占比',kind:'percent'}, {key:'people',label:'合店老板总数量'},
+    {key:'poolAmount',label:'本月奖池累计',kind:'money'},
+  ]
+  const currentMonth=current?normalizeRow(current,'current'):null
+  const metrics=Array.isArray(report.metrics)&&report.metrics.length?report.metrics:[
+    {label:'总分红',kind:'money',value:currentMonth?.amount??0},
+    {label:'加权分红',kind:'money',value:currentMonth?.weightedAmount??0},
+    {label:'业绩分红',kind:'money',value:currentMonth?.performanceAmount??0},
+  ]
+  const info=Array.isArray(report.info)?report.info:[
+    {label:card?'本月会员卡业绩':'本月推广业绩',kind:'money',value:currentMonth?.performanceValue??0},
+    {label:'个人业绩占比',kind:'percent',value:currentMonth?.shareBps??0},
+    {label:'合店老板总数',value:currentMonth?.people??0},
+    {label:'本月奖池累计',kind:'money',value:currentMonth?.poolAmount??0},
+  ]
+  return {...report,title:report.title||`${currentMonth?.month||currentAwardMonth()}${card?'会员卡分红':'推广合店老板分红'}`,currentMonth,metrics,info,columns,items:report.items.map(normalizeRow)}
 }
 /** Live quota ledger uses qty/at; UI expects quantity/createdAt/title. */
 function normalizeQuotaLedgerItem(item,index=0){
@@ -716,8 +784,8 @@ export function getBusinessReport(module,id,contextId,params={}){
     if(resource.id==='global-awards'){
       const month=params.month||currentAwardMonth()
       const cached=globalAwardsCache.get(context.id)
-      if(cached?.month===month&&cached.report)return cached.report
-      const loaded=await fetchPartnerGlobalAwards(account,context,{month,filter:params.filter,keyword:params.keyword,force:true})
+      if(cached?.month===month&&cached.report&&!params.cursor&&!params.offset&&!params.keyword&&!params.filter)return cached.report
+      const loaded=await fetchPartnerGlobalAwards(account,context,{...params,month,force:true})
       return loaded.report
     }
     const filter=String(params.filter||'')
@@ -749,6 +817,7 @@ export function getBusinessReport(module,id,contextId,params={}){
     }
     const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:{...params,filter,keyword,contextId:context.id,contractId:context.contractId||'',assignmentId:context.assignmentId,pageSize:20}})
     let normalized=normalizeList(result)
+    if(module==='costore'&&['card-dividends','promotion-dividends'].includes(resource.id))normalized=normalizeCostoreDividendReport(normalized,resource.id)
     if(module==='agency'&&resource.id==='team'){
       normalized={
         ...normalized,

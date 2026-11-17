@@ -9,6 +9,7 @@ if (import.meta.env.DEV) {
 // #endif
 
 export const config = {
+  // @deprecated mock 已废弃，禁止重新开启；新功能统一走真实接口，详见 src/services/mock/README.md
   useMock: false,
   mockWholesalePartnerStatus: "NONE",
   baseURL,

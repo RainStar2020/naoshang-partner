@@ -27,8 +27,8 @@
    </view>
    <view v-if="status==='ready'" class="costore-benefits">
     <view class="costore-benefit-title"><text>✦</text> 等级权益 <text>✦</text></view>
-    <ManagedRichContent v-if="benefit" :content="benefit.content"/>
-    <EmptyState v-if="!benefit?.content?.nodes?.length" text="这里还没有内容～"/>
+    <view v-if="costoreBenefit" class="costore-benefit-panel"><view class="costore-benefit-panel-glow" aria-hidden="true"/><view class="costore-benefit-panel-head"><text>{{costoreBenefit.title}}</text></view><ManagedRichContent :content="costoreBenefit.content"/></view>
+    <EmptyState v-if="!costoreBenefit?.content?.nodes?.length" text="这里还没有内容～"/>
    </view>
   </template>
   <view v-if="storesOpen" class="costore-store-page">
@@ -49,7 +49,7 @@
   <view v-if="moduleOpen" class="costore-mask" @click="moduleOpen=false">
    <view class="costore-module" role="dialog" aria-label="切换模块" @click.stop>
     <view class="costore-module-title">切换模块<button aria-label="关闭模块切换" @click="moduleOpen=false"><image src="/static/common/icon-close.png" mode="aspectFit"/></button></view>
-    <view class="costore-module-options" :style="{gridTemplateColumns:`repeat(${Math.min(Math.max(modules.length,1),3)},minmax(0,1fr))`}"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{item.label}}</text></button></view>
+   <view class="costore-module-options" :style="{gridTemplateColumns:`repeat(${Math.min(Math.max(modules.length,1),3)},minmax(0,1fr))`}"><button v-for="item in modules" :key="item.id" @click="switchModule(item.id)"><image :src="item.icon" mode="aspectFit"/><text>{{businessModuleLabel(item)}}</text></button></view>
    </view>
   </view>
   <AppTabBar v-if="!storesOpen" active="partners"/>
@@ -59,28 +59,29 @@
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useAuth} from '../composables/useAuth'
 import {useAppTabBar} from '../composables/useAppTabBar'
-import {businessModules} from '../features/business/catalog'
+import {businessModuleLabel,businessModules,sortBusinessModules} from '../features/business/catalog'
 import {getBusinessContext, getBusinessContexts, getBusinessOverview, selectBusinessContext} from '../services/business'
+import {getAgentBenefits} from '../services/agent-benefits'
 import {prefetchPartnerWorkspace, scheduleIdle} from '../services/prefetch'
 import FeaturePageState from './FeaturePageState.vue'
 import FeaturePageSkeleton from './FeaturePageSkeleton.vue'
 import SilentRefreshBar from './SilentRefreshBar.vue'
-import ManagedRichContent from './ManagedRichContent.vue'
-import EmptyState from './EmptyState.vue'
 import AppTabBar from './AppTabBar.vue'
 import { money } from '../features/exclusive/format'
 import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../features/store-display'
+import ManagedRichContent from './ManagedRichContent.vue'
+import EmptyState from './EmptyState.vue'
 useAuth();useAppTabBar()
 const emit=defineEmits(['left'])
 const status=ref('loading'),error=ref(''),refreshing=ref(false),overview=ref(null),contexts=ref([]),allContexts=ref([]),storesOpen=ref(false),moduleOpen=ref(false)
 let active=true,epoch=0,selectedId=''
 const context=computed(()=>overview.value?.context)
-const store=computed(()=>context.value?.store)
+const store=computed(()=>overview.value?.store||context.value?.store)
+const earnings=computed(()=>overview.value?.earnings||{})
 const storeCount=computed(()=>contexts.value.length)
-const benefit=computed(()=>overview.value?.benefits?.[0])
 const moduleMeta=businessModules.find(item=>item.id==='costore')
 const moduleTitle=moduleMeta?.title||'合店中心'
-const roleTitle=moduleMeta?.label?`${moduleMeta.label}身份`:'合店身份'
+const roleTitle='健脑官身份'
 const daysText=computed(()=>costoreDaysText(store.value?.daysRemaining))
 function costoreDaysText(days){
   if(days==null||days==='')return '有效期以后台为准'
@@ -90,13 +91,14 @@ function costoreDaysText(days){
   if(whole<=0)return '已过期'
   return `${whole}天后到期`
 }
-const modules=computed(()=>businessModules.filter(item=>allContexts.value.some(row=>row.module===item.id)))
+const modules=computed(()=>sortBusinessModules(businessModules.filter(item=>allContexts.value.some(row=>row.module===item.id))))
 const shortcuts=computed(()=>['income','card-dividends','promotion-dividends'].map(id=>overview.value?.tools?.find(tool=>tool.id===id)).filter(Boolean))
+const costoreBenefit=computed(()=>overview.value?.agentBenefits?.find(item=>item.agentLevel==='costore_owner')||null)
 function paintCostoreShell(ctx,rows){
   allContexts.value=rows
   contexts.value=rows.filter(item=>item.module==='costore')
   selectedId=ctx.id
-  overview.value={context:ctx,benefits:[],tools:[]}
+  overview.value={context:ctx,store:ctx.store||null,earnings:{},tools:[]}
   status.value='shell'
 }
 async function load(options={}){
@@ -121,11 +123,11 @@ async function load(options={}){
       contexts.value=rows.filter(item=>item.module==='costore')
       selectedId=ctx.id
     }
-    const result=await getBusinessOverview('costore',ctx.id)
+    const [result,agentBenefits]=await Promise.all([getBusinessOverview('costore',ctx.id),getAgentBenefits()])
     if(!active||current!==epoch)return
     allContexts.value=rows
     contexts.value=rows.filter(item=>item.module==='costore')
-    overview.value=result
+    overview.value={...result,agentBenefits}
     selectedId=ctx.id
     status.value='ready'
     scheduleIdle(()=>prefetchPartnerWorkspace(result))
@@ -138,7 +140,7 @@ async function load(options={}){
     if(current===epoch)refreshing.value=false
   }
 }
-async function chooseContext(id){try{const selected=await selectBusinessContext(id);selectedId=selected.id;await load()}catch(reason){uni.showToast({title:reason.message||'身份切换未完成，请稍后重试',icon:'none'})}}
+async function chooseContext(id){try{const selected=await selectBusinessContext(id);storesOpen.value=false;selectedId=selected.id;await load({force:true})}catch(reason){uni.showToast({title:reason.message||'身份切换未完成，请稍后重试',icon:'none'})}}
 async function switchModule(moduleId){if(moduleId===context.value?.module){moduleOpen.value=false;return}const selected=allContexts.value.find(item=>item.module===moduleId);if(!selected)return;try{const next=await selectBusinessContext(selected.id);moduleOpen.value=false;if(next.module!=='costore'){emit('left',next.id);const route=getCurrentPages().slice(-1)[0]?.route;if(route!=='pages/partners/index')uni.switchTab({url:'/pages/partners/index'});return}selectedId=next.id;await load()}catch(reason){uni.showToast({title:reason.message||'身份切换未完成，请稍后重试',icon:'none'})}}
 function open(item){const allowed=overview.value?.tools?.some(tool=>tool.id===item.id);if(!allowed){uni.showToast({title:'当前身份暂无此功能权限',icon:'none'});return}uni.navigateTo({url:`${item.path}?contextId=${context.value.id}`})}
 onMounted(load);onUnmounted(()=>{active=false;++epoch})
@@ -170,9 +172,13 @@ defineExpose({refresh:load})
 .costore-shortcuts button{display:flex;flex-direction:column;align-items:center;gap:.35em;min-width:0}
 .costore-shortcuts image{width:2.3em;height:2.3em}
 .costore-shortcuts text{font-size:.85em;line-height:1.3}
-.costore-benefits{min-height:16em;margin-top:.4em;padding:1.3em 1em 6em;border-radius:1.2em 1.2em 0 0;background:linear-gradient(#28345c,#22274d)}
+.costore-benefits{display:flex;flex-direction:column;min-height:16em;margin-top:.4em;padding:1.3em 1em 6em;border-radius:1.2em 1.2em 0 0;background:linear-gradient(#28345c,#22274d)}
 .costore-benefit-title{margin-bottom:1em;text-align:center;font-size:1.05em;font-weight:700}
 .costore-benefit-title text{padding:0 .35em;color:#9ec6ff}
+.costore-benefit-panel{position:relative;overflow:hidden;margin-top:1.35em;padding:1em 1em 1.15em;border:1rpx solid rgba(120,176,240,.3);border-radius:1em;background:linear-gradient(165deg,rgba(48,78,138,.55),rgba(28,38,72,.88));box-shadow:inset 0 1rpx rgba(210,232,255,.16)}
+.costore-benefit-panel-glow{position:absolute;top:0;right:12%;left:12%;height:2.2em;background:radial-gradient(ellipse at 50% 0,rgba(90,180,255,.28),transparent 72%);pointer-events:none}
+.costore-benefit-panel-head{position:relative;z-index:1;margin-bottom:.75em;padding-bottom:.55em;border-bottom:1rpx solid rgba(150,190,240,.18)}
+.costore-benefit-panel-head text{color:#eaf4ff;font-size:1.05em;font-weight:700;letter-spacing:.04em}.costore-benefit-panel :deep(.managed-content){position:relative;z-index:1;color:#d7e5f8;font-size:.92em;line-height:1.85}
 .costore-store-page{position:fixed;z-index:90;inset:0;display:flex;flex-direction:column;max-width:750px;margin:0 auto;background:#272c47;color:#fff}
 .costore-store-bar{display:flex;align-items:center;gap:1em;min-height:3.2em;padding:calc(.6em + var(--status-bar-height,0px)) 6em .6em 1em;background:#343a5b;font-size:1.1em;font-weight:600}
 .costore-store-bar image{width:1.8em;height:1.8em}

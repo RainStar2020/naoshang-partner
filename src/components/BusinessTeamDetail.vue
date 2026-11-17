@@ -19,7 +19,7 @@
    <view class="detail-performance-card">
     <view class="detail-performance-heading">
      <text>业绩统计</text>
-     <view v-if="scopeSummary(data.node).kind==='regional'" class="detail-store-summary">代理<template v-if="scopeSummary(data.node).preview">{{scopeSummary(data.node).preview}}等</template><em>{{scopeSummary(data.node).count}}</em>个{{scopeSummary(data.node).unit}}</view>
+     <view v-if="scopeSummary(data.node).kind==='regional'" class="detail-store-summary">{{scopeSummary(data.node).text}}</view>
      <view v-else class="detail-store-summary">代理 <em>{{scopeSummary(data.node).storeCount}}</em> 个门店，<em>{{scopeSummary(data.node).ownerCount}}</em> 个合店老板</view>
     </view>
     <view class="detail-performance">
@@ -41,7 +41,7 @@
    </view>
    <template v-if="isRegional">
     <view class="detail-section-title">区域团队</view>
-    <view v-if="territories.length" class="detail-territories"><button v-for="(area,index) in territories" :key="area" :class="{selected:territoryIndex===index}" @click="territoryIndex=index">{{area}}</button></view>
+    <view v-if="serviceAreas.length" class="detail-territories"><button v-for="(area,index) in serviceAreas" :key="area.key" :class="{selected:territoryIndex===index}" @click="territoryIndex=index">{{area.label}}</button></view>
     <view v-for="child in displayedChildren" :key="child.id" class="detail-team-card" @click="open(child.id)">
      <view class="detail-team-heading">
       <image v-if="child.avatarUrl" :src="child.avatarUrl" mode="aspectFill"/>
@@ -98,7 +98,7 @@
 import {computed,ref,watch,onUnmounted} from 'vue'
 import {money} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
-import {agencyTeamLevelLabel, agencyTeamRegionLabel, agencyTeamStoreCount, agencyTeamOwnerCount, agencyTeamScopeSummary, fillAgencyTeamMetrics} from '../features/agency/team-display'
+import {agencyTeamLevelLabel, agencyTeamRegionLabel, agencyTeamRegionNames, agencyTeamStoreCount, agencyTeamOwnerCount, agencyTeamScopeSummary, fillAgencyTeamMetrics} from '../features/agency/team-display'
 import {pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext,getBusinessTeamNode,getBusinessReport} from '../services/business'
 import {useAsyncPage} from '../composables/useAsyncPage'
@@ -139,12 +139,28 @@ const isRegional=computed(()=>{
 const nodeMetrics=computed(()=>fillAgencyTeamMetrics(data.value?.node?.performance))
 const storeRows=computed(()=>data.value?.node?.stores||[])
 const territories=computed(()=>data.value?.node?.territoryList||[])
-const territoryText=computed(()=>{
+const territoryLabel=area=>agencyTeamRegionLabel({...data.value?.node,regionCode:typeof area==='object'?(area.regionCode||area.areaCode||area.code):area,regionLabel:typeof area==='object'?(area.name||area.label||area.regionLabel||area.title||area.code):area})
+const serviceAreas=computed(()=>{
  const node=data.value?.node||{}
- const names=territories.value.map(value=>agencyTeamRegionLabel({...node,regionCode:value,regionLabel:value})).filter(Boolean)
+ if(Array.isArray(node.regions)&&node.regions.length)return node.regions.map((area,index)=>{
+  const code=String(area?.regionCode||area?.areaCode||area?.code||'').trim()
+  const label=String(area?.regionLabel||area?.label||area?.name||territoryLabel(area)).trim()
+  return {key:code||label||index,code,label:label||code}
+ }).filter(area=>area.label)
+ if(Array.isArray(node.regionLabels)&&node.regionLabels.length)return node.regionLabels.map((label,index)=>({key:`${label}-${index}`,code:node.regionLabels.length===1?String(node.regionCode||''):'' ,label:String(label)})).filter(area=>area.label)
+ return territories.value.map((area,index)=>({key:String(area)||index,code:typeof area==='object'?String(area.regionCode||area.areaCode||area.code||''):String(area),label:territoryLabel(area)})).filter(area=>area.label)
+})
+const territoryText=computed(()=>{
+ const names=agencyTeamRegionNames(data.value?.node||{})
  return names.join('、')||regionLabelText.value
 })
-const displayedChildren=computed(()=>{const rows=data.value?.children?.items||[];return territoryIndex.value?rows.filter((_,index)=>index%2===territoryIndex.value%2):rows})
+const displayedChildren=computed(()=>{
+ const rows=data.value?.children?.items||[]
+ const area=serviceAreas.value[territoryIndex.value]
+ if(!area?.code)return rows
+ const prefix=area.code.replace(/-.*/, '').replace(/0+$/, '')
+ return rows.filter(child=>String(child.regionCode||child.areaCode||'').replace(/-.*/, '').startsWith(prefix))
+})
 const metricPending=metric=>metric?.pending===true||pickMetricNumber(metric?.value)==null
 const metricValue=metric=>metric?.kind==='money'?money(metric.value??0):metric?.value??0
 function open(id){uni.navigateTo({url:`/pages/agency/team-detail?contextId=${encodeURIComponent(context.value.id)}&nodeId=${encodeURIComponent(id)}`})}

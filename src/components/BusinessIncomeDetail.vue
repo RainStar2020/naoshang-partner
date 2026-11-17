@@ -11,7 +11,7 @@
       <text class="income-kicker">{{date(data.createdAt)}}</text>
      </view>
      <view class="income-side">
-      <text class="income-pill">{{data.channel || '积分'}}</text>
+      <text class="income-pill">{{data.bizChannelLabel || '积分'}}</text>
       <view v-if="view.amount!=null" class="income-amount">{{view.amount}}</view>
       <MetricSkeleton v-else size="block" :inline="false"/>
      </view>
@@ -86,6 +86,15 @@ const {data,status,error,load}=useAsyncPage(async()=>{
   return getBusinessIncomeDetail(ctx.id,props.pageQuery.id)
 },false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
+// 业务明细：优先后端中文字段；兜底字符串时按分隔符过滤英文枚举段（如 costore_store_service），保留中文与订单号
+function cleanBizDetail(entry){
+  const raw=entry?.bizDetailLabel||entry?.bizDetail||''
+  if(!raw)return ''
+  if(typeof raw!=='string')return String(raw)
+  return raw.split('·').map(seg=>seg.trim()).filter(Boolean)
+    .filter(seg=>!/^[a-z]+(?:_[a-z]+)+$/.test(seg))
+    .join(' · ')
+}
 const view=computed(()=>{
   const entry=data.value
   if(entry?.presentation){
@@ -102,7 +111,8 @@ const view=computed(()=>{
     notice:entry?.pendingNote||'',
     facts:[
       {label:'业务类型',value:entry?.bizTypeLabel||entry?.paymentTypeLabel||entry?.channel||''},
-      {label:'业务明细',value:entry?.bizDetail||''},
+      {label:'业务明细',value:cleanBizDetail(entry)},
+      ...(entry?.sourceOrder?[{label:'订单编号',value:String(entry.sourceOrder).replace(/^单号：/,'').trim()}]:[]),
       {label:'有效值',value:base==null?'':money(base)},
       {label:'计价方式',value:entry?.rateLabel||''},
     ],

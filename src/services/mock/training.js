@@ -1,3 +1,4 @@
+// @deprecated 本目录 mock 数据已废弃（config.useMock 已关闭），禁止新增或继续使用，统一走真实接口；详见目录 README.md
 // TODO(API): MOCK-ONLY. Replace fixtures and remove local state after API integration.
 // TODO(API): remove this mock-only training/transfer/feedback adapter after API integration.
 import {mockFamily} from './family'

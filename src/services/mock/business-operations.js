@@ -1,3 +1,4 @@
+// @deprecated 本目录 mock 数据已废弃（config.useMock 已关闭），禁止新增或继续使用，统一走真实接口；详见目录 README.md
 import {mockBusinessPaymentOrder} from './commerce'
 import {mockBusinessState,mockClone,saveMockBusinessState} from './business'
 import {parseBusinessAmount as parseAmount} from '../../features/business/format'

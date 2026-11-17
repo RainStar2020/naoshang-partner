@@ -95,7 +95,25 @@ export function getVisibleExclusiveEntries(access) {
 }
 export function getFounderAwards(month, cursor = null) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('请选择有效月份')
-  return withExclusive('founder-awards', async (_user, access) => listResult(config.useMock ? mockFounderAwards(month) : await request('/founder-awards', { data: { month, cursor, pageSize: 20, contextId: access.contextId } })))
+  return withExclusive('founder-awards', async (_user, access) => {
+    const result = listResult(config.useMock ? mockFounderAwards(month) : await request('/founder-awards', { data: { month, cursor, pageSize: 20, contextId: access.contextId } }))
+    const currentMonth = result.currentMonth && typeof result.currentMonth === 'object' ? result.currentMonth : null
+    const identity = result.identity && typeof result.identity === 'object' ? result.identity : null
+    const info = Array.isArray(result.info) ? result.info : []
+    const metric = label => info.find(item => item?.label === label)?.value
+    const normalizedCurrent = currentMonth ? { ...currentMonth, rateBps: currentMonth.rateBps ?? Math.round(Number(currentMonth.rate || 0) * 10000) } : null
+    return {
+      ...result,
+      currentMonth: normalizedCurrent,
+      identity,
+      summary: result.summary || {},
+      // Compatibility for the original screen while the new API exposes info/identity.
+      displayAmount: normalizedCurrent?.amount ?? result.summary?.total ?? result.summary?.amount,
+      displayVipCount: normalizedCurrent?.vipCount ?? metric('本月VIP数量') ?? result.summary?.vipCount,
+      displayRateBps: normalizedCurrent?.rateBps ?? metric('分红比例') ?? result.summary?.rateBps,
+      identityLabel: identity?.label || metric('本人身份') || result.summary?.identityLabel || '',
+    }
+  })
 }
 export function getCostoreOptions() {
   return withExclusive('costore-application', async (_user, access) => {
@@ -127,7 +145,7 @@ export function quoteCostore(storeId, durationId, months) {
       if (!store) throw new Error('请选择有效门店和开通时长')
       const state = mockExclusiveState(user), id = `demo-quote-${state.quotes.size + 1}`
       const actualMonths = Number(months ?? duration?.months ?? durationId)
-      if (!Number.isInteger(actualMonths) || actualMonths < 6) throw new Error('开通时长至少为6个月')
+      if (!Number.isInteger(actualMonths) || actualMonths < 6 || actualMonths % 6 !== 0) throw new Error('开通时长须为不小于6、且为6的倍数的月数')
       result = { id, storeId, durationId: String(actualMonths), months: actualMonths, store, durationLabel: `${actualMonths}个月`, payableAmount: actualMonths * store.monthlyFee, currency: 'CNY', expiresAt: Date.now() + 300000, serverTime: Date.now(), mockOnly: true }
       state.quotes.set(id, copy(result))
       saveMockExclusiveState(user)

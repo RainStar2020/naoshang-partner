@@ -139,17 +139,13 @@
         <view class="agency-benefit-title"
           ><text>✦</text> 等级权益 <text>✦</text></view
         >
-        <view class="agency-tiers"
-          ><button
-            v-for="item in overview.benefits"
-            :key="item.id"
-            :class="{ selected: tierId === item.id }"
-            @click="tierId = item.id"
-          >
-            {{ item.label }}
-          </button></view
-        >
-        <ManagedRichContent v-if="benefit" :content="benefit.content" />
+        <view v-if="benefit" class="agency-benefit-panel">
+          <view class="agency-benefit-panel-glow" aria-hidden="true" />
+          <view class="agency-benefit-panel-head">
+            <text>{{ benefit.title }}</text>
+          </view>
+          <ManagedRichContent :content="benefit.content" />
+        </view>
         <EmptyState
           v-if="!benefit?.content?.nodes?.length"
           text="这里还没有内容～"
@@ -300,7 +296,7 @@
   import { useAuth } from "../composables/useAuth";
   import { useAppTabBar } from "../composables/useAppTabBar";
   import { money } from "../features/exclusive/format";
-  import { businessModules } from "../features/business/catalog";
+  import { businessModules, sortBusinessModules } from "../features/business/catalog";
   import {
     isMetricPending,
     pickMetricNumber,
@@ -312,6 +308,7 @@
     getBusinessOverview,
     selectBusinessContext,
   } from "../services/business";
+  import { getAgentBenefits } from "../services/agent-benefits";
   import {
     prefetchPartnerWorkspace,
     scheduleIdle,
@@ -332,14 +329,12 @@
     overview = ref(null),
     contexts = ref([]),
     allContexts = ref([]),
-    tierId = ref(""),
     contextOpen = ref(false),
     relationOpen = ref(""),
     moduleOpen = ref(false);
   let active = true,
     epoch = 0,
-    selectedId = "",
-    tierContextId = "";
+    selectedId = "";
   const moduleTitle =
     businessModules.find((item) => item.id === "agency")?.title || "代理中心";
   const context = computed(() => overview.value?.context);
@@ -385,9 +380,15 @@
       icon: "/static/partner/icon-agency-income.png",
     },
   ];
-  const benefit = computed(() =>
-    overview.value?.benefits?.find((item) => item.id === tierId.value),
-  );
+  const benefit = computed(() => {
+    const agentLevel = {
+      PROVINCE: "province",
+      CITY: "city",
+      COUNTY: "district",
+      STORE: "store",
+    }[context.value?.agencyType];
+    return overview.value?.benefits?.find((item) => item.agentLevel === agentLevel) || null;
+  });
   const relations = [
     { key: "superior", label: "区域上级", emptyLabel: "暂无上级" },
     { key: "referrer", label: "推荐人", emptyLabel: "暂无推荐人" },
@@ -427,12 +428,6 @@
     COUNTY: "区代",
     STORE: "单店",
   };
-  const tierLabel = {
-    STORE: "区县",
-    COUNTY: "区县",
-    CITY: "市代",
-    PROVINCE: "省代",
-  };
   const contextGroups = computed(() =>
     ["PROVINCE", "CITY", "COUNTY", "STORE"]
       .map((key) => ({
@@ -443,9 +438,9 @@
       .filter((group) => group.items.length),
   );
   const modules = computed(() =>
-    businessModules.filter((item) =>
+    sortBusinessModules(businessModules.filter((item) =>
       allContexts.value.some((row) => row.module === item.id),
-    ),
+    )),
   );
   // Metrics are settled only after shell is gone and optional stats enrich finished.
   const metricsSettled = computed(
@@ -562,23 +557,17 @@
         contexts.value = rows.filter((item) => item.module === "agency");
         selectedId = ctx.id;
       }
-      const result = await getBusinessOverview("agency", ctx.id);
+      const [result, agentBenefits] = await Promise.all([
+        getBusinessOverview("agency", ctx.id),
+        getAgentBenefits(),
+      ]);
       if (!active || current !== epoch) return;
       allContexts.value = rows;
       contexts.value = rows.filter((item) => item.module === "agency");
-      overview.value = result;
-      if (
-        tierContextId !== ctx.id ||
-        !result.benefits.some((item) => item.id === tierId.value)
-      ) {
-        tierId.value =
-          result.benefits.find(
-            (item) => item.label === tierLabel[ctx.agencyType],
-          )?.id ||
-          result.benefits[0]?.id ||
-          "";
-        tierContextId = ctx.id;
-      }
+      overview.value = {
+        ...result,
+        benefits: agentBenefits.filter((item) => item.agentLevel !== "costore_owner"),
+      };
       selectedId = ctx.id;
       status.value = "ready";
       if (result.needsStatsEnrichment) void enrichStats(ctx.id, current);
@@ -1002,24 +991,46 @@
     padding: 0 0.35em;
     color: #d7e6ff;
   }
-  .agency-tiers {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.45em;
-    margin: 0.85em 0 0.4em;
+  .agency-benefit-panel {
+    position: relative;
+    overflow: hidden;
+    margin-top: 1.35em;
+    padding: 1em 1em 1.15em;
+    border: 1rpx solid rgba(120, 176, 240, 0.3);
+    border-radius: 1em;
+    background: linear-gradient(165deg, rgba(48, 78, 138, 0.55), rgba(28, 38, 72, 0.88));
+    box-shadow: inset 0 1rpx rgba(210, 232, 255, 0.16);
   }
-  .agency-tiers button {
-    padding: 0.2em 0.15em;
-    background: #445174;
-    color: #a8b5cb;
-    border-radius: 2em;
-    font-size: 0.85em;
-    line-height: 1.7;
+  .agency-benefit-panel-glow {
+    position: absolute;
+    top: 0;
+    right: 12%;
+    left: 12%;
+    height: 2.2em;
+    background: radial-gradient(ellipse at 50% 0, rgba(90, 180, 255, 0.28), transparent 72%);
+    pointer-events: none;
   }
-  .agency-tiers button.selected {
-    background: radial-gradient(ellipse, #08284b 15%, #006ecb 70%, #1ac9ff);
-    color: #fff;
-    box-shadow: 0 0 0.45em #009fff;
+  .agency-benefit-panel-head {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 0.75em;
+    padding-bottom: 0.55em;
+    border-bottom: 1rpx solid rgba(150, 190, 240, 0.18);
+  }
+  .agency-benefit-panel-head text:first-child {
+    color: #eaf4ff;
+    font-size: 1.05em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .agency-benefit-panel :deep(.managed-content) {
+    position: relative;
+    z-index: 1;
+    color: #d7e5f8;
+    font-size: 0.92em;
+    line-height: 1.85;
   }
   .agency-identity-page {
     position: fixed;
@@ -1355,12 +1366,6 @@
     .relation-arch > view {
       width: 2.6em;
       height: 2.6em;
-    }
-    .agency-tiers {
-      gap: 0.25em;
-    }
-    .agency-tiers button {
-      font-size: 0.75em;
     }
   }
 </style>

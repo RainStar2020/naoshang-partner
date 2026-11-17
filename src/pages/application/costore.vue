@@ -25,10 +25,10 @@
           </view>
           <view class="apply-card">
             <view class="panel-heading">开通时长</view>
-            <view class="months-input-row"><text>月数</text><input v-model="monthsText" type="number" :disabled="submitting" maxlength="4" placeholder="至少6个月" @blur="refreshQuote" /></view>
             <view class="duration-options">
-              <button v-for="option in data.durations" :key="option.id" :class="{ selected: durationId === option.id }" :disabled="submitting" @click="selectDuration(option.id)">{{ option.label }}</button>
+              <button v-for="option in durationPresets" :key="option.id" :class="{ selected: Number(monthsText) === option.months }" :disabled="submitting" @click="selectDuration(option)">{{ option.label }}</button>
             </view>
+            <view class="months-input-row"><text>月数</text><input v-model="monthsText" type="number" :disabled="submitting" maxlength="4" placeholder="6的倍数" @blur="refreshQuote" /></view>
             <view class="quote-total">合计价格：<text>{{ quoting ? '试算中…' : quote ? `¥${money(quote.payableAmount)}` : '¥0' }}</text></view>
             <text v-if="quoteError" class="apply-error">{{ quoteError }}</text>
             <button v-if="quoteError || (!quote && !quoting && storeId && durationId)" class="text-link" :disabled="submitting" @click="refreshQuote">重新试算</button>
@@ -107,6 +107,17 @@ const { data, status, error, load } = useAsyncPage(async () => {
   return result
 }, false)
 const selectedStore = computed(() => data.value?.stores.find(item => item.id === storeId.value))
+const durationPresets = computed(() => {
+  const presets = new Map()
+  for (const item of data.value?.durations || []) {
+    const months = Number(item.months ?? item.id)
+    if (months === 6 || months === 12) presets.set(months, { ...item, months, label: item.label || `${months}个月` })
+  }
+  for (const months of [6, 12]) {
+    if (!presets.has(months)) presets.set(months, { id: String(months), label: `${months}个月`, months })
+  }
+  return [presets.get(6), presets.get(12)]
+})
 async function refreshQuote() {
   if(pendingIntent.value)return
   const current = ++epoch
@@ -115,7 +126,7 @@ async function refreshQuote() {
   quoteError.value = ''
   submitError.value = ''
   const months = Number(String(monthsText.value || '').trim())
-  if (!Number.isInteger(months) || months < 6) { quoteError.value = '请输入不小于6的整数月数'; return }
+  if (!Number.isInteger(months) || months < 6 || months % 6 !== 0) { quoteError.value = '请输入不小于6、且为6的倍数的月数'; return }
   durationId.value = String(months)
   if (!storeId.value) return
   quoting.value = true
@@ -152,8 +163,9 @@ function selectStore(id) {
   storeOpen.value = false
   refreshQuote()
 }
-function selectDuration(id) {
-  if (submitting.value || durationId.value === id) return
+function selectDuration(option) {
+  const months = String(option.months)
+  if (submitting.value || monthsText.value === months) return
   if (pendingIntent.value) {
     uni.showModal({
       title: '更换开通时长',
@@ -161,15 +173,15 @@ function selectDuration(id) {
       success: (result) => {
         if (!result.confirm || !active) return
         abandonPendingIntent()
-        monthsText.value = String(data.value.durations.find(item => String(item.id) === String(id))?.months ?? id)
-        durationId.value = monthsText.value
+        monthsText.value = months
+        durationId.value = months
         refreshQuote()
       },
     })
     return
   }
-  monthsText.value = String(data.value.durations.find(item => String(item.id) === String(id))?.months ?? id)
-  durationId.value = monthsText.value
+  monthsText.value = months
+  durationId.value = months
   refreshQuote()
 }
 function openApplications() { uni.navigateTo({ url: '/pages/application/list' }) }
@@ -214,14 +226,14 @@ onUnload(() => { active = false; ++epoch })
 .store-address, .owner-label { display: block; margin-top: .25em; color: #9aa3bd; font-size: .84em; line-height: 1.5; overflow-wrap: anywhere; }
 .owner-label { color: #7eb6ff; }
 .store-fee { display: block; margin-top: .35em; color: #ff4676; font-weight: 600; }
-.duration-options { display: flex; gap: .7em; }
-.duration-options button { flex: 1; margin: 0; padding: .7em .4em; border-radius: .45em; border: 1px solid transparent; background: #4a516c; color: #fff; }
+.duration-options { display: flex; gap: .7em; margin: .35em 0 .95em; }
+.duration-options button { flex: 1; margin: 0; padding: .7em .4em; border-radius: .45em; border: 1px solid transparent; background: #4a516c; color: #fff; font-size: 1em; line-height: 1.4; }
 .duration-options .selected { border-color: #2f9dff; background: #1d3f78; color: #59b6ff; }
-.quote-total { margin: .9em 0 .2em; padding: .7em; border-radius: 2em; background: #4a516c; text-align: center; color: #d5dced; }
+.quote-total { margin: .95em 0 .2em; padding: .7em; border-radius: 2em; background: #4a516c; text-align: center; color: #d5dced; font-size: 1em; }
 .quote-total text { color: #ff4676; font-weight: 700; }
-.months-input-row { display: flex; align-items: center; justify-content: space-between; gap: .8em; padding: .65em .75em; border-radius: .5em; background: #444b6a; }
-.months-input-row text { color: #d5dced; }
-.months-input-row input { flex: 1; min-width: 0; text-align: right; color: #fff; }
+.months-input-row { display: flex; align-items: center; justify-content: space-between; gap: .8em; margin: .15em 0 .95em; padding: .7em .75em; border-radius: .5em; background: #444b6a; font-size: 1em; }
+.months-input-row text { color: #d5dced; font-size: 1em; }
+.months-input-row input { flex: 1; min-width: 0; text-align: right; color: #fff; font-size: 1em; }
 .agreement-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .2em; margin: .8em 0; color: #c5cadb; font-size: .9em; }
 .apply-note, .apply-error { display: block; margin: .6em 0; color: #9aa3bd; font-size: .86em; line-height: 1.5; text-align: center; }
 .apply-error { color: #ffabbc; }

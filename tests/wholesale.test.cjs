@@ -108,6 +108,16 @@ test('definitive quote rejection unlocks the form while malformed successes stay
  await assert.rejects(operations.commitBusinessOperation('withdraw',ctx.id,'expired','one'),/expired/);assert.equal(operations.getBusinessOperationIntent('withdraw',ctx.id),null)
  malformed=true;await assert.rejects(operations.commitBusinessOperation('withdraw',ctx.id,'unknown','two'),/待确认/);assert.equal(operations.getBusinessOperationIntent('withdraw',ctx.id).idempotencyKey,'two')
 })
+test('server-side submission errors clear the saved intent so a later attempt is not blocked',async()=>{
+ const ctx={id:'wholesale:A',module:'wholesale',accountId:'A',capabilities:['wholesale:quota-transfer']}
+ const remote=async url=>{
+  if(url==='/me/bootstrap')return {businessContexts:[ctx]}
+  throw Object.assign(new Error('服务端提交失败'),{statusCode:500,code:'INTERNAL_ERROR'})
+ }
+ const {operations}=await setup(new Map(),remote),draft={quantity:'2',targetAccountId:'person'}
+ await assert.rejects(operations.commitBusinessOperation('quota-transfer',ctx.id,'','failed-key','',draft),/服务端提交失败/)
+ assert.equal(operations.getBusinessOperationIntent('quota-transfer',ctx.id),null)
+})
 test('accepted responses without a usable order or receipt remain locked to the original intent',async()=>{
  const ctx={id:'wholesale:A',module:'wholesale',accountId:'A',capabilities:['wallet:withdraw']}
  for(const response of [{status:'PENDING_PAYMENT'},{status:'PENDING_PAYMENT',orderId:''},{status:'PENDING_REVIEW'},{status:'APPLIED',operationId:' '}]){

@@ -21,7 +21,9 @@ export function rememberBusinessOperationIntent(kind,contextId,quote,idempotency
  if(previous?.dispatched && (previous.quoteId!==quote.id || previous.idempotencyKey!==idempotencyKey))throw new Error('上一笔操作待确认，请勿重复提交')
  uni.setStorageSync(key,JSON.parse(JSON.stringify({quoteId:quote.id,idempotencyKey,quote,draft,dispatched:previous?.dispatched || false})))
 }
-const definitiveRejection=error=>[400,403,404,409,422].includes(error.statusCode)&&['QUOTE_EXPIRED','INVALID_QUOTE','VALIDATION_ERROR','FORBIDDEN','INSUFFICIENT_BALANCE','VERSION_CONFLICT'].includes(error.code)
+// An HTTP/API response explicitly rejects the operation, so it is safe to allow a new attempt.
+// Transport failures have no statusCode and remain protected because the server may have processed them.
+const serverRejected=error=>Number.isInteger(error?.statusCode)
 // Points redeem (withdraw) is open to any valid business context; no wallet:* gate.
 const capability=(kind,context)=>kind==='withdraw'?null:kind==='allocation'?`${context.module}:income`:`wholesale:${kind}`
 const guardKind=kind=>{if(!known.includes(kind))throw new Error('当前功能暂不可用，请返回后重试')}
@@ -276,6 +278,6 @@ export function commitBusinessOperation(kind,contextId,quoteId,idempotencyKey,en
       if(tracked)uni.removeStorageSync(storageKey)
       if(kind==='withdraw')clearAgencyIncomeCache(context.id)
       return result
-    }catch(error){if(tracked && (config.useMock || definitiveRejection(error))){checkBusinessAccount(account);uni.removeStorageSync(storageKey)}throw error}
+    }catch(error){if(tracked && (config.useMock || serverRejected(error))){checkBusinessAccount(account);uni.removeStorageSync(storageKey)}throw error}
   })
 }

@@ -1,3 +1,4 @@
+// @deprecated 本目录 mock 数据已废弃（config.useMock 已关闭），禁止新增或继续使用，统一走真实接口；详见目录 README.md
 // TODO(API): MOCK-ONLY. Delete this adapter and local data keys after commerce API integration.
 // Prices, discount rates, stock, fulfillment and payment outcomes here are fixtures, not production rules.
 import {mockProfileState,mockBoundStore} from './profile'
