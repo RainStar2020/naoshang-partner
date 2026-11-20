@@ -6,6 +6,7 @@ import {mockProfileState} from './mock/profile'
 import {mockExclusiveState,saveMockExclusiveState} from './mock/exclusive'
 import {ensureRegionNames} from '../features/region'
 import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../features/store-display'
+import { fillAgencyTeamMetrics } from '../features/agency/team-display'
 function normalizeStore(store){
   if(!store||typeof store!=='object')return store
   const regionCodes=Array.isArray(store.regionCodes)?store.regionCodes:[]
@@ -41,6 +42,72 @@ function normalizeStoreUser(user){
     allowedActions:Array.isArray(user.allowedActions)?user.allowedActions:[],
   }
 }
+const OWNER_PERFORMANCE_LABELS=Object.freeze(['本月业绩','季度业绩','半年业绩','本年业绩','累计业绩'])
+function renameOwnerMetricLabel(label){
+  const value=String(label||'').trim()
+  if(value==='上半年业绩'||value==='半年业绩'||value==='最近半年业绩')return '半年业绩'
+  if(value==='最近一年业绩'||value==='近一年业绩')return '本年业绩'
+  return value
+}
+function normalizeOwnerPerformance(performance){
+  const byLabel=new Map()
+  const assign=(label,value)=>{
+    const key=renameOwnerMetricLabel(label)
+    if(!OWNER_PERFORMANCE_LABELS.includes(key))return
+    const amount=Number(value)
+    byLabel.set(key,{label:key,value:Number.isFinite(amount)?amount:0,kind:'money'})
+  }
+  if(Array.isArray(performance)){
+    for(const item of performance)assign(item?.label,item?.value)
+  }else if(performance&&typeof performance==='object'){
+    for(const item of fillAgencyTeamMetrics(performance))assign(item.label,item.value)
+  }else if(performance!=null&&performance!==''&&Number.isFinite(Number(performance))){
+    // A bare number is cumulative performance, never a stand-in for feeAmount.
+    assign('累计业绩',performance)
+  }
+  return OWNER_PERFORMANCE_LABELS.map(label=>byLabel.get(label)||{label,value:0,kind:'money'})
+}
+function ownerFeeAmount(owner){
+  // Only read the owner's own fee fields; never fall back to the store's feeAmount.
+  return storeFeeAmount({
+    feeAmount:owner?.feeAmount,
+    monthlyFee:owner?.monthlyFee,
+    monthlyFeeYuan:owner?.monthlyFeeYuan,
+    costoreFee:owner?.costoreFee,
+    fee:owner?.fee,
+  })
+}
+function normalizeCostoreOwner(owner){
+  if(!owner||typeof owner!=='object')return owner
+  const textOrNull=value=>{
+    if(value==null||value==='')return null
+    const text=String(value).trim()
+    return text||null
+  }
+  const months=owner.months
+  const monthsValue=months==null||months===''?null:(Number.isInteger(Number(months))?Number(months):null)
+  const days=owner.daysRemaining
+  const daysRemaining=days==null||days===''?null:(Number.isFinite(Number(days))?Math.trunc(Number(days)):null)
+  const displayId=textOrNull(owner.displayId)||''
+  return {
+    ...owner,
+    id:owner.id,
+    name:owner.name||'',
+    displayId,
+    phone:textOrNull(owner.phone),
+    avatarUrl:textOrNull(owner.avatarUrl),
+    roleLabel:owner.roleLabel||'合店老板',
+    performance:normalizeOwnerPerformance(owner.performance),
+    durationLabel:textOrNull(owner.durationLabel),
+    months:monthsValue,
+    feeAmount:ownerFeeAmount(owner),
+    appliedAt:owner.appliedAt||null,
+    startedAt:owner.startedAt||owner.appliedAt||null,
+    validUntil:owner.validUntil||null,
+    daysRemaining,
+    costoreId:owner.costoreId??owner.costore_id??null,
+  }
+}
 function normalizeWorkspaceActions(actions){
   const list=Array.isArray(actions)?[...actions]:[]
   const aliases=[['update-store','edit-store'],['manage-coach','save-coach','remove-coach'],['decide-application','approve'],['transfer-member','transfer']]
@@ -55,6 +122,7 @@ export function getBusinessStore(contextId){return withBusinessContext(contextId
     ...result,
     store:normalizeStore(result.store),
     members:result.members.map(normalizeStoreUser),
+    owners:result.owners.map(normalizeCostoreOwner),
     childMembers:Array.isArray(result.childMembers)?result.childMembers:[],
     allowedActions:normalizeWorkspaceActions(result.allowedActions),
   }

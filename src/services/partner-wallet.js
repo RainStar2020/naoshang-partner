@@ -42,14 +42,19 @@ export function redemptionContextIdOf(explicit) {
   return String(pageContextId || "").trim() || partnerContextId();
 }
 
+function partnerRoleDisplay(value) {
+  const text = String(value || "");
+  return text === "合伙人" ? "批发商" : text;
+}
+
 export function withdrawalIdentityOf(item) {
   const identity = ["partner", "agent", "costore"].includes(item?.identity)
     ? item.identity
     : identityOfContextId(item?.contextId || item?.applicantRole);
-  const labels = { partner: "合伙人", agent: "俱乐部", costore: "健脑官" };
+  const labels = { partner: "批发商", agent: "俱乐部", costore: "健脑官" };
   return {
     identity,
-    identityLabel: String(
+    identityLabel: partnerRoleDisplay(
       item?.identityLabel || item?.applicantRoleLabel || labels[identity],
     ),
     identityScopeLabel: item?.identityScopeLabel
@@ -117,7 +122,7 @@ export async function getPartnerPointsOptions(contextId) {
   return {
     contextId: String(result.contextId || resolvedContextId),
     identity: String(result.identity || identityOfContextId(resolvedContextId)),
-    identityLabel: String(
+    identityLabel: partnerRoleDisplay(
       result.identityLabel ||
         withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel,
     ),
@@ -161,7 +166,7 @@ export async function getPartnerPointsOptions(contextId) {
       identity: String(
         item?.identity || identityOfContextId(resolvedContextId),
       ),
-      identityLabel: String(
+      identityLabel: partnerRoleDisplay(
         item?.identityLabel ||
           withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel,
       ),
@@ -220,7 +225,7 @@ export async function exchangePartnerPoints(
     withdrawalId: String(id),
     contextId: String(result.contextId || resolvedContextId),
     identity: String(result.identity || identityOfContextId(resolvedContextId)),
-    identityLabel: String(
+    identityLabel: partnerRoleDisplay(
       result.identityLabel ||
         withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel,
     ),

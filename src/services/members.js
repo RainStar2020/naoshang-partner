@@ -68,7 +68,7 @@ export function getMemberDictionaries() {
 }
 export function getFamilyMembers(cursor = null) {
   return scoped(async user => {
-    const result = config.useMock ? { items: copy(mockFamily(user).members).map(member => ({ ...member, badge: mockMemberBadge(user,member), levels: mockLevels(identity(user,member)) })), nextCursor: null, hasMore: false } : await request('/members', { data: { cursor, pageSize: 20, scope: 'family' } })
+    const result = config.useMock ? { items: copy(mockFamily(user).members).map(member => ({ ...member, badge: mockMemberBadge(user,member), levels: mockLevels(identity(user,member)) })), nextCursor: null, hasMore: false } : await request('/members', { data: { cursor, scope: 'family' } })
     const page = listResult(result)
     return { ...page, items: (page.items || []).map(normalizeFamilyMember) }
   })
@@ -144,7 +144,7 @@ export function getMemberRecords(memberId, kind, cursor = null) {
   return scoped(async user => {
     if (kind !== 'orders') await requireChildModule('feedback')
     if (config.useMock) { ownedMember(user,memberId); return kind==='orders'?mockOrders(user,{memberId}):mockFeedbackList(user,memberId,kind) }
-    return listResult(await request(kind === 'orders' ? `/members/${encodeURIComponent(memberId)}/orders` : `/members/${encodeURIComponent(memberId)}/training-feedback`, { data: { kind: kind === 'orders' ? undefined : kind, cursor, pageSize: 20 } }))
+    return listResult(await request(kind === 'orders' ? `/members/${encodeURIComponent(memberId)}/orders` : `/members/${encodeURIComponent(memberId)}/training-feedback`, { data: { kind: kind === 'orders' ? undefined : kind, cursor } }))
   })
 }
 export function getMemberFeedback(memberId, feedbackId) {

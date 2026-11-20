@@ -12,7 +12,7 @@
       <button v-if="canWallet('withdraw')" class="wh-primary wh-pill" @click="wallet('withdraw-apply')">申请提现</button>
      </view>
      <view class="wh-section-heading"><text/>收益明细</view>
-     <WholesaleRecordCard v-for="item in items" :key="item.id" :kicker="item.sourceName" :title="item.title" :caption="incomeCaption(item)" :amount="plusAmount(item.amount)" :badge="item.bizChannelLabel || item.channel || '收益'" accent>
+     <WholesaleRecordCard v-for="item in items" :key="item.id" :kicker="item.sourceName" :title="item.bizTitle || item.title" :caption="incomeCaption(item)" :amount="plusAmount(item.amount)" :badge="item.bizChannelLabel || item.channel || '收益'" accent>
       <WholesaleStatSplit v-if="item.details?.length" divided :items="item.details.map(detail=>({label:detail.label,value:show(detail.value,detail.kind)}))"/>
      </WholesaleRecordCard>
      <EmptyState v-if="!items.length" text="暂无收益"/>
@@ -28,7 +28,7 @@
       <view>{{money(poolAmount)}}</view>
       <text>不可提现，按周期结算</text>
      </view>
-     <view v-if="report.columns?.length && items.length" class="wh-table-frame dividend-table"><scroll-view scroll-x class="wh-table-scroll"><view class="wh-table"><view class="wh-tr head"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{column.label}}</text></view><view v-for="item in items" :key="item.id" class="wh-tr"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{show(item[column.key],column.kind)}}</text></view></view></scroll-view></view>
+     <view v-if="report.columns?.length && items.length" class="wh-table-frame dividend-table"><scroll-view scroll-x :show-scrollbar="false" class="wh-table-scroll"><view class="wh-table"><view class="wh-tr head"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{column.label}}</text></view><view v-for="item in items" :key="item.id" class="wh-tr"><text v-for="column in report.columns" :key="column.key" class="wh-td">{{show(item[column.key],column.kind)}}</text></view></view></scroll-view></view>
      <template v-else>
       <WholesaleRecordCard v-for="item in items" :key="item.id" :title="item.title" :caption="date(item.createdAt)" :amount="plusAmount(item.amount)" :badge="item.bizChannelLabel || item.channel || item.title || '收益'" accent/>
      </template>
@@ -46,6 +46,7 @@ import {config} from '../config'
 import {businessPreview} from '../features/business/catalog'
 import {money, percent} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
+import {sortByRecent,sortByRecentMonth} from '../features/business/chronology'
 import {pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext, getBusinessReport} from '../services/business'
 import { unsettledIncomeNote } from '../features/business/income-status'
@@ -62,7 +63,8 @@ let active=true
 const names=['','一','二','三','四','五','六','七','八','九','十','十一','十二']
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('costore',props.pageQuery?.contextId);context.value=ctx;return getBusinessReport('costore',props.toolId,ctx.id,{})},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
-watch(report,value=>{items.value=value?.items||[];hasMore.value=value?.hasMore===true;cursor=value?.nextCursor||null})
+const orderedItems=value=>['card-dividends','promotion-dividends'].includes(props.toolId)?sortByRecentMonth(value):sortByRecent(value,['createdAt','occurredAt','updatedAt'])
+watch(report,value=>{items.value=orderedItems(value?.items||[]);hasMore.value=value?.hasMore===true;cursor=value?.nextCursor||null})
 watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}})
 const poolAmount=computed(()=>{const amount=Number(report.value?.dividendPool);return Number.isFinite(amount)?amount:null})
 const dividendTitle=computed(()=>{
@@ -79,7 +81,7 @@ const show=(value,kind)=>kind==='money'?money(value):kind==='percent'?percent(va
 const plusAmount=value=>{const n=pickMetricNumber(value);return n==null?'':`+${money(n).replace(/\.00$/,'')}`}
 const canWallet=id=>businessPreview(config)||context.value?.capabilities?.includes(`wallet:${id}`)
 function wallet(page){uni.navigateTo({url:`/pages/wallet/${page}?contextId=${context.value.id}`})}
-async function more(){if(loadingMore.value||!hasMore.value)return;loadingMore.value=true;const current=epoch;try{const result=await getBusinessReport('costore',props.toolId,context.value.id,{cursor});if(current===epoch){items.value=[...new Map([...items.value,...(result.items||[])].map(item=>[item.id,item])).values()];hasMore.value=result.hasMore===true;cursor=result.nextCursor||null}}catch(reason){if(current===epoch)moreError.value=reason.message}finally{if(current===epoch)loadingMore.value=false}}
+async function more(){if(loadingMore.value||!hasMore.value)return;loadingMore.value=true;const current=epoch;try{const result=await getBusinessReport('costore',props.toolId,context.value.id,{cursor});if(current===epoch){items.value=orderedItems([...new Map([...items.value,...(result.items||[])].map(item=>[item.id,item])).values()]);hasMore.value=result.hasMore===true;cursor=result.nextCursor||null}}catch(reason){if(current===epoch)moreError.value=reason.message}finally{if(current===epoch)loadingMore.value=false}}
 onUnmounted(()=>{active=false})
 defineExpose({refresh(opts){if(active)load(opts)}})
 </script>

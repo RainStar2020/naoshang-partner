@@ -17,7 +17,7 @@
        </view>
       </view>
      </view>
-     <view class="agency-team-performance">
+     <view v-if="Array.isArray(item.performance)" class="agency-team-performance">
       <view class="agency-performance-heading">
        <text>业绩统计</text>
        <view v-if="scopeSummary(item).kind==='regional'" class="agency-store-summary">{{scopeSummary(item).text}}</view>
@@ -39,7 +39,7 @@
     <view class="income-channels"><view v-for="item in channelMetrics" :key="item.label"><text>{{item.label}}</text><view v-if="!channelPending(item)">{{money(item.value)}}</view><MetricSkeleton v-else size="compact" :inline="false"/></view></view>
     <view class="income-heading"><text>代理积分明细</text><button :class="{selected:filter==='pending'}" @click="setFilter(filter==='pending'?'':'pending')"><view class="income-radio"/>筛选待处理记录</button></view>
     <button v-for="item in items" :key="item.id" class="income-card" @click="incomeDetail(item.id)">
-     <view class="income-card-copy"><text>{{memberLabel(item)}}</text><view>{{item.title || item.bizTypeLabel || '积分记录'}}</view><text>{{timeLabel(item)}}</text><text v-if="item.pendingNote" class="income-note">{{item.pendingNote}}</text></view>
+     <view class="income-card-copy"><text>{{memberLabel(item)}}</text><view>{{item.bizTitle || item.title || item.bizTypeLabel || '积分记录'}}</view><text>{{timeLabel(item)}}</text><text v-if="item.pendingNote" class="income-note">{{item.pendingNote}}</text></view>
      <view class="income-card-side"><text class="income-channel">{{channelLabel(item)}}</text><view v-if="signedAmount(item.amount)!=null">{{signedAmount(item.amount)}}</view><MetricSkeleton v-else size="compact" :inline="false"/><text>查看详情</text></view>
     </button>
     <EmptyState v-if="!items.length" text="暂无代理积分记录"/>
@@ -54,6 +54,7 @@
 import {computed, onUnmounted, ref, watch} from 'vue'
 import {money, percent} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
+import {sortByRecent} from '../features/business/chronology'
 import {agencyTeamLevelLabel, agencyTeamScopeSummary, fillAgencyTeamMetrics} from '../features/agency/team-display'
 import {formatSignedMetricMoney, pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext, getBusinessContexts, getBusinessReport, selectBusinessContext} from '../services/business'
@@ -68,12 +69,12 @@ const agencyContexts=computed(()=>contexts.value.filter(item=>item.module==='age
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('agency',contextId||props.pageQuery?.contextId);context.value=ctx;contextId=ctx.id;const output=await getBusinessReport('agency',props.toolId,ctx.id,{filter:filter.value,keyword:keyword.value.trim()});return output},false)
 watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true})
 watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}})
-watch(report,value=>{if(value){items.value=value.items;hasMore.value=value.hasMore;cursor=value.nextCursor}})
+watch(report,value=>{if(value){items.value=props.toolId==='income'?sortByRecent(value.items,['createdAt','occurredAt','updatedAt']):value.items;hasMore.value=value.hasMore;cursor=value.nextCursor}})
 watch(contextOpen,async open=>{if(open&&!contexts.value.length){try{contexts.value=await getBusinessContexts()}catch(reason){moreError.value=reason.message}}})
 const format=(value,kind)=>kind==='money'?`${money(value)}积分`:kind==='percent'?percent(value):value??0
 const metricPending=metric=>metric?.pending===true||pickMetricNumber(metric?.value)==null
 const teamMetric=metric=>metric?.kind==='money'?money(metric.value??0):format(metric?.value,metric?.kind)
-const teamMetrics=item=>fillAgencyTeamMetrics(item?.performance)
+const teamMetrics=item=>Array.isArray(item?.performance)?fillAgencyTeamMetrics(item.performance):[]
 const agencyLevel=item=>agencyTeamLevelLabel(item)
 const scopeSummary=item=>agencyTeamScopeSummary(item)
 const metric=label=>report.value?.metrics?.find(item=>item.label===label)?.value
@@ -88,11 +89,11 @@ const memberLabel=item=>{const member=item.recommendedBy||item.party||item.benef
 const timeLabel=item=>item.createdAt?date(item.createdAt):(item.occurredAt?date(item.occurredAt):(item.updatedAt?date(item.updatedAt):''))
 function setFilter(value){if(filter.value!==value){filter.value=value;load()}}
 async function chooseContext(id){try{const selected=await selectBusinessContext(id);contextId=selected.id;contextOpen.value=false;await load()}catch(reason){moreError.value=reason.message||'切换失败'}}
-function teamDetail(id){uni.navigateTo({url:`/pages/agency/team-detail?contextId=${encodeURIComponent(context.value.id)}&nodeId=${encodeURIComponent(id)}`})}
+function teamDetail(id){uni.navigateTo({url:`/pages/agency/team-detail?contextId=${encodeURIComponent(context.value.id)}&nodeId=${encodeURIComponent(id)}&depth=1`})}
 function incomeDetail(id){uni.navigateTo({url:`/pages/income/detail?contextId=${encodeURIComponent(context.value.id)}&id=${encodeURIComponent(id)}`})}
 function withdrawApply(){uni.navigateTo({url:`/pages/wallet/withdraw-apply?contextId=${encodeURIComponent(context.value.id)}`})}
 function withdrawRecords(){uni.navigateTo({url:`/pages/wallet/withdrawals?contextId=${encodeURIComponent(context.value.id)}`})}
-async function more(){if(loadingMore.value||!hasMore.value)return;const current=epoch;loadingMore.value=true;moreError.value='';try{const output=await getBusinessReport('agency',props.toolId,context.value.id,{filter:filter.value,keyword:keyword.value.trim(),cursor});if(active&&current===epoch){items.value=[...items.value,...output.items];hasMore.value=output.hasMore;cursor=output.nextCursor}}catch(reason){if(active&&current===epoch)moreError.value=reason.message}finally{if(active&&current===epoch)loadingMore.value=false}}
+async function more(){if(loadingMore.value||!hasMore.value)return;const current=epoch;loadingMore.value=true;moreError.value='';try{const output=await getBusinessReport('agency',props.toolId,context.value.id,{filter:filter.value,keyword:keyword.value.trim(),cursor});if(active&&current===epoch){const merged=[...items.value,...output.items];items.value=props.toolId==='income'?sortByRecent(merged,['createdAt','occurredAt','updatedAt']):merged;hasMore.value=output.hasMore;cursor=output.nextCursor}}catch(reason){if(active&&current===epoch)moreError.value=reason.message}finally{if(active&&current===epoch)loadingMore.value=false}}
 onUnmounted(()=>{active=false;++epoch})
 defineExpose({refresh:load})
 </script>

@@ -88,7 +88,6 @@ function agencyFee(context) {
   return {
     amount: sample[0],
     facts: [
-      { label: '业务提点', value: sample[1] },
       { label: '业务类型', value: sample[2] },
       { label: '业务详情', value: sample[3] },
     ],
@@ -104,12 +103,10 @@ function costore(context) {
       ? [
           { label: '合店费详情', value: '4188（698*6）' },
           { label: '门店股东数量', value: '2' },
-          { label: '业务提点', value: '27.5%' },
           { label: '业务类型', value: '合店费提成' },
           { label: '业务详情', value: '直推下级开通合店老板' },
         ]
       : [
-          { label: '业务提点', value: '2%' },
           { label: '业务类型', value: '合店费提成' },
           { label: '合店费详情', value: '4188（698*6）' },
         ],
@@ -142,7 +139,6 @@ function special(entry, context) {
         { label: '交付类型', value: '门店交付' },
         { label: '本人身份', value: role },
         { label: '门店股东数量', value: '2' },
-        { label: '业务提点', value: '30%' },
         { label: '推荐人复购奖支出', value: '16元' },
         allocationFact(entry, '销售提点分配'),
       ]
@@ -150,13 +146,11 @@ function special(entry, context) {
       ? [
           { label: '交付类型', value: '门店交付' },
           { label: '本人身份', value: role },
-          { label: '业务提点', value: '5%' },
           allocationFact(entry, '巡查提点分配'),
         ]
       : [
           { label: '交付类型', value: '门店交付' },
           { label: '本人身份', value: role },
-          { label: '业务提点', value: '2%' },
         ]
   return {
     amount: entry.allocationKind && (context.agencyType === 'COUNTY' || sales) ? '+160' : '+99999',
@@ -212,7 +206,6 @@ export function incomePresentation(entry, context) {
       amount: '+99999',
       facts: [
         { label: '本人身份', value: role },
-        { label: '业务提点', value: storeSide ? '5%' : '90%' },
       ],
       people: productPeople,
       store: boundStore,

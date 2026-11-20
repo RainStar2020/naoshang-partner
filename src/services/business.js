@@ -16,6 +16,7 @@ const agencyIncomeCache=new Map()
 const awardCopy={平级奖:'孵化补贴',复购奖:'运维补贴',全球奖:'总批补贴',创始奖:'总裁补贴'}
 function awardDisplay(value){return typeof value==='string'?Object.entries(awardCopy).reduce((text,[source,target])=>text.replaceAll(source,target),value):value}
 function incomeDisplay(value){return typeof value==='string'?awardDisplay(value).replaceAll('收益','积分').replaceAll('提点','').replace(/订单金额|开通金额|计件金额|待分配金额|实付金额|计价金额/g,'有效值'):value}
+function queryData(data){return Object.fromEntries(Object.entries(data||{}).filter(([,value])=>value!==undefined&&value!==null&&value!==''))}
 function currentAwardMonth(){return new Date().toISOString().slice(0,7)}
 function parseGlobalAwardEligibility(report){
   if(!report||typeof report!=='object')return {eligible:false,reason:''}
@@ -64,7 +65,7 @@ async function fetchPartnerGlobalAwards(account,context,params={}){
   const resource=findBusinessTool('wholesale','global-awards')
   const result=config.useMock
     ?mockBusinessReport(account,context,resource,{month,filter:params.filter||'promotion',keyword:params.keyword||''})
-    :await request('/partner/global-awards',{data:{month,filter:params.filter||'',keyword:params.keyword||'',cursor:params.cursor,offset:params.offset,contextId:context.id,pageSize:params.pageSize||20}})
+    :await request('/partner/global-awards',{data:{contextId:context.id,month}})
   checkBusinessAccount(account)
   const normalized=presentAwardCopy(normalizeGlobalAwardsReport(normalizeList(result)))
   const eligibility=cacheGlobalAwards(context.id,month,normalized)
@@ -93,7 +94,7 @@ function normalizePromotionReport(result){
 }
 async function fetchPartnerPromotionTasks(account,context){
   const resource=findBusinessTool('wholesale','promotion')
-  const result=config.useMock?mockBusinessReport(account,context,resource,{}):await request('/partner/promotion-tasks',{data:{contextId:context.id,pageSize:20}})
+  const result=config.useMock?mockBusinessReport(account,context,resource,{}):await request('/partner/promotion-tasks',{data:{contextId:context.id}})
   checkBusinessAccount(account)
   const report=normalizePromotionReport(result)
   promotionCache.set(context.id,report)
@@ -193,7 +194,7 @@ async function loadWholesaleToolPayload(account,context,toolId,params={}){
   try{
     const result=config.useMock
       ?mockBusinessReport(account,context,resource,params)
-      :await request(resource.endpoint,{data:{...params,contextId:context.id,pageSize:20}})
+      :await request(resource.endpoint,{data:queryData({...params,contextId:context.id})})
     checkBusinessAccount(account)
     return result&&typeof result==='object'?result:null
   }catch{
@@ -285,7 +286,7 @@ function mergeWholesaleDashboardStats(overview,stats){
 function normalizeAgencyRelation(person){
   if(!person||typeof person!=='object')return null
   const agencyLabel=String(person.agencyLabel||person.levelLabel||person.rankLabel||person.scopeLabel||'').trim()
-  const partnerLabel=publicIdentityLabel(person.partnerLabel)
+  const partnerLabel=wholesaleLevelDisplay(person.partnerLabel)||publicIdentityLabel(person.partnerLabel)
   const regionLabel=String(person.regionLabel||person.scopeLabel||person.areaLabel||'').trim()
   return {
     ...person,
@@ -321,7 +322,7 @@ async function loadAgencyToolPayload(account,context,toolId,params={}){
   try{
     const result=config.useMock
       ?mockBusinessReport(account,context,resource,params)
-      :await request(resource.endpoint,{data:{...params,contextId:context.id,assignmentId:context.assignmentId,pageSize:20}})
+      :await request(resource.endpoint,{data:queryData({...params,contextId:context.id,assignmentId:context.assignmentId})})
     checkBusinessAccount(account)
     return result&&typeof result==='object'?result:null
   }catch{
@@ -353,7 +354,7 @@ async function fetchAgencyIncomeReport(account,context,{force=false}={}){
   try{
     const raw=config.useMock
       ?mockBusinessReport(account,context,resource,{filter:'',keyword:''})
-      :await request('/income/entries',{data:{filter:'',keyword:'',contextId:context.id,contractId:context.contractId||'',assignmentId:context.assignmentId,pageSize:20}})
+      :await request('/income/entries',{data:{contextId:context.id}})
     checkBusinessAccount(account)
     if(!raw||typeof raw!=='object')return null
     const report=presentAwardCopy(normalizeList(raw))
@@ -511,7 +512,7 @@ function ordinaryWholesaleOverviewShell(account,context,entitlement){
     name:account.name||account.nickname||'',
     levelName:'普通用户',
     partnerStatus:'NONE',
-    rankDescription:'您当前不是合伙人，升级可享受合伙人权益',
+    rankDescription:'您当前不是批发商，升级可享受批发商权益',
     experience:0,
     experienceTarget:9980,
     benefits:[
@@ -619,6 +620,14 @@ function normalizeList(result){
   if(typeof result.hasMore!=='boolean'||(result.hasMore&&(typeof result.nextCursor!=='string'||!result.nextCursor)))throw new Error('经营列表格式异常')
   return result
 }
+function normalizeGlobalAwardRights(rights){
+  if(!rights||typeof rights!=='object')return null
+  const label=String(rights.label||'').trim()
+  const text=String(rights.text||'').trim()
+  const reason=String(rights.reason||'').trim()
+  if(!label&&!text&&rights.active==null&&!reason)return null
+  return {active:rights.active===true,reason,label,text}
+}
 function normalizeGlobalAwardsReport(report){
   const summary=Array.isArray(report.summary)
     ?report.summary
@@ -645,7 +654,7 @@ function normalizeGlobalAwardsReport(report){
     salesAmount:item.salesAmount??item.vipSold??null,
     id:item.id||`global-award-${item.month||index}`,
   }))
-  return {...report,summary,columns,items,currentMonth:report.currentMonth?{...report.currentMonth,vipSold:report.currentMonth.vipSold??report.currentMonth.salesAmount??null,salesAmount:report.currentMonth.salesAmount??report.currentMonth.vipSold??null}:null}
+  return {...report,summary,columns,items,rights:normalizeGlobalAwardRights(report.rights),currentMonth:report.currentMonth?{...report.currentMonth,vipSold:report.currentMonth.vipSold??report.currentMonth.salesAmount??null,salesAmount:report.currentMonth.salesAmount??report.currentMonth.vipSold??null}:null}
 }
 function normalizeCostoreDividendReport(report,kind){
   const card=kind==='card-dividends'
@@ -815,7 +824,7 @@ export function getBusinessReport(module,id,contextId,params={}){
       const fromBootstrap=reportFromBootstrap(resource,bootstrap)
       if(fromBootstrap)return fromBootstrap
     }
-    const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:{...params,filter,keyword,contextId:context.id,contractId:context.contractId||'',assignmentId:context.assignmentId,pageSize:20}})
+    const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:queryData({...params,contextId:context.id,...(module==='agency'&&resource.id==='team'?{assignmentId:context.assignmentId}:{})})})
     let normalized=normalizeList(result)
     if(module==='costore'&&['card-dividends','promotion-dividends'].includes(resource.id))normalized=normalizeCostoreDividendReport(normalized,resource.id)
     if(module==='agency'&&resource.id==='team'){
@@ -863,6 +872,16 @@ export function getBusinessIncomeDetail(contextId,id){
   })
 }
 /** Live `/agency/team/{id}` returns `{node,members,stores}`; mock keeps a flat node. */
+function normalizeAgencyTeamRegionGroups(groups){
+  if(!Array.isArray(groups))return groups
+  return groups.map(group=>{
+    if(!group||typeof group!=='object')return group
+    return {...group,items:Array.isArray(group.items)?group.items.map(normalizeAgencyTeamItem).filter(Boolean):group.items}
+  })
+}
+function normalizeTeamNodePerformance(value){
+  return Array.isArray(value)?fillAgencyTeamMetrics(value):(value==null?null:value)
+}
 function normalizeAgencyTeamNodeDetail(result){
   if(!result||typeof result!=='object')return null
   const raw=result.node&&typeof result.node==='object'?result.node:result
@@ -872,10 +891,16 @@ function normalizeAgencyTeamNodeDetail(result){
   const stores=storeSource.map(normalizeAgencyStore).filter(Boolean)
   const base=normalizeAgencyTeamItem({...raw,stores,owners:Array.isArray(raw.owners)?raw.owners:[]})
   if(!base)return null
+  const regionGroups=Array.isArray(result.regionGroups)?result.regionGroups:(Array.isArray(raw.regionGroups)?raw.regionGroups:raw.regionGroups??result.regionGroups)
   return {
     ...base,
-    performance:fillAgencyTeamMetrics(raw.performance ?? result.performance),
+    parentId:base.parentId,
+    parentAssignmentId:base.parentAssignmentId,
+    parentUserId:base.parentUserId,
+    directDownline:base.directDownline,
+    performance:normalizeTeamNodePerformance(raw.performance??result.performance),
     members:memberSource?memberSource.map(normalizeAgencyTeamItem).filter(Boolean):null,
+    regionGroups:Array.isArray(regionGroups)?normalizeAgencyTeamRegionGroups(regionGroups):regionGroups,
     childPage:{
       hasMore:result.hasMore===true,
       nextCursor:typeof result.nextCursor==='string'?result.nextCursor:null,
@@ -891,20 +916,23 @@ export function getBusinessTeamNode(contextId,id){
     return node
   })
 }
+function partnerRoleDisplay(value){
+  return value==='合伙人'?'批发商':value
+}
 function normalizeWithdrawalItem(item,index=0){
   if(!item||typeof item!=='object')return null
   const applicantRole=['partner','agent','costore'].includes(item.applicantRole)?item.applicantRole:'partner'
-  const applicantRoleLabel=item.applicantRoleLabel||({partner:'合伙人',agent:'代理',costore:'合店老板'}[applicantRole])
+  const applicantRoleLabel=partnerRoleDisplay(item.applicantRoleLabel||({partner:'批发商',agent:'代理',costore:'合店老板'}[applicantRole]))
   const points=Number(item.points??item.amount??0)
   const amountYuan=Number(item.amountYuan??item.amountYuanValue??points)
   const identity=['partner','agent','costore'].includes(item.identity)?item.identity:applicantRole
-  const identityLabel=item.identityLabel||({partner:'合伙人',agent:'区域代理',costore:'合店老板'}[identity])
+  const identityLabel=partnerRoleDisplay(item.identityLabel||({partner:'批发商',agent:'区域代理',costore:'合店老板'}[identity]))
   const redemptionId=String(item.redemptionId||item.id||`withdrawal-${index}`)
   return {...item,id:redemptionId,redemptionId,redemptionNo:String(item.redemptionNo||redemptionId),identity,identityLabel,identityScopeLabel:item.identityScopeLabel||'',applicantRole,applicantRoleLabel,points:Number.isFinite(points)?points:0,amountYuan:Number.isFinite(amountYuan)?amountYuan:0,rejectReason:item.rejectReason??item.rejectionReason??''}
 }
 export function getBusinessWithdrawals(contextId,cursor=null){
   return withBusinessContext(contextId,null,async(account,context)=>{
-    const result=normalizeList(config.useMock?{items:mockClone(mockBusinessState(account,context).withdrawals),hasMore:false,nextCursor:null}:await request('/wallet/withdrawals',{data:{contextId:context.id,cursor,pageSize:20}}))
+    const result=normalizeList(config.useMock?{items:mockClone(mockBusinessState(account,context).withdrawals),hasMore:false,nextCursor:null}:await request('/wallet/withdrawals',{data:queryData({contextId:context.id,cursor})}))
     return {...result,items:result.items.map(normalizeWithdrawalItem).filter(Boolean)}
   })
 }

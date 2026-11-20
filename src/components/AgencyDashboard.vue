@@ -245,7 +245,7 @@
               ><text
                 v-if="relationPerson?.partnerLabel"
                 class="relation-partner-badge"
-                >{{ relationPerson.partnerLabel }}</text
+                >{{ wholesaleLevelDisplay(relationPerson.partnerLabel) || relationPerson.partnerLabel }}</text
               ></view
             >
             <text v-if="relationOpen === 'superior'"
@@ -254,7 +254,7 @@
               }}</text
             >
             <text v-else
-              >合伙身份：{{ relationPerson?.partnerLabel || "" }}</text
+              >合伙身份：{{ wholesaleLevelDisplay(relationPerson?.partnerLabel) || relationPerson?.partnerLabel || "" }}</text
             >
             <text
               >{{ relationOpen === "superior" ? "代理地区" : "所在地区" }}：{{
@@ -292,6 +292,7 @@
 
 <script setup>
   import { agencyDisplayName } from "../features/agency/display-name";
+  import { wholesaleLevelDisplay } from "../features/business/account-rank";
   import { computed, onMounted, onUnmounted, ref } from "vue";
   import { useAuth } from "../composables/useAuth";
   import { useAppTabBar } from "../composables/useAppTabBar";
@@ -487,9 +488,12 @@
   }
   function agencyIdentity(person, key) {
     if (key === "referrer")
-      return String(person?.partnerLabel || "")
-        .trim()
-        .replace(/合伙人$/, "");
+      return (
+        wholesaleLevelDisplay(person?.partnerLabel) ||
+        String(person?.partnerLabel || "")
+          .trim()
+          .replace(/合伙人$/, "")
+      );
     const label = String(
       person?.agencyLabel || typeMeta[person?.agencyType] || "",
     ).trim();

@@ -38,9 +38,9 @@
     <view class="income-store">
      <view class="income-store-photo"><image :src="view.store.imageUrl" mode="aspectFill"/></view>
      <view>
-      <view class="income-name">{{view.store.name}} <text class="income-badge">{{view.store.number}}</text></view>
-      <text>{{view.store.address}}</text>
-      <text>店长信息：{{view.store.manager}}</text>
+      <view class="income-name">{{view.store.name}} <text v-if="view.store.number" class="income-badge">{{view.store.number}}</text></view>
+      <text>门店地址：{{view.store.address || '暂未提供'}}</text>
+      <text>店长：{{[view.store.managerName, view.store.managerPhone].filter(Boolean).join('/') || '暂未提供'}}</text>
      </view>
     </view>
    </template>
@@ -74,7 +74,7 @@ import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOpera
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
 import MetricSkeleton from './MetricSkeleton.vue'
-import { storeDisplayAddress, storePhotoUrl } from '../features/store-display'
+import { storeDisplayAddress, storePhotoUrl, storeManager } from '../features/store-display'
 const props=defineProps({pageQuery:Object})
 const context=ref(null),allocationOpen=ref(false),options=ref(null),targetId=ref(''),agentId=ref(''),quote=ref(null),busy=ref(false),operationError=ref('')
 let attemptKey=''
@@ -99,13 +99,25 @@ const view=computed(()=>{
   const entry=data.value
   if(entry?.presentation){
     const amount=entry.presentation.amount
+    const presentation={...entry.presentation}
+    if(presentation.store){
+      const manager=storeManager(presentation.store)
+      presentation.store={
+        ...presentation.store,
+        managerName:manager.name,
+        managerPhone:manager.phone,
+        imageUrl:storePhotoUrl(presentation.store)||presentation.store.imageUrl||'/static/common/icon-store.png',
+      }
+    }
     return {
-      ...entry.presentation,
+      ...presentation,
       amount:amount==null||amount===''?null:amount,
     }
   }
   const signed=formatSignedMetricMoney(entry?.amount,money)
   const base=pickMetricNumber(entry?.baseAmount)
+  const storeInfo=entry?.deliveryStore||entry?.store
+  const storeMgr=storeManager(storeInfo)
   return {
     amount:signed,
     notice:entry?.pendingNote||'',
@@ -114,10 +126,14 @@ const view=computed(()=>{
       {label:'业务明细',value:cleanBizDetail(entry)},
       ...(entry?.sourceOrder?[{label:'订单编号',value:String(entry.sourceOrder).replace(/^单号：/,'').trim()}]:[]),
       {label:'有效值',value:base==null?'':money(base)},
-      {label:'计价方式',value:entry?.rateLabel||''},
+      // 2026-11-18：隐藏所有收益详情的提点（计价方式）；合店行改为展示开通人/开通期限
+      ...(entry?.costoreInfo?[
+        {label:'开通人',value:entry.costoreInfo.ownerName||''},
+        {label:'开通期限',value:entry.costoreInfo.termLabel||''},
+      ]:[]),
     ],
     people:[entry?.recommendedBy||entry?.recommended,entry?.purchaser||entry?.buyer].filter(Boolean).map((item,index)=>({title:index?'购买人信息':'推荐人信息',name:item.name||'暂未提供',badge:displayLevel(item.levelLabel||item.roleLabel),avatarUrl:item.avatarUrl||'',lines:[item.phone?`联系方式：${item.phone}`:'联系方式待后台提供',item.address?`门店地址：${item.address}`:''].filter(Boolean)})),
-    store:(entry?.deliveryStore||entry?.store)?.name?{title:'服务门店',name:(entry.deliveryStore||entry.store).name,number:(entry.deliveryStore||entry.store).number||(entry.deliveryStore||entry.store).code||'',address:storeDisplayAddress(entry.deliveryStore||entry.store)||(entry.deliveryStore||entry.store).address||'',manager:(entry.deliveryStore||entry.store).manager||'',imageUrl:storePhotoUrl(entry.deliveryStore||entry.store)||(entry.deliveryStore||entry.store).imageUrl||'/static/common/icon-store.png'}:null,
+    store:storeInfo?.name?{title:'服务门店',name:storeInfo.name,number:storeInfo.number||storeInfo.code||'',address:storeDisplayAddress(storeInfo)||storeInfo.address||'',managerName:storeMgr.name,managerPhone:storeMgr.phone,imageUrl:storePhotoUrl(storeInfo)||storeInfo.imageUrl||'/static/common/icon-store.png'}:null,
   }
 })
 const candidates=computed(()=>options.value?.fields?.find(field=>field.key==='targetId')?.options||[])

@@ -71,7 +71,7 @@ function validAddress(payload) {
 }
 export function getAddresses(cursor = null) {
   return scoped(async user => {
-    const result = config.useMock ? { items: copy(mockProfileState(user).addresses), nextCursor: null, hasMore: false } : await request('/addresses', { data: { cursor, pageSize: 20 } })
+    const result = config.useMock ? { items: copy(mockProfileState(user).addresses), nextCursor: null, hasMore: false } : await request('/addresses', { data: { cursor } })
     return pageResult(result, '地址')
   })
 }
@@ -120,7 +120,7 @@ export function deleteAddress(id, version) {
 export function getCoupons(status, cursor = null) {
   if (!['available','used','void'].includes(status)) fail('优惠券状态无效')
   return scoped(async user => {
-    const result = config.useMock ? { items: copy(mockCommerceState(user).coupons.filter(item=>item.status===status).map(item=>({...item,discountAmount:item.amount,thresholdText:item.thresholdLabel||(item.minAmount?`满${item.minAmount}可用`:'无门槛'),validUntilLabel:`有效期至${String(item.expiresAt||'').slice(0,10).replaceAll('-','/')}`,scopeLabel:item.scopeLabel||'全部商品可用'}))), nextCursor: null, hasMore: false } : await request('/coupons', { data: { status, cursor, pageSize: 20 } })
+    const result = config.useMock ? { items: copy(mockCommerceState(user).coupons.filter(item=>item.status===status).map(item=>({...item,discountAmount:item.amount,thresholdText:item.thresholdLabel||(item.minAmount?`满${item.minAmount}可用`:'无门槛'),validUntilLabel:`有效期至${String(item.expiresAt||'').slice(0,10).replaceAll('-','/')}`,scopeLabel:item.scopeLabel||'全部商品可用'}))), nextCursor: null, hasMore: false } : await request('/coupons', { data: { status, cursor } })
     return pageResult(result, '优惠券')
   })
 }
@@ -128,7 +128,7 @@ export function getMyOrders(filter = 'all', cursor = null, keyword = '') {
   const filters = { all: {}, 'pending-payment': { status: 'PENDING_PAYMENT' }, 'waiting-shipment': { status: 'PAID', fulfillmentStatus: 'WAIT_SHIP' }, 'waiting-receipt': { status: 'PAID', fulfillmentStatus: 'SHIPPED' }, completed: { status: 'COMPLETED' } }
   if (!filters[filter]) fail('订单筛选条件无效')
   return scoped(async user => {
-    const result = pageResult(config.useMock ? mockOrders(user,{filter,keyword}) : await request('/orders', { data: { ...filters[filter], cursor, keyword, pageSize: 20 } }), '订单')
+    const result = pageResult(config.useMock ? mockOrders(user,{filter,keyword}) : await request('/orders', { data: { ...filters[filter], cursor, keyword } }), '订单')
     if (config.useMock) return result
     return { ...result, items: result.items.map(normalizeRemoteOrderMoney) }
   })

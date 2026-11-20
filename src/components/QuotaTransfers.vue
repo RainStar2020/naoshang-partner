@@ -24,7 +24,9 @@
 </template>
 <script setup>
 import {ref,watch,onUnmounted} from 'vue'
+import {wholesaleLevelDisplay} from '../features/business/account-rank'
 import {getBusinessContext,getBusinessReport} from '../services/business'
+import {sortByRecent} from '../features/business/chronology'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import BusinessPageHeader from './BusinessPageHeader.vue'
 import FeaturePageState from './FeaturePageState.vue'
@@ -33,13 +35,13 @@ const props=defineProps({query:Object}),context=ref(null),items=ref([]),hasMore=
 let cursor=null,epoch=0
 const {data:report,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext('wholesale',props.query?.contextId);context.value=ctx;return getBusinessReport('wholesale','quota-transfers',ctx.id,{})},false)
 watch(()=>props.query,value=>{if(value)load()},{immediate:true})
-watch(report,value=>{if(value){items.value=value.items;hasMore.value=value.hasMore;cursor=value.nextCursor}})
+watch(report,value=>{if(value){items.value=sortByRecent(value.items,['at','createdAt']);hasMore.value=value.hasMore;cursor=value.nextCursor}})
 watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}})
-const tier=value=>({cofounder:'联创合伙人',private:'私董合伙人',angel:'天使合伙人',vip:'VIP合伙人',store:'单店',district:'区县代'}[String(value||'').toLowerCase()]||value||'—')
+const tier=value=>{const key=String(value||'').toLowerCase();if(key==='store')return '单店';if(key==='district'||key==='county')return '区县代';return wholesaleLevelDisplay(value)||value||'—'}
 function titleOf(item){return item.category==='upgrade'?'消耗名额升级':'划转VIP名额'}
 function signedQty(item){const qty=Number(item.qty)||0;return item.direction==='in'?`+${qty}`:`-${qty}`}
 function time(value){const date=new Date(value);if(Number.isNaN(date.getTime()))return '—';const p=n=>String(n).padStart(2,'0');return `${date.getFullYear()}-${p(date.getMonth()+1)}-${p(date.getDate())} ${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`}
-async function more(){if(loadingMore.value||!hasMore.value||!context.value)return;const current=epoch;loadingMore.value=true;try{const next=await getBusinessReport('wholesale','quota-transfers',context.value.id,{cursor});if(current===epoch){items.value=[...items.value,...next.items];hasMore.value=next.hasMore;cursor=next.nextCursor}}catch(reason){if(current===epoch)moreError.value=reason.message||'加载失败'}finally{if(current===epoch)loadingMore.value=false}}
+async function more(){if(loadingMore.value||!hasMore.value||!context.value)return;const current=epoch;loadingMore.value=true;try{const next=await getBusinessReport('wholesale','quota-transfers',context.value.id,{cursor});if(current===epoch){items.value=sortByRecent([...items.value,...next.items],['at','createdAt']);hasMore.value=next.hasMore;cursor=next.nextCursor}}catch(reason){if(current===epoch)moreError.value=reason.message||'加载失败'}finally{if(current===epoch)loadingMore.value=false}}
 onUnmounted(()=>{++epoch});defineExpose({refresh:load})
 </script>
 <style scoped>

@@ -96,7 +96,7 @@ export function getVisibleExclusiveEntries(access) {
 export function getFounderAwards(month, cursor = null) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('请选择有效月份')
   return withExclusive('founder-awards', async (_user, access) => {
-    const result = listResult(config.useMock ? mockFounderAwards(month) : await request('/founder-awards', { data: { month, cursor, pageSize: 20, contextId: access.contextId } }))
+    const result = listResult(config.useMock ? mockFounderAwards(month) : await request('/founder-awards', { data: { month, cursor, contextId: access.contextId } }))
     const currentMonth = result.currentMonth && typeof result.currentMonth === 'object' ? result.currentMonth : null
     const identity = result.identity && typeof result.identity === 'object' ? result.identity : null
     const info = Array.isArray(result.info) ? result.info : []
@@ -195,7 +195,7 @@ export function submitCostoreApplication({ quoteId, idempotencyKey, agreementVer
 }
 export function getMyApplications(cursor = null) {
   return withExclusive('costore-application', async (user, access) => {
-    const result = listResult(config.useMock ? { items: copy(mockExclusiveState(user).applications), hasMore: false, nextCursor: null } : await request('/applications', { data: { type: 'COSTORE', cursor, pageSize: 20, contextId: access.contextId } }))
+    const result = listResult(config.useMock ? { items: copy(mockExclusiveState(user).applications), hasMore: false, nextCursor: null } : await request('/applications', { data: { type: 'COSTORE', cursor, contextId: access.contextId } }))
     return {
       ...result,
       items: result.items.map((item) => (

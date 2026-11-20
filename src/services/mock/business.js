@@ -421,7 +421,6 @@ export function mockBusinessReport(
       createdAt: at,
       details: [
         { label: "实付金额", value: 158000, kind: "money" },
-        { label: "个人提点", value: 1300, kind: "percent" },
       ],
     });
     items = [1, 2, 3]

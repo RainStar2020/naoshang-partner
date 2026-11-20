@@ -26,7 +26,7 @@ export function getMaterialCategories(type) {
 export function getMaterials(type, { categoryId, cursor = null } = {}) {
   checkType(type)
   return scoped(async () => {
-    const result = config.useMock ? mockMaterials(type, categoryId) : await request('/materials', { data: { type, categoryId, cursor, pageSize: 20 } })
+    const result = config.useMock ? mockMaterials(type, categoryId) : await request('/materials', { data: { type, categoryId, cursor } })
     const page = result == null || result.items == null ? { ...(result || {}), items: [], hasMore: false, nextCursor: null } : result
     if (!Array.isArray(page.items) || (page.hasMore != null && typeof page.hasMore !== 'boolean') || (page.hasMore && !page.nextCursor)) throw new Error('素材列表格式异常')
     if (page.items.some(item => !item.id || !item.title || item.type !== type)) throw new Error('素材数据格式异常')

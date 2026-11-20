@@ -1,4 +1,5 @@
 /** Income settlement / withdrawable display rules. Amounts stay in yuan. */
+import { wholesaleLevelDisplay, publicIdentityLabel } from './account-rank'
 
 const UNSETTLED_CODES = new Set([
   'PENDING',
@@ -38,7 +39,8 @@ export function unsettledIncomeNote(item) {
   const settle = String(item?.settlementStatus || item?.allocationStatus || item?.status || '')
   const upper = settle.toUpperCase().replace(/-/g, '_')
   if (upper === 'PENDING_ALLOCATION' || settle.includes('待分配') || upper === 'PENDING' && item?.allocationStatus === 'PENDING') {
-    return '待分配提成，暂不可提现'
+    // 2026-11-18：按参考文案更新（待分配标记由后端 allocationStatus=PENDING 给出）
+    return '本单存在待分配提成，收益暂不计入可提现金额'
   }
   return '待结算，暂不可提现'
 }
@@ -76,7 +78,26 @@ export function isPeriodicAwardOrPoolEntry(item) {
   return false
 }
 
+function displayIncomeIdentity(value) {
+  if (value == null || value === '') return value
+  if (typeof value !== 'string') return value
+  const mapped = wholesaleLevelDisplay(value)
+  if (mapped && mapped !== value && mapped !== publicIdentityLabel(value)) return mapped
+  if (mapped && mapped !== publicIdentityLabel(value)) return mapped
+  return value
+}
+function presentIncomeCopy(item) {
+  const next = normalizeIncomeEntry(item)
+  if (!next || typeof next !== 'object') return next
+  const details = Array.isArray(next.details)
+    ? next.details.map((row) => {
+        if (!row || typeof row !== 'object') return row
+        return { ...row, value: displayIncomeIdentity(row.value) }
+      })
+    : next.details
+  return { ...next, details }
+}
 export function presentIncomeEntries(items) {
   const list = Array.isArray(items) ? items : []
-  return list.map(normalizeIncomeEntry).filter(item => !isPeriodicAwardOrPoolEntry(item))
+  return list.map(presentIncomeCopy).filter(item => !isPeriodicAwardOrPoolEntry(item))
 }

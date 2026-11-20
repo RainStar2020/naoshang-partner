@@ -39,6 +39,13 @@ export const agencyTeamMetricLabels = Object.freeze([
   "累计业绩",
 ]);
 
+function officialTeamMetricLabel(label) {
+  const value = String(label || "").trim();
+  if (value === "半年业绩" || value === "上半年业绩" || value === "最近半年业绩") return "上半年业绩";
+  if (value === "本年业绩" || value === "最近一年业绩" || value === "近一年业绩") return "本年业绩";
+  return value;
+}
+
 const levelLabels = Object.freeze({
   PROVINCE: "省代",
   province: "省代",
@@ -133,6 +140,166 @@ export function agencyTeamRegionNames(item = {}) {
   return single ? [single] : [];
 }
 
+export function agencyAdcode(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const head = raw.split("-")[0];
+  if (/^\d{6}$/.test(head)) return head;
+  const matched = raw.match(/\d{6}/);
+  return matched ? matched[0] : "";
+}
+
+export function agencyTeamServiceAreas(item = {}) {
+  const territoryLabel = (area) =>
+    agencyTeamRegionLabel({
+      ...item,
+      regionCode:
+        typeof area === "object"
+          ? area.regionCode || area.areaCode || area.code
+          : area,
+      regionLabel:
+        typeof area === "object"
+          ? area.name ||
+            area.label ||
+            area.regionLabel ||
+            area.title ||
+            area.code
+          : area,
+    });
+  if (Array.isArray(item.regions) && item.regions.length) {
+    return item.regions
+      .map((area, index) => {
+        const code = String(
+          area?.regionCode || area?.areaCode || area?.code || "",
+        ).trim();
+        const label = String(
+          area?.regionLabel ||
+            area?.label ||
+            area?.name ||
+            territoryLabel(area),
+        ).trim();
+        return { key: code || label || index, code, label: label || code };
+      })
+      .filter((area) => area.label);
+  }
+  if (Array.isArray(item.regionLabels) && item.regionLabels.length) {
+    return item.regionLabels
+      .map((label, index) => ({
+        key: `${label}-${index}`,
+        code:
+          item.regionLabels.length === 1 ? String(item.regionCode || "") : "",
+        label: String(label),
+      }))
+      .filter((area) => area.label);
+  }
+  const list = Array.isArray(item.territoryList) ? item.territoryList : [];
+  return list
+    .map((area, index) => ({
+      key: String(area) || index,
+      code:
+        typeof area === "object"
+          ? String(area.regionCode || area.areaCode || area.code || "")
+          : String(area),
+      label: territoryLabel(area),
+    }))
+    .filter((area) => area.label);
+}
+
+/**
+ * Viewer scope from getBusinessContext:
+ * regionCode / region_code (6-digit adcode, optional suffix like 410201-S1),
+ * agencyType (wired from agencyType / regionType), regionType as fallback.
+ * `scope` is an identity id (agency:accountId:assignmentId), not an adcode.
+ */
+export function viewerAgencyRegionScope(context = {}) {
+  const agencyType = String(
+    context?.agencyType || context?.regionType || "",
+  ).toUpperCase();
+  const code = agencyAdcode(context?.regionCode || context?.region_code || "");
+  let kind = "";
+  if (agencyType === "PROVINCE" || (code && code.endsWith("0000"))) {
+    kind = "PROVINCE";
+  } else if (
+    agencyType === "CITY" ||
+    (code && code.endsWith("00") && !code.endsWith("0000"))
+  ) {
+    kind = "CITY";
+  } else if (agencyType === "COUNTY" || agencyType === "DISTRICT") {
+    kind = "COUNTY";
+  }
+  const digits =
+    kind === "PROVINCE" ? 2 : kind === "CITY" ? 4 : kind === "COUNTY" ? 6 : 0;
+  const prefix = code && digits ? code.slice(0, digits) : "";
+  return { agencyType: kind, code, prefix, digits, usable: Boolean(prefix) };
+}
+
+export function areaInViewerAgencyScope(area, context) {
+  const scope = viewerAgencyRegionScope(context);
+  if (!scope.usable) return null;
+  const code = agencyAdcode(
+    area && typeof area === "object"
+      ? area.code || area.regionCode || area.areaCode
+      : area,
+  );
+  if (!code) return false;
+  return code.startsWith(scope.prefix);
+}
+
+export function viewerScopedAgencyAreaLabel(area, context) {
+  const scope = viewerAgencyRegionScope(context);
+  const code = agencyAdcode(
+    area && typeof area === "object"
+      ? area.code || area.regionCode || area.areaCode
+      : area,
+  );
+  if (scope.agencyType === "PROVINCE" && code) {
+    return agencyTeamRegionLabel({ regionCode: `${code.slice(0, 4)}00` });
+  }
+  if (code) return agencyTeamRegionLabel({ regionCode: code });
+  if (area && typeof area === "object") {
+    return String(area.label || area.regionLabel || area.name || "").trim();
+  }
+  return String(area || "").trim();
+}
+
+export function sortAgencyTeamServiceAreasByViewer(areas, context) {
+  const list = Array.isArray(areas) ? areas : [];
+  if (!viewerAgencyRegionScope(context).usable) return list.slice();
+  const inside = [];
+  const outside = [];
+  for (const area of list) {
+    if (areaInViewerAgencyScope(area, context)) inside.push(area);
+    else outside.push(area);
+  }
+  return inside.concat(outside);
+}
+
+export function firstViewerAgencyAreaIndex(areas, context) {
+  const list = Array.isArray(areas) ? areas : [];
+  if (!viewerAgencyRegionScope(context).usable) return 0;
+  const index = list.findIndex((area) => areaInViewerAgencyScope(area, context));
+  return index >= 0 ? index : 0;
+}
+
+export function agencyTeamViewerRegionLabel(item = {}, context = {}) {
+  const areas = agencyTeamServiceAreas(item);
+  const scope = viewerAgencyRegionScope(context);
+  const filtered = scope.usable
+    ? areas.filter((area) => areaInViewerAgencyScope(area, context))
+    : [];
+  if (scope.usable) {
+    if (!filtered.length) return agencyTeamRegionLabel(item);
+    return viewerScopedAgencyAreaLabel(filtered[0], context) || agencyTeamRegionLabel(item);
+  }
+  const picked = areas[0];
+  if (!picked) return agencyTeamRegionLabel(item);
+  return (
+    picked.label ||
+    agencyTeamRegionLabel({ regionCode: picked.code, regionLabel: picked.label }) ||
+    agencyTeamRegionLabel(item)
+  );
+}
+
 function agencyTeamManagedCount(item = {}, unit) {
   const keys =
     unit === "市"
@@ -191,7 +358,7 @@ function normalizeMetricRows(value) {
   if (Array.isArray(value)) {
     return value
       .map((item) => ({
-        label: String(item?.label || "").trim() || "业绩",
+        label: officialTeamMetricLabel(String(item?.label || "").trim()) || "业绩",
         value: Number.isFinite(Number(item?.value)) ? Number(item.value) : 0,
         kind: item?.kind || "money",
       }))
@@ -204,8 +371,8 @@ function normalizeMetricRows(value) {
           {
             本月业绩: ["month", "monthly", "monthAmount", "本月业绩"],
             季度业绩: ["quarter", "quarterly", "quarterAmount", "季度业绩"],
-            半年业绩: ["halfYear", "half", "halfYearAmount", "上半年业绩"],
-            本年业绩: ["year", "yearly", "yearAmount", "本年业绩"],
+            上半年业绩: ["halfYear", "half", "halfYearAmount", "半年业绩", "上半年业绩", "最近半年业绩"],
+            本年业绩: ["year", "yearly", "yearAmount", "本年业绩", "最近一年业绩", "近一年业绩"],
             累计业绩: [
               "total",
               "cumulative",
@@ -230,24 +397,27 @@ function normalizeMetricRows(value) {
 }
 
 /**
- * Always return the five designed metrics.
- * When performance payload is absent, values stay pending (undefined) so UI can skeleton.
- * When payload exists but a label is missing, treat as explicit 0.
+ * Fill the official five agency team performance metrics.
+ * Official labels: 本月业绩、季度业绩、上半年业绩、本年业绩、累计业绩.
+ * Amounts stay in yuan. Old labels alias into official display names
+ * (半年业绩 / 最近半年业绩 → 上半年业绩; 最近一年业绩 / 近一年业绩 → 本年业绩).
+ * Items 3/4 remain rolling last 6 / 12 months — this helper only remaps labels.
+ * null / undefined / non-object must stay unfilled: never five zeros or a pending skeleton.
+ * Callers show the performance module only when Array.isArray(performance).
  */
 export function fillAgencyTeamMetrics(performance) {
-  if (performance == null) {
-    return agencyTeamMetricLabels.map((label) => ({
-      label,
-      value: undefined,
-      kind: "money",
-      pending: true,
-    }));
+  if (performance == null || typeof performance !== "object") {
+    return null;
   }
   const rows = normalizeMetricRows(performance);
-  const byLabel = new Map(rows.map((item) => [item.label, item]));
+  const byLabel = new Map();
+  for (const item of rows) {
+    const key = officialTeamMetricLabel(item.label);
+    if (!byLabel.has(key)) byLabel.set(key, { ...item, label: key });
+  }
   return agencyTeamMetricLabels.map((label) => {
     const found = byLabel.get(label);
-    if (found) return found;
+    if (found) return { ...found, label };
     return { label, value: 0, kind: "money" };
   });
 }
@@ -286,7 +456,15 @@ export function normalizeAgencyTeamItem(item) {
     partnerLevel: item.partnerLevel || levelLabel,
     storeCount: agencyTeamStoreCount({ ...item, stores }),
     ownerCount: agencyTeamOwnerCount({ ...item, owners }),
-    performance: fillAgencyTeamMetrics(item.performance),
+    performance: Array.isArray(item.performance)
+      ? fillAgencyTeamMetrics(item.performance)
+      : item.performance == null
+        ? null
+        : item.performance,
+    parentId: item.parentId,
+    parentAssignmentId: item.parentAssignmentId,
+    parentUserId: item.parentUserId,
+    directDownline: item.directDownline,
     stores,
     owners,
   };

@@ -127,6 +127,14 @@ function requestMethod(options = {}) {
   return String(options.method || 'GET').toUpperCase()
 }
 
+// GET filters are optional. Do not serialize empty placeholders into the URL:
+// they add noise to API diagnostics and are semantically identical to omission.
+function compactGetOptions(options = {}) {
+  if (requestMethod(options) !== 'GET' || !options.data || typeof options.data !== 'object' || Array.isArray(options.data)) return options
+  const data = Object.fromEntries(Object.entries(options.data).filter(([, value]) => value !== undefined && value !== null && value !== ''))
+  return { ...options, data }
+}
+
 function getCacheKey(path, options = {}, session = getSession()) {
   return JSON.stringify([
     requestMethod(options),
@@ -240,6 +248,7 @@ export function getCachedMyInviteCode() {
   return cached
 }
 export function request(path, options = {}) {
+  options = compactGetOptions(options)
   const method = requestMethod(options)
   if (path === '/me/bootstrap' && method === 'GET') {
     const session = getSession()

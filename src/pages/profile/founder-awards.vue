@@ -51,6 +51,7 @@ import { useAsyncPage } from '../../composables/useAsyncPage'
 import { getFounderAwards } from '../../services/exclusive'
 import { money, percent } from '../../features/exclusive/format'
 import { pickMetricNumber } from '../../features/business/metric-display'
+import { sortByRecentMonth } from '../../features/business/chronology'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import MetricSkeleton from '../../components/MetricSkeleton.vue'
@@ -60,7 +61,7 @@ const now = new Date(), month = ref(`${now.getFullYear()}-${String(now.getMonth(
 const monthTitle = computed(() => `${Number(month.value.slice(5))}月总裁补贴`)
 let cursor = null, epoch = 0
 const { data, status, error, load } = useAsyncPage(() => getFounderAwards(month.value))
-watch(data, result => { if (result) { rows.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })
+watch(data, result => { if (result) { rows.value = sortByRecentMonth(result.items); hasMore.value = result.hasMore; cursor = result.nextCursor } })
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
 const summaryReady = computed(() => data.value?.summary != null)
 const amountValue = computed(() => pickMetricNumber(data.value?.displayAmount))
@@ -85,7 +86,7 @@ async function more() {
   try {
     const result = await getFounderAwards(month.value, cursor)
     if (current === epoch) {
-      rows.value = [...new Map([...rows.value, ...result.items].map(item => [item.id, item])).values()]
+      rows.value = sortByRecentMonth([...new Map([...rows.value, ...result.items].map(item => [item.id, item])).values()])
       cursor = result.nextCursor
       hasMore.value = result.hasMore
     }
@@ -106,7 +107,8 @@ onUnload(() => { ++epoch })
 .award-metrics { display: flex; gap: .4em; padding: .85em .4em; border-radius: .7em; background: #353a59; }
 .award-metrics > view { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35em; align-items: center; }
 .award-metrics text:last-child { color: #fff; font-weight: 700; overflow-wrap: anywhere; }
-.report-table { margin-top: 1em; overflow-x: auto; }
+.report-table { margin-top: 1em; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.report-table::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .table-row { display: grid; grid-template-columns: 1.2fr .9fr .9fr 1.2fr; gap: .3em; padding: .75em .35em; text-align: center; background: #313652; align-items: center; justify-items: center; }
 .table-row > text { min-width: 0; overflow-wrap: anywhere; }
 .table-row:nth-child(even) { background: #3a4060; }

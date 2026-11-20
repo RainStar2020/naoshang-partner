@@ -96,7 +96,7 @@
         v-if="context.module === 'wholesale'"
         class="business-card rank-card"
         ><text class="business-badge">当前等级</text>
-        <view class="rank-title">{{ overview.levelName }}</view
+        <view class="rank-title">{{ wholesaleLevelDisplay(overview.levelName) || overview.levelName }}</view
         ><text class="business-muted">{{
           overview.rankDescription || "尊享合伙权益"
         }}</text>
@@ -385,7 +385,7 @@
     businessModuleLabel,
     sortBusinessModules,
   } from "../features/business/catalog";
-  import { isOrdinaryAccount } from "../features/business/account-rank";
+  import { isOrdinaryAccount, wholesaleLevelDisplay } from "../features/business/account-rank";
   import { money } from "../features/exclusive/format";
   import { getSession } from "../services/api";
   import {
@@ -566,6 +566,8 @@
       return (
         BENEFIT_FULL_LABELS[item.id] ||
         BENEFIT_FULL_LABELS[item.label] ||
+        wholesaleLevelDisplay(item.label) ||
+        wholesaleLevelDisplay(item.id) ||
         item.label
       );
     }),

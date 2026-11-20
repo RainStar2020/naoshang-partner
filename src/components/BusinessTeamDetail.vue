@@ -16,7 +16,7 @@
      </view>
     </view>
    </view>
-   <view class="detail-performance-card">
+   <view v-if="showPerformance" class="detail-performance-card">
     <view class="detail-performance-heading">
      <text>业绩统计</text>
      <view v-if="scopeSummary(data.node).kind==='regional'" class="detail-store-summary">{{scopeSummary(data.node).text}}</view>
@@ -32,9 +32,9 @@
    </view>
    <view class="detail-base-title">基础信息</view>
    <view class="detail-base">
-    <view><text>合伙等级：</text><strong>{{data.node.partnerLevel || agencyLevel(data.node)}}</strong></view>
+    <view><text>合伙等级：</text><strong>{{partnerLevelText(data.node)}}</strong></view>
     <view><text>地区：</text><strong>{{regionLabelText}}</strong></view>
-    <view v-if="isRegional"><text>代理区域：</text><strong>{{territoryText}}</strong></view>
+    <view v-if="isRegional" class="detail-base-wide"><text>代理区域：</text><strong>{{territoryText}}</strong></view>
     <view v-else><text>门店数量：</text><strong>{{storeCount(data.node)}}</strong></view>
     <view v-if="!isRegional"><text>合店老板数量：</text><strong>{{ownerCount(data.node)}}</strong></view>
     <view class="detail-base-wide"><text>{{isRegional?'最早代理时间：':'最早开店时间：'}}</text><strong>{{date(data.node.createdAt)}}</strong></view>
@@ -80,7 +80,7 @@
      <view v-for="owner in data.node.owners||[]" :key="owner.id" class="detail-owner-card">
       <image v-if="owner.avatarUrl" :src="owner.avatarUrl" mode="aspectFill"/>
       <view>
-       <view>{{owner.name}} <em>{{owner.partnerLevel}}</em></view>
+       <view>{{owner.name}} <em>{{partnerLevelText(owner)}}</em></view>
        <text>合伙门店：{{owner.storeNames}}</text>
       </view>
      </view>
@@ -98,7 +98,8 @@
 import {computed,ref,watch,onUnmounted} from 'vue'
 import {money} from '../features/exclusive/format'
 import {businessDateLabel as date} from '../features/business/format'
-import {agencyTeamLevelLabel, agencyTeamRegionLabel, agencyTeamRegionNames, agencyTeamStoreCount, agencyTeamOwnerCount, agencyTeamScopeSummary, fillAgencyTeamMetrics} from '../features/agency/team-display'
+import {agencyTeamLevelLabel, agencyTeamRegionNames, agencyTeamStoreCount, agencyTeamOwnerCount, agencyTeamScopeSummary, fillAgencyTeamMetrics, agencyTeamServiceAreas, sortAgencyTeamServiceAreasByViewer, firstViewerAgencyAreaIndex, agencyTeamViewerRegionLabel} from '../features/agency/team-display'
+import {wholesaleLevelDisplay} from '../features/business/account-rank'
 import {pickMetricNumber} from '../features/business/metric-display'
 import {getBusinessContext,getBusinessTeamNode,getBusinessReport} from '../services/business'
 import {useAsyncPage} from '../composables/useAsyncPage'
@@ -121,49 +122,64 @@ const {data,status,error,load}=useAsyncPage(async()=>{
       },
     }
   }
+  // 2026-11-18：详情端点已按区域返回 regionGroups（含每个区域的直接下级 items），
+  // 直接复用，不再请求列表端点 + 前缀过滤（门店卡片无 regionCode，旧过滤会全部误杀）。
+  if(Array.isArray(node.regionGroups)){
+    return {node,children:{items:[],hasMore:false,nextCursor:null}}
+  }
   const children=await getBusinessReport('agency','team',ctx.id,{parentNodeId:node.id})
   return {node,children}
 },false)
 watch(()=>props.pageQuery,query=>{if(query){tab.value='stores';territoryIndex.value=0;load()}},{immediate:true})
+watch(data,value=>{if(value)territoryIndex.value=firstViewerAgencyAreaIndex(serviceAreas.value,context.value)})
 const agencyLevel=item=>agencyTeamLevelLabel(item)
+const partnerLevelText=item=>wholesaleLevelDisplay(item?.partnerLevel)||agencyLevel(item||{})
 const storeCount=item=>agencyTeamStoreCount(item)
 const ownerCount=item=>agencyTeamOwnerCount(item)
 const scopeSummary=item=>agencyTeamScopeSummary(item)
-const regionLabelText=computed(()=>agencyTeamRegionLabel(data.value?.node||{}))
+const regionLabelText=computed(()=>agencyTeamViewerRegionLabel(data.value?.node||{},context.value))
 const isStore=computed(()=>['单店代理','门店成员'].includes(agencyLevel(data.value?.node||{})))
 const isRegional=computed(()=>{
   const label=agencyLevel(data.value?.node||{})
   if(['省代','市代','区县代理'].includes(label))return true
   return Boolean(data.value?.children?.items?.length)&&!isStore.value
 })
-const nodeMetrics=computed(()=>fillAgencyTeamMetrics(data.value?.node?.performance))
+const nodeMetrics=computed(()=>Array.isArray(data.value?.node?.performance)?fillAgencyTeamMetrics(data.value.node.performance):[])
 const storeRows=computed(()=>data.value?.node?.stores||[])
-const territories=computed(()=>data.value?.node?.territoryList||[])
-const territoryLabel=area=>agencyTeamRegionLabel({...data.value?.node,regionCode:typeof area==='object'?(area.regionCode||area.areaCode||area.code):area,regionLabel:typeof area==='object'?(area.name||area.label||area.regionLabel||area.title||area.code):area})
-const serviceAreas=computed(()=>{
- const node=data.value?.node||{}
- if(Array.isArray(node.regions)&&node.regions.length)return node.regions.map((area,index)=>{
-  const code=String(area?.regionCode||area?.areaCode||area?.code||'').trim()
-  const label=String(area?.regionLabel||area?.label||area?.name||territoryLabel(area)).trim()
-  return {key:code||label||index,code,label:label||code}
- }).filter(area=>area.label)
- if(Array.isArray(node.regionLabels)&&node.regionLabels.length)return node.regionLabels.map((label,index)=>({key:`${label}-${index}`,code:node.regionLabels.length===1?String(node.regionCode||''):'' ,label:String(label)})).filter(area=>area.label)
- return territories.value.map((area,index)=>({key:String(area)||index,code:typeof area==='object'?String(area.regionCode||area.areaCode||area.code||''):String(area),label:territoryLabel(area)})).filter(area=>area.label)
-})
+const serviceAreas=computed(()=>sortAgencyTeamServiceAreasByViewer(agencyTeamServiceAreas(data.value?.node||{}),context.value))
 const territoryText=computed(()=>{
  const names=agencyTeamRegionNames(data.value?.node||{})
  return names.join('、')||regionLabelText.value
 })
 const displayedChildren=computed(()=>{
- const rows=data.value?.children?.items||[]
  const area=serviceAreas.value[territoryIndex.value]
+ // 优先：后端已按区域分好的 regionGroups，按 regionCode 精确匹配，无需前端再过滤。
+ const groups=data.value?.node?.regionGroups
+ if(Array.isArray(groups)&&area?.code){
+  const group=groups.find(g=>String(g.regionCode)===String(area.code))
+  if(group)return Array.isArray(group.items)?group.items:[]
+ }
+ const rows=data.value?.children?.items||[]
  if(!area?.code)return rows
  const prefix=area.code.replace(/-.*/, '').replace(/0+$/, '')
  return rows.filter(child=>String(child.regionCode||child.areaCode||'').replace(/-.*/, '').startsWith(prefix))
 })
 const metricPending=metric=>metric?.pending===true||pickMetricNumber(metric?.value)==null
 const metricValue=metric=>metric?.kind==='money'?money(metric.value??0):metric?.value??0
-function open(id){uni.navigateTo({url:`/pages/agency/team-detail?contextId=${encodeURIComponent(context.value.id)}&nodeId=${encodeURIComponent(id)}`})}
+function parseTeamDetailDepth(query){
+  const value=Number(query?.depth)
+  return Number.isInteger(value)&&value>=1?value:null
+}
+const showPerformance=computed(()=>{
+  if(!Array.isArray(data.value?.node?.performance))return false
+  const depth=parseTeamDetailDepth(props.pageQuery)
+  if(depth!=null&&depth>1)return false
+  return true
+})
+function currentTeamDepth(){
+  return parseTeamDetailDepth(props.pageQuery)??1
+}
+function open(id){uni.navigateTo({url:`/pages/agency/team-detail?contextId=${encodeURIComponent(context.value.id)}&nodeId=${encodeURIComponent(id)}&depth=${encodeURIComponent(currentTeamDepth()+1)}`})}
 async function more(){if(loadingMore.value||!data.value?.children.hasMore)return;loadingMore.value=true;moreError.value='';try{const result=await getBusinessReport('agency','team',context.value.id,{parentNodeId:data.value.node.id,cursor:data.value.children.nextCursor});if(active)data.value.children={...result,items:[...data.value.children.items,...result.items]}}catch(reason){if(active)moreError.value=reason.message}finally{if(active)loadingMore.value=false}}
 onUnmounted(()=>{active=false});defineExpose({refresh:load})
 </script>
@@ -195,7 +211,8 @@ onUnmounted(()=>{active=false});defineExpose({refresh:load})
 .detail-base strong{color:#fff;font-weight:500}
 .detail-base-wide{grid-column:1/-1}
 .detail-section-title{margin-top:48rpx;padding-bottom:16rpx;border-bottom:5rpx solid #14bfff;width:max-content;color:#18c8ff;font-size:30rpx;font-weight:700}
-.detail-territories{display:flex;gap:24rpx;margin:24rpx 0 30rpx;overflow-x:auto}
+.detail-territories{display:flex;gap:24rpx;margin:24rpx 0 30rpx;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.detail-territories::-webkit-scrollbar{display:none;width:0;height:0}
 .detail-territories button{flex:0 0 auto;margin:0;padding:12rpx 26rpx;border-radius:32rpx;background:#4a5275;color:#bbc4d9;font-size:25rpx;line-height:1.4}
 .detail-territories button.selected{background:linear-gradient(90deg,#21c8ee,#2d5cfb);color:#06316b}
 .detail-team-card{display:block;margin:0 0 24rpx;padding:28rpx 24rpx;border-radius:24rpx;background:#414a70}

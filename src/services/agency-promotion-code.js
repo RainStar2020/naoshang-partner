@@ -5,7 +5,7 @@ export const AGENCY_PROMOTION_CODE_PATTERN = /^A[0-9A-Z]{8}$/
 export const MOCK_PARTNER_AGENCY_PROMOTION_CODE = 'A7K3M9P2Q'
 
 export const RETIRED_AGENCY_PROMOTION_CODE_MESSAGE = '该推广码已失效，请使用最新的代理推广码'
-export const MISSING_AGENCY_PROMOTION_CODE_MESSAGE = '当前账号暂无代理推广码，开通合伙人权益后再试'
+export const MISSING_AGENCY_PROMOTION_CODE_MESSAGE = '当前账号暂无代理推广码，开通批发商权益后再试'
 export const INVALID_AGENCY_PROMOTION_CODE_MESSAGE = '请使用有效的代理推广码'
 
 /** Personal invite codes are 6 Crockford-like characters and must not be used as agency codes. */

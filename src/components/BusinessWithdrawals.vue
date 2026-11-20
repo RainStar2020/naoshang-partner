@@ -3,18 +3,19 @@
 import {ref,watch,computed,onUnmounted} from 'vue'
 import {money} from '../features/exclusive/format'
 import {businessDateLabel} from '../features/business/format'
+import {sortByRecent} from '../features/business/chronology'
 import {getBusinessContext,getBusinessWithdrawals} from '../services/business'
 import {withdrawalIdentityOf,redemptionNoOf} from '../services/partner-wallet'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
 import EmptyState from './EmptyState.vue'
-const props=defineProps({pageQuery:Object}),context=ref(null),items=ref([]),hasMore=ref(false),loadingMore=ref(false),moreError=ref(''),roles=[{value:'partner',label:'合伙人'},{value:'agent',label:'代理'},{value:'costore',label:'合店老板'}];let cursor=null,epoch=0
+const props=defineProps({pageQuery:Object}),context=ref(null),items=ref([]),hasMore=ref(false),loadingMore=ref(false),moreError=ref(''),roles=[{value:'partner',label:'批发商'},{value:'agent',label:'代理'},{value:'costore',label:'合店老板'}];let cursor=null,epoch=0
 const {data,status,error,load}=useAsyncPage(async()=>{const ctx=await getBusinessContext(null,props.pageQuery?.contextId);context.value=ctx;return getBusinessWithdrawals(ctx.id)},false)
-watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true});watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}});watch(data,result=>{if(result){items.value=result.items;hasMore.value=result.hasMore;cursor=result.nextCursor}})
+watch(()=>props.pageQuery,query=>{if(query)load()},{immediate:true});watch(status,value=>{if(value==='loading'){++epoch;loadingMore.value=false;moreError.value=''}});watch(data,result=>{if(result){items.value=sortByRecent(result.items);hasMore.value=result.hasMore;cursor=result.nextCursor}})
 const statusLabel=value=>({PENDING_REVIEW:'待审核',PROCESSING:'处理中',SUCCEEDED:'已完成',REJECTED:'未通过'}[value]||'状态待确认')
 const points=value=>`${money(value)}积分`
 const activeRole=computed(()=>({wholesale:'partner',agency:'agent',costore:'costore'}[context.value?.module]||'partner')),visibleItems=computed(()=>items.value.filter(item=>item.identity===activeRole.value)),activeRoleLabel=computed(()=>roles.find(item=>item.value===activeRole.value)?.label||'')
-async function more(){if(loadingMore.value||!hasMore.value)return;const current=epoch;loadingMore.value=true;try{const result=await getBusinessWithdrawals(context.value.id,cursor);if(current===epoch){items.value=[...new Map([...items.value,...result.items].map(item=>[item.id,item])).values()];cursor=result.nextCursor;hasMore.value=result.hasMore}}catch(reason){if(current===epoch)moreError.value=reason.message}finally{if(current===epoch)loadingMore.value=false}}
+async function more(){if(loadingMore.value||!hasMore.value)return;const current=epoch;loadingMore.value=true;try{const result=await getBusinessWithdrawals(context.value.id,cursor);if(current===epoch){items.value=sortByRecent([...new Map([...items.value,...result.items].map(item=>[item.id,item])).values()]);cursor=result.nextCursor;hasMore.value=result.hasMore}}catch(reason){if(current===epoch)moreError.value=reason.message}finally{if(current===epoch)loadingMore.value=false}}
 onUnmounted(()=>{++epoch});defineExpose({refresh:load})
 </script>
 <style>@import '../styles/account.css';@import '../styles/exclusive.css';@import '../styles/business.css';</style>

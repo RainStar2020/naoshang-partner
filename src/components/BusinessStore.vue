@@ -41,36 +41,65 @@
               <view class="store-person-copy">
                 <view class="store-person-name">{{ owner.name }}</view>
                 <view class="store-person-meta">
-                  <text class="store-id">ID {{ owner.displayId || "" }}</text>
-                  <text>手机号 {{ owner.phone || "" }}</text>
+                  <text class="store-chip"
+                    >ID {{ owner.displayId || "" }}</text
+                  >
+                  <text class="store-chip"
+                    >手机号 {{ owner.phone || "" }}</text
+                  >
                 </view>
               </view>
             </view>
             <view class="store-performance">
               <view class="store-performance-head"
-                ><text>业绩统计</text
-                ><view v-if="owner.daysRemaining == null">合店到期日未提供</view
-                ><view v-else
-                  >距合店到期还有 <em>{{ owner.daysRemaining }}</em
-                  >天</view
+                ><text class="store-section-title">业绩统计</text
+                ><view
+                  v-if="owner.daysRemaining == null"
+                  class="store-muted"
+                  >合店到期日未提供</view
+                ><view v-else class="store-expire"
+                  >距合店到期还有
+                  <em>{{ owner.daysRemaining }}</em>天</view
                 ></view
               >
               <view class="store-metrics">
                 <view
                   v-for="metric in owner.performance || []"
                   :key="metric.label"
-                  ><text>{{ metric.label }}</text
-                  ><strong>{{ money(metric.value) }}</strong></view
+                  ><text class="store-metric-label">{{ metric.label }}</text
+                  ><strong class="store-metric-value">{{
+                    money(metric.value)
+                  }}</strong></view
                 >
               </view>
             </view>
             <view class="store-contract">
-              <view
-                ><text>合店时长：{{ owner.durationLabel || "" }}</text
-                ><text>合店费用：{{ feeText(owner.feeAmount) }}</text></view
+              <view>
+                <text
+                  ><text class="store-field-label">合店时长：</text
+                  ><text class="store-field-value">{{
+                    owner.durationLabel || ""
+                  }}</text></text
+                >
+                <text
+                  ><text class="store-field-label">合店费用：</text
+                  ><text class="store-field-value">{{
+                    feeText(owner.feeAmount)
+                  }}</text></text
+                >
+              </view>
+              <text
+                ><text class="store-field-label">合店申请时间：</text
+                ><text class="store-field-value">{{
+                  clock(owner.appliedAt)
+                }}</text></text
               >
-              <text>合店开始时间：{{ clock(owner.startedAt) }}</text>
-              <text>合店到期时间：{{ clock(owner.validUntil) }}</text>
+              <text
+                ><text class="store-field-label">合店到期时间：</text
+                ><text class="store-field-value">{{
+                  clock(owner.validUntil)
+                }}</text></text
+              >
             </view>
           </view>
           <EmptyState v-if="!data.owners.length" text="暂无合店老板" />
@@ -710,7 +739,8 @@
         : "pending";
   }
   function feeMonth(value) {
-    return `${feeText(value)}/月`;
+    const text = feeText(value);
+    return text ? `${text}/月` : "";
   }
   function canDecide(item) {
     if (item.status !== "PENDING" || !can("approve")) return false;
@@ -729,9 +759,13 @@
     return Number.isInteger(value) ? String(value) : "0";
   }
   function feeText(value) {
-    return `¥${money(value)}`;
+    if (value == null || value === "") return "";
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "";
+    return `¥${money(number)}`;
   }
   function clock(value) {
+    if (value == null || value === "") return "";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value || "";
     const pad = (n) => String(n).padStart(2, "0");
@@ -1201,8 +1235,9 @@
     color: #b7c0d8;
     font-size: 0.75em;
   }
+  .store-chip,
   .store-id {
-    padding: 0 0.5em;
+    padding: 0 0.55em;
     border-radius: 1em;
     background: #4a5170;
     color: #d5dced;
@@ -1216,48 +1251,68 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.6em;
-    margin-bottom: 0.45em;
-    font-size: 0.82em;
+    margin-bottom: 0.55em;
+  }
+  .store-section-title {
+    color: #f4f7ff;
+    font-size: 0.92em;
+    font-weight: 600;
+  }
+  .store-expire,
+  .store-muted {
+    color: #c5cde2;
+    font-size: 0.78em;
   }
   .store-performance-head em {
-    color: #8ec8ff;
+    margin: 0 0.15em;
+    color: #3aa0ff;
+    font-size: 1.15em;
     font-style: normal;
     font-weight: 700;
   }
   .store-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    padding: 0.35em 0;
-    border-radius: 0.45em;
-    background: #464c6b;
+    padding: 0.55em 0.2em 0.35em;
+    border-radius: 0.55em;
+    background: #2c3252;
     text-align: center;
   }
   .store-metrics > view {
     min-width: 0;
-    padding: 0.45em 0.15em;
+    padding: 0.35em 0.15em 0.5em;
   }
   .store-metrics > view + view {
-    box-shadow: inset 1px 0 0 #5c6484;
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06);
   }
   .store-metrics > view:nth-child(3n + 1) {
     box-shadow: none;
   }
-  .store-metrics text {
+  .store-metric-label {
     display: block;
-    color: #a8b0c8;
-    font-size: 0.75em;
+    color: #9aa3bd;
+    font-size: 0.72em;
+    line-height: 1.4;
   }
-  .store-metrics strong {
+  .store-metric-value {
     display: block;
-    margin-top: 0.2em;
-    font-size: 0.95em;
+    margin-top: 0.28em;
+    color: #ffffff;
+    font-size: 1.05em;
     font-weight: 700;
+    line-height: 1.3;
   }
   .store-contract {
     margin-top: 0.75em;
-    color: #d5dced;
     font-size: 0.82em;
-    line-height: 1.7;
+    line-height: 1.85;
+  }
+  .store-field-label {
+    color: #9aa3bd;
+  }
+  .store-field-value {
+    color: #f2f5ff;
+    font-weight: 600;
   }
   .store-contract > view {
     display: flex;

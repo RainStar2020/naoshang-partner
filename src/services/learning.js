@@ -40,7 +40,7 @@ export async function getLearningIdentities() {
   // Bootstrap contexts may omit newly added family members; /members is the source of truth for children.
   const [bootstrap, membersPage] = await Promise.all([
     request('/me/bootstrap'),
-    request('/members', { data: { pageSize: 20, scope: 'family' } }),
+    request('/members', { data: { scope: 'family' } }),
   ])
   if (getSession()?.user?.id !== current.id || getSession()?.token !== current.sessionToken) throw new Error('登录账号已变化，请刷新后重试')
   const contexts = bootstrap?.contexts
@@ -124,7 +124,7 @@ export async function getAnnouncements(cursor = null) {
   user()
   const current = user()
   const reads = uni.getStorageSync(`naoshang-announcement-reads:${current.id}`) || {}
-  const result = config.useMock ? { items: mockAnnouncements.map(({ id, title, summary, publishedAtLabel, pinned }) => ({ id, title, summary, publishedAtLabel, pinned: !!pinned, read: !!reads[id] })).sort((a,b)=>Number(b.pinned)-Number(a.pinned)), nextCursor: null, hasMore: false } : await request('/announcements', { data: { cursor, pageSize: 20 } })
+  const result = config.useMock ? { items: mockAnnouncements.map(({ id, title, summary, publishedAtLabel, pinned }) => ({ id, title, summary, publishedAtLabel, pinned: !!pinned, read: !!reads[id] })).sort((a,b)=>Number(b.pinned)-Number(a.pinned)), nextCursor: null, hasMore: false } : await request('/announcements', { data: { cursor } })
   if (result == null || result.items == null) return { ...(result || {}), items: [], hasMore: false, nextCursor: null }
   if (!Array.isArray(result.items)) throw new Error('公告数据格式异常')
   if (result.hasMore != null && typeof result.hasMore !== 'boolean') throw new Error('公告数据格式异常')

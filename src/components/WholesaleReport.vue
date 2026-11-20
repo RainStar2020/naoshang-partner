@@ -49,7 +49,7 @@
                 ><view class="wh-superior-name"
                   >{{ report.superior.name }}
                   <text class="wh-tag">{{
-                    wholesaleLevelDisplay(report.superior.tier || report.superior.levelLabel || report.superior.tierLabel) || "合伙人"
+                    wholesaleLevelDisplay(report.superior.tier || report.superior.levelLabel || report.superior.tierLabel) || "批发商"
                   }}</text></view
                 ><view class="wh-muted"
                   >联系方式：{{ report.superior.phone || "" }}
@@ -523,12 +523,12 @@
                   class="wh-month-arrow"
                   src="/static/common/icon-chevron-right.png"
                   mode="aspectFit" /></view></picker
-            ><view class="wh-muted wh-center">{{ report.rights?.label || globalAwardEligibility }}</view
+            ><view class="wh-muted wh-center">{{ globalAwardRightsLabel }}</view
             ><view
-              v-if="report.rights?.text || report.eligibilityNote"
+              v-if="globalAwardRightsText"
               class="wh-muted wh-center wh-eligibility-note"
-              >{{ report.rights?.text || report.eligibilityNote }}</view
-            ><view v-if="report.dividendRights" class="wh-muted wh-center wh-eligibility-note">{{ report.dividendRights.label }}</view
+              >{{ globalAwardRightsText }}</view
+            ><view v-if="globalAwardRightsExtra" class="wh-muted wh-center wh-eligibility-note">{{ globalAwardRightsExtra }}</view
             ><view class="wh-metrics"
               ><view v-for="metric in globalAwardTotals" :key="metric.label"
                 ><text>{{ metric.label }}</text
@@ -543,7 +543,7 @@
               ></view
             ></view
           ><view class="wh-table-frame"
-            ><scroll-view scroll-x class="wh-table-scroll"
+            ><scroll-view scroll-x :show-scrollbar="false" class="wh-table-scroll"
               ><view class="wh-table"
                 ><view class="wh-tr head"
                   ><text
@@ -594,20 +594,19 @@
           >
             <view class="income-card-copy"
               ><text>{{ incomeMember(item) }}</text
-              ><view>{{ item.title || item.bizTypeLabel || "积分记录" }}</view
-              ><text>{{ incomeTime(item) }}</text
+              ><view>{{ item.bizTitle || item.title || item.bizTypeLabel || "积分记录" }}</view
+              ><text class="income-card-time">{{ incomeTime(item) }}</text
               ><text v-if="item.pendingNote" class="income-note">{{
                 item.pendingNote
               }}</text></view
             >
-            <view class="income-card-side"
-              ><text class="income-channel">{{
-                incomeChannel(item)
-              }}</text
-              ><view v-if="signedAmount(item.amount)!=null">{{ signedAmount(item.amount) }}</view
-              ><MetricSkeleton v-else size="compact" :inline="false"/>
-              ><text>查看详情</text></view
-            >
+            <view class="income-card-side">
+              <text class="income-channel">{{ incomeChannel(item) }}</text>
+              <view class="income-amount-row">
+                <view v-if="signedAmount(item.amount)!=null">{{ signedAmount(item.amount) }}</view>
+                <MetricSkeleton v-else size="compact" :inline="false" />
+              </view>
+            </view>
           </button>
         </template>
         <EmptyState
@@ -639,6 +638,7 @@
   import { partnerUpgradeQuote, wholesaleLevelDisplay } from "../features/business/account-rank";
   import { money, percent } from "../features/exclusive/format";
   import { businessDateLabel as date } from "../features/business/format";
+  import { sortByRecent, sortByRecentMonth } from "../features/business/chronology";
   import {
     formatMetricCountOrNull,
     formatSignedMetricMoney,
@@ -728,7 +728,9 @@
   });
   watch(report, (value) => {
     if (value) {
-      items.value = value.items;
+      items.value = props.toolId === "global-awards"
+        ? sortByRecentMonth(value.items)
+        : sortByRecent(value.items, ["createdAt", "occurredAt", "updatedAt", "at", "time", "grantedAt"]);
       cursor = value.nextCursor;
       hasMore.value = value.hasMore;
     }
@@ -744,21 +746,38 @@
         : value ?? 0;
   const show = (value, kind) => format(value, kind);
   const metricsSettled = computed(() => status.value === "ready");
+    const hasGlobalAwardMetrics = (row) =>
+      !!row &&
+      typeof row === "object" &&
+      ["amount", "weightedAmount", "performanceAmount", "vipSold", "salesAmount", "shareBps", "people", "poolAmount"].some(
+        (key) => row[key] != null && row[key] !== "",
+      );
     const globalAwardRow = computed(() => {
-      if (report.value?.currentMonth) return report.value.currentMonth;
-    const rows = report.value?.items || [];
-    return rows.find((item) => item.month === month.value) || rows[rows.length - 1] || {};
-  });
-  const globalAwardItems = computed(() =>
-    [...items.value].sort((left, right) =>
-      String(right.month || "").localeCompare(String(left.month || "")),
-    ),
-  );
+      const current = report.value?.currentMonth;
+      if (hasGlobalAwardMetrics(current)) return current;
+      const rows = report.value?.items || [];
+      return rows.find((item) => item.month === month.value) || rows[rows.length - 1] || {};
+    });
+  const globalAwardItems = computed(() => sortByRecentMonth(items.value));
   const globalAwardEligibility = computed(() => {
     const value = String(globalAwardRow.value?.eligibility || "").trim();
     if (value === "ELIGIBLE") return "符合全球奖资格";
     if (value === "INELIGIBLE") return "暂无全球奖资格";
+    if (/^[A-Z0-9_]+$/.test(value)) return report.value?.eligibilityLabel || "";
     return report.value?.eligibilityLabel || value;
+  });
+  const globalAwardRightsLabel = computed(() =>
+    String(report.value?.rights?.label || "").trim() || globalAwardEligibility.value,
+  );
+  const globalAwardRightsText = computed(() => {
+    const text = String(report.value?.rights?.text || "").trim();
+    if (text) return text;
+    if (report.value?.rights) return "";
+    return String(report.value?.eligibilityNote || "").trim();
+  });
+  const globalAwardRightsExtra = computed(() => {
+    if (report.value?.rights) return "";
+    return String(report.value?.dividendRights?.label || "").trim();
   });
   const globalAwardTotals = computed(() => [
     { label: "总分红", value: globalAwardRow.value?.amount, kind: "money" },
@@ -1101,11 +1120,14 @@
         }),
       );
       if (current === epoch) {
-        items.value = [
+        const merged = [
           ...new Map(
             [...items.value, ...next.items].map((x) => [x.id, x]),
           ).values(),
         ];
+        items.value = props.toolId === "global-awards"
+          ? sortByRecentMonth(merged)
+          : sortByRecent(merged, ["createdAt", "occurredAt", "updatedAt", "at", "time", "grantedAt"]);
         cursor = next.nextCursor;
         hasMore.value = next.hasMore;
       }
@@ -1466,6 +1488,9 @@
     font-size: 0.78em;
     line-height: 1.55;
   }
+  .income-card-time {
+    min-height: 1.55em;
+  }
   .income-card-copy > view {
     margin: 0.2em 0;
     color: #fff;
@@ -1488,17 +1513,18 @@
     font-size: 0.7em;
     line-height: 1.7;
   }
-  .income-card-side > view {
+  .income-amount-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35em;
     margin: 0.3em 0;
+  }
+  .income-amount-row > view {
     color: #fff;
     font-size: 1.22em;
     font-weight: 700;
     white-space: nowrap;
-  }
-  .income-card-side > text:last-child {
-    display: block;
-    color: #4eb6ff;
-    font-size: 0.88em;
   }
   .wh-share-card {
     border-radius: 1.1em;
