@@ -135,7 +135,7 @@ function pickCount(...values){
 function wholesaleBootstrapExtras(bootstrap){
   if(!bootstrap||typeof bootstrap!=='object')return {}
   const identity=bootstrap.identity&&typeof bootstrap.identity==='object'?bootstrap.identity:{}
-  const entitlement=normalizeEntitlement({...bootstrap.entitlement,state:identity.entitlementState??bootstrap.entitlement?.state,entitlementOpened:identity.entitlementOpened??bootstrap.entitlement?.entitlementOpened,canOpen:identity.canOpenEntitlement??bootstrap.entitlement?.canOpen})
+  const entitlement=normalizeEntitlement({...bootstrap.entitlement,state:identity.entitlementState??bootstrap.entitlement?.state,entitlementOpened:identity.entitlementOpened??bootstrap.entitlement?.entitlementOpened,canOpen:identity.canOpenEntitlement??bootstrap.entitlement?.canOpen,expiresAt:bootstrap.entitlement?.expiresAt??bootstrap.entitlement?.currentExpiresAt??bootstrap.currentExpiresAt??identity.expiresAt})
   const team=bootstrap.team&&typeof bootstrap.team==='object'?{summary:bootstrap.team.summary||null,members:filterBootstrapMembers(bootstrap.team.members)}:null
   const vipDetails=bootstrap.vipDetails&&typeof bootstrap.vipDetails==='object'?{...bootstrap.vipDetails,teamVipMembers:filterBootstrapMembers(bootstrap.vipDetails.teamVipMembers)}:null
   const memberCount=team?.summary?.memberCount
@@ -179,7 +179,7 @@ function applyWholesaleBootstrap(result,bootstrap){
     ...result,
     ...Object.fromEntries(Object.entries(extras).filter(([,value])=>value!==undefined)),
     entitlement,
-    annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? entitlement?.expiresAt ?? null),
+    annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? entitlement?.expiresAt ?? result.currentExpiresAt ?? null),
     // Transferred VIP count: keep API zero, and default missing to 0 (not em dash).
     transferred:transferred??0,
   }
@@ -559,7 +559,7 @@ export async function getBusinessOverview(module,id){
   }
   if(module==='agency'){
     clearPartnerPromotionCache()
-    const base=applyAgencyOverview({...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? null)})
+    const base=applyAgencyOverview({...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? result.entitlement?.currentExpiresAt ?? result.currentExpiresAt ?? null)})
     // Align with wholesale: overview/dashboard is the first-paint summary.
     // Team/income report stats stay the same logic but load after the shell is ready.
     const summary=agencyDashboardSummary(result.dashboard)
@@ -575,7 +575,7 @@ export async function getBusinessOverview(module,id){
   }
   if(module!=='wholesale'){
     clearPartnerPromotionCache()
-    const merged={...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? null)}
+    const merged={...result,annualValidUntil:normalizeAnnualUntil(result.annualValidUntil ?? result.entitlement?.expiresAt ?? result.entitlement?.currentExpiresAt ?? result.currentExpiresAt ?? null)}
     const overviewStore=result?.store&&typeof result.store==='object'?result.store:null
     const contextStore=context?.store&&typeof context.store==='object'?context.store:null
     const store={...(contextStore||{}),...(overviewStore||{})}

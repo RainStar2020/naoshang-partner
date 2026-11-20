@@ -81,6 +81,10 @@ export function resolveMutationCachePlan(path) {
   if (bare.startsWith('/applications')) {
     return { prefixes: ['/applications', '/costore', '/agency', '/me/bootstrap'], clearBootstrap: true }
   }
+  if (bare === '/me/entitlement-orders' || bare.startsWith('/me/entitlement-orders/')) {
+    // Entitlement display lives on /partner/workspace; the new pay entry must refresh it.
+    return { prefixes: ['/me', '/me/bootstrap', '/partner'], clearBootstrap: true, clearMe: true }
+  }
   if (bare === '/me' || bare.startsWith('/me/')) {
     return { prefixes: ['/me', '/me/bootstrap'], clearBootstrap: true, clearMe: true }
   }
@@ -190,13 +194,51 @@ export function normalizeEntitlementOpened(value, state) {
 }
 export function normalizeEntitlement(entitlement) {
   const source = entitlement && typeof entitlement === 'object' ? entitlement : {}
+  const expiresAt = source.expiresAt ?? source.currentExpiresAt ?? null
   return {
     ...source,
     amount: Number.isFinite(Number(source.amount)) ? Number(source.amount) : 200,
     entitlementOpened: normalizeEntitlementOpened(source.entitlementOpened, source.state),
     canOpen: source.canOpen === true || source.canOpen === 1 || source.canOpen === '1',
     displayOnly: source.displayOnly === true || source.displayOnly === 1 || source.displayOnly === '1',
+    ...(expiresAt != null && expiresAt !== '' ? { expiresAt } : {}),
   }
+}
+
+/** Prefer server expiry fields; format only at the UI layer. Do not decide validity by Date.now(). */
+export function entitlementExpiry(entitlement, extras = {}) {
+  const ent = entitlement && typeof entitlement === 'object' ? entitlement : {}
+  const extra = extras && typeof extras === 'object' ? extras : {}
+  for (const value of [ent.expiresAt, ent.currentExpiresAt, extra.expiresAt, extra.currentExpiresAt, extra.annualValidUntil]) {
+    if (value != null && value !== '') return value
+  }
+  return null
+}
+
+/** Unified display state from entitlement.state, else opened / currentPaid. Never infer from level or ID. */
+export function entitlementDisplayState(entitlement, extras = {}) {
+  const ent = entitlement && typeof entitlement === 'object' ? entitlement : {}
+  const extra = extras && typeof extras === 'object' ? extras : {}
+  const state = ent.state || extra.state || extra.entitlementState
+  if (['never_paid', 'active', 'expired'].includes(state)) return state
+  const paid = extra.currentPaid ?? ent.currentPaid
+  if (paid === true || paid === 1 || paid === '1') return 'active'
+  const opened = ent.entitlementOpened ?? extra.entitlementOpened
+  if (opened === 1 || opened === '1') return 'active'
+  if (opened === 0 || opened === '0' || paid === false || paid === 0 || paid === '0') {
+    return entitlementExpiry(ent, extra) ? 'expired' : 'never_paid'
+  }
+  return ''
+}
+
+export function isEntitlementCurrentlyValid(entitlement, extras = {}) {
+  return entitlementDisplayState(entitlement, extras) === 'active'
+}
+
+/** Drop cached partner/me payloads so a post-payment re-query is not served stale. */
+export function invalidateEntitlementViews() {
+  invalidateGetRequestCache(['/partner', '/me/bootstrap', '/me'])
+  clearBootstrapCache()
 }
 
 export const getSession = () => {

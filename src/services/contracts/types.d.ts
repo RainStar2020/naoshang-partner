@@ -19,7 +19,7 @@ export interface LockedResponse {
   frozen: boolean; canExportBills: boolean; message: string; displayId: string
 }
 export type Result<T> = T | LockedResponse
-export interface Entitlement { state: EntitlementState; entitlementOpened: 0 | 1; amount: Money; canOpen?: boolean; displayOnly?: boolean; minTier?: string; minTierLabel?: string; code?: string | null; reason?: string | null; expiresAt?: string; frozen?: boolean; canExportBills?: boolean }
+export interface Entitlement { state: EntitlementState; entitlementOpened: 0 | 1; amount: Money; canOpen?: boolean; displayOnly?: boolean; minTier?: string; minTierLabel?: string; code?: string | null; reason?: string | null; expiresAt?: string; frozen?: boolean; canExportBills?: boolean; currentExpiresAt?: string | number; currentPaid?: boolean }
 export type LoginRequest = { channel: 'parent'; phone: string; password: string } | { channel: 'coach'; loginAccount: string; password: string } | { channel: 'admin'; password: string }
 export interface Session { token: string; user: { id: string; name: string; role: string; displayId: string }; accountType: 'parent' | 'coach' | 'admin'; entitlement: Entitlement; expiresAt?: string }
 export interface Context { id: string; accountId: string; mode: 'parent' | 'child'; name: string; memberId?: string; displayId?: string; grade?: string; badge?: string }

@@ -100,17 +100,23 @@
         ><text class="business-muted">{{
           overview.rankDescription || "尊享合伙权益"
         }}</text>
-        <view v-if="needsEntitlementOpen" class="rank-footer"
+        <view v-if="entitlementStatus === 'never_paid'" class="rank-footer"
           ><text class="business-muted">您暂未开通权益收益费</text></view
         >
-        <view v-else-if="overview.partnerStatus !== 'NONE'" class="rank-footer"
+        <view v-else-if="entitlementStatus === 'expired'" class="rank-footer"
+          ><text class="business-muted">{{ entitlementExpiredLabel }}</text>
+          <view v-if="canShowPromotion" class="rank-links"
+            ><button @click="openId('promotion')">晋升任务</button></view
+          >
+        </view>
+        <view v-else-if="annualExpiryLabel" class="rank-footer"
           ><text class="business-muted">{{ annualExpiryLabel }}</text>
           <view v-if="canShowPromotion" class="rank-links"
             ><button @click="openId('promotion')">晋升任务</button></view
           >
         </view> </view
       ><button
-        v-if="context.module === 'wholesale' && needsEntitlementOpen"
+        v-if="context.module === 'wholesale' && entitlementCanOpen"
         class="annual-open"
         :disabled="entitlementBusy"
         @click="openAnnualConfirm"
@@ -387,7 +393,7 @@
   } from "../features/business/catalog";
   import { isOrdinaryAccount, wholesaleLevelDisplay } from "../features/business/account-rank";
   import { money } from "../features/exclusive/format";
-  import { getSession } from "../services/api";
+  import { getSession, entitlementDisplayState, entitlementExpiry, invalidateEntitlementViews } from "../services/api";
   import {
     getBusinessContexts,
     getBusinessContext,
@@ -395,6 +401,7 @@
     selectBusinessContext,
   } from "../services/business";
   import { prefetchPartnerWorkspace, scheduleIdle } from "../services/prefetch";
+  import { dataFreshness } from "../services/freshness";
   import { getWholesaleBenefitCatalog } from "../services/partner-catalog";
   import { createEntitlementFeeOrder } from "../services/entitlement-fee";
   import {
@@ -478,10 +485,19 @@
       overview.value?.entitlementOpened ??
       overview.value?.entitlement?.entitlementOpened,
   );
-  const needsEntitlementOpen = computed(() => {
-    if (!entitlementCanOpen.value) return false;
-    return entitlementOpened.value !== 1 && entitlementOpened.value !== "1";
-  });
+  const entitlementStatus = computed(() =>
+    entitlementDisplayState(overview.value?.entitlement, {
+      state: overview.value?.entitlementState,
+      entitlementState: overview.value?.entitlementState,
+      currentPaid: overview.value?.currentPaid,
+      entitlementOpened: entitlementOpened.value,
+      currentExpiresAt: overview.value?.currentExpiresAt,
+      annualValidUntil: overview.value?.annualValidUntil,
+    }),
+  );
+  const needsEntitlementOpen = computed(
+    () => entitlementCanOpen.value && entitlementStatus.value !== "active",
+  );
   const annualLocked = computed(() => needsEntitlementOpen.value);
   function formatAnnualUntil(value) {
     if (value == null || value === "") return "";
@@ -496,20 +512,30 @@
       pad = (n) => String(n).padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
-  const annualExpiryLabel = computed(() =>
-    overview.value?.annualValidUntil
-      ? `权益到期：${formatAnnualUntil(overview.value.annualValidUntil)}`
-      : overview.value?.annualRemainingDays == null
-        ? ""
-        : `权益将在${overview.value.annualRemainingDays}天后到期`,
+  const entitlementExpiryValue = computed(() =>
+    entitlementExpiry(overview.value?.entitlement, {
+      currentExpiresAt: overview.value?.currentExpiresAt,
+      annualValidUntil: overview.value?.annualValidUntil,
+    }),
   );
+  const annualExpiryLabel = computed(() => {
+    const until = entitlementExpiryValue.value;
+    if (until) return `权益到期：${formatAnnualUntil(until)}`;
+    if (overview.value?.annualRemainingDays == null) return "";
+    return `权益将在${overview.value.annualRemainingDays}天后到期`;
+  });
+  const entitlementExpiredLabel = computed(() => {
+    const until = entitlementExpiryValue.value;
+    return until ? `已过期（权益到期：${formatAnnualUntil(until)}）` : "已过期";
+  });
   const wholesaleOverlay = ref(""),
     agencyRef = ref(null),
     costoreRef = ref(null),
     overlayQuery = computed(() => ({ contextId: context.value?.id }));
   let epoch = 0,
     contextId = "",
-    switching = false;
+    switching = false,
+    seenFreshness = dataFreshness();
   const storeBindingMissing = computed(
     () =>
       overview.value?.storeBindingRequired === true &&
@@ -647,6 +673,7 @@
   }
   async function load(options = {}) {
     const force = options.force === true;
+    if (force || seenFreshness !== dataFreshness()) invalidateEntitlementViews();
     const current = ++epoch;
     const silent = !force && status.value === "ready" && !!overview.value;
     error.value = "";
@@ -719,6 +746,7 @@
         ? tierId.value
         : benefits[1]?.id || benefits[0]?.id || "";
       status.value = "ready";
+      seenFreshness = dataFreshness();
       scheduleIdle(() => prefetchPartnerWorkspace(result));
     } catch (reason) {
       if (current === epoch) {
@@ -795,8 +823,13 @@
       const result = await createEntitlementFeeOrder(entitlementFee.value);
       entitlementConfirm.value = false;
       if (result?.status === "SUCCEEDED" && !result?.orderId) {
-        uni.showToast({ title: "开通成功", icon: "success" });
-        await load();
+        invalidateEntitlementViews();
+        await load({ force: true });
+        const opened = entitlementStatus.value === "active";
+        uni.showToast({
+          title: opened ? "开通成功" : "支付已完成",
+          icon: opened ? "success" : "none",
+        });
         return;
       }
       const orderId = String(result?.orderId || "").trim();

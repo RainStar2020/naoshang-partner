@@ -876,7 +876,11 @@
   const incomeChannelLabels = ["直推奖", "运维补贴", "孵化补贴"];
   const incomeChannels = computed(() => {
     const rows = incomeChannelLabels.map((label) => {
-      const apiValue = incomeMetric(label);
+      const summaryKey = { 直推奖: "direct", 运维补贴: "repurchase", 孵化补贴: "parity" }[label];
+      const summary = report.value?.incomeSummary?.find(
+        (item) => item.key === summaryKey || item.label === label,
+      );
+      const apiValue = summary?.amount ?? incomeMetric(label);
       const itemValue = (items.value || [])
         .filter((item) => incomeChannel(item) === label)
         .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);

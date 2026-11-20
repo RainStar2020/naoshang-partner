@@ -41,6 +41,12 @@ test('entitlementOpened is normalized from the explicit field, state, or legacy 
   assert.equal(api.normalizeEntitlement({ state: 'expired' }).entitlementOpened, 0)
   assert.equal(api.normalizeEntitlement({ state: 'active' }).entitlementOpened, 1)
   assert.equal(api.normalizeEntitlement({}).entitlementOpened, 1)
+  assert.equal(api.normalizeEntitlement({ currentExpiresAt: '2027-01-01' }).expiresAt, '2027-01-01')
+  assert.equal(api.entitlementExpiry({ currentExpiresAt: '2027-01-01' }), '2027-01-01')
+  assert.equal(api.entitlementDisplayState({ state: 'expired' }), 'expired')
+  assert.equal(api.entitlementDisplayState({ entitlementOpened: 0 }, { currentPaid: false, currentExpiresAt: '2026-01-01' }), 'expired')
+  assert.equal(api.entitlementDisplayState({}, { currentPaid: true }), 'active')
+  assert.equal(api.isEntitlementCurrentlyValid({ state: 'never_paid' }), false)
 })
 
 test('timestamp, gate, allocation and payment adapters cover newly documented branches', async () => {

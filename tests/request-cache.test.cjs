@@ -136,6 +136,10 @@ test('resolveMutationCachePlan covers module prefixes and auth clear-all', async
   assert.equal(agency.clearBootstrap, true)
   assert.equal(api.resolveMutationCachePlan('/auth/sessions').clearAll, true)
   assert.deepStrictEqual([...api.resolveMutationCachePlan('/assets/upload-intents').prefixes], [])
+  const entitlementOrders = api.resolveMutationCachePlan('/me/entitlement-orders')
+  assert.deepStrictEqual([...entitlementOrders.prefixes], ['/me', '/me/bootstrap', '/partner'])
+  assert.equal(entitlementOrders.clearBootstrap, true)
+  assert.equal(entitlementOrders.clearMe, true)
 })
 
 test('invalidateGetRequestCache removes only matching prefixes', async () => {

@@ -1,5 +1,5 @@
 import {config} from '../config'
-import {request} from './api'
+import {request,normalizeEntitlement} from './api'
 import {withBusinessContext,businessAccount,checkBusinessAccount,clearAgencyIncomeCache} from './business'
 import {mockOperationOptions,mockOperationPreview,mockOperationCommit} from './mock/business-operations'
 import {parseBusinessAmount} from '../features/business/format'
@@ -179,9 +179,22 @@ function normalizeBusinessOperationOptions(kind,result){
   if(kind==='upgrade'&&!fields.some(item=>item?.key==='targetLevel')&&levelOptions.length){
     fields.push({key:'targetLevel',label:'目标等级',type:'enum',options:levelOptions})
   }
+  const entitlement=kind==='entitlement'
+    ?normalizeEntitlement({
+      ...(result.entitlement&&typeof result.entitlement==='object'?result.entitlement:{}),
+      canOpen:result.entitlement?.canOpen??result.canOpen,
+      currentPaid:result.entitlement?.currentPaid??result.currentPaid,
+      currentExpiresAt:result.entitlement?.currentExpiresAt??result.currentExpiresAt,
+      expiresAt:result.entitlement?.expiresAt??result.entitlement?.currentExpiresAt??result.currentExpiresAt,
+    })
+    :result.entitlement
+  const currentPaidFlag=result.currentPaid??result.entitlement?.currentPaid
+  const currentPaid=currentPaidFlag===true||currentPaidFlag===1||currentPaidFlag==='1'
+  const currentExpiresAt=result.currentExpiresAt??entitlement?.expiresAt??null
   const allowedActions=Array.isArray(result.allowedActions)
     ?result.allowedActions
-    :['quote','submit']
+    :(kind==='entitlement'?(entitlement?.canOpen===true?['quote','submit']:[]):['quote','submit'])
+  const disabledReason=result.disabledReason||(kind==='entitlement'&&!allowedActions.includes('quote')&&(entitlement?.reason||result.reason)||undefined)
   // Activity VIP upgrade fee: ¥2000 per quota when the API omits a positive unit price.
   const ACTIVITY_UPGRADE_UNIT=2000
   let activityUnitAmount=Number(result.serviceFeeRule?.perActivityQuota??result.activityUnitAmount??result.serviceFeePerActivity)
@@ -194,6 +207,12 @@ function normalizeBusinessOperationOptions(kind,result){
     members,
     upgradePlans,
     allowedActions,
+    ...(disabledReason?{disabledReason}:{}),
+    ...(kind==='entitlement'?{
+      entitlement,
+      ...(currentPaidFlag!=null?{currentPaid}:{}),
+      ...(currentExpiresAt!=null&&currentExpiresAt!==''?{currentExpiresAt}:{}),
+    }:{}),
     ...(standardRemaining!=null?{standardRemaining}:{}),
     ...(activityRemaining!=null?{activityRemaining}:{}),
     ...(sellerStandardRemaining!=null?{sellerStandardRemaining}:{}),
