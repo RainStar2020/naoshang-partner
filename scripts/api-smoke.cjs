@@ -9,7 +9,7 @@ async function main() {
   if (!phone || !password)
     throw new Error("Set API_TEST_PHONE and API_TEST_PASSWORD");
   const baseURL =
-    process.env.API_TEST_URL || "http://naoshang.chen1413.com.cn:3000";
+    process.env.API_TEST_URL || "https://naoshang.chen1413.com.cn";
   const storage = new Map(),
     cache = new Map();
   const context = vm.createContext({
