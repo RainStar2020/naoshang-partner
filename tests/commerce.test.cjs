@@ -122,3 +122,32 @@ test('remote create order adapts flat paid/sku payload into orderResult shape',a
 })
 
 test('only definitive checkout rejection unlocks a draft; network and unspecified conflicts stay uncertain',async()=>{const {api}=await setup();assert.equal(api.isCheckoutRejection({statusCode:422}),true);assert.equal(api.isCheckoutRejection({statusCode:409,code:'QUOTE_EXPIRED'}),true);assert.equal(api.isCheckoutRejection({statusCode:409}),false);assert.equal(api.isCheckoutRejection(new Error('network')),false);assert.equal(api.isCheckoutRejection({statusCode:500}),false)})
+
+
+test('cashier uses paymentId to query the original payment and accepts unavailable channels',async()=>{
+ const calls=[]
+ const {api}=await paymentSetup({useMock:false,remote:async(path)=>{calls.push(path);if(path.endsWith('/payment-channels'))return {items:[]};return {paymentId:'original-payment',orderId:'upgrade-order',status:path==='/payments/attempts'?'PROCESSING':'SUCCEEDED'}}})
+ assert.equal((await api.getPaymentChannels('upgrade-order')).items.length,0)
+ const payment=await api.startPayment('upgrade-order','unionpay','upgrade-pay')
+ assert.equal(payment.id,'original-payment')
+ assert.equal((await api.queryPayment(payment.id)).status,'SUCCEEDED')
+ assert.ok(calls.includes('/payments/attempts/original-payment'))
+})
+
+test('historical payment conflict preserves backend message and blocks further charge requests',async()=>{
+ let calls=0
+ const {api,storage}=await paymentSetup({useMock:false,remote:async()=>{calls++;throw Object.assign(new Error('请核对原付款结果'),{statusCode:409})}})
+ await assert.rejects(api.startPayment('legacy-order','unionpay','legacy-key'),/请核对原付款结果/)
+ const reload=await paymentSetup({useMock:false,storage,remote:async()=>{calls++;throw new Error('must not retry')}})
+ await assert.rejects(reload.api.startPayment('legacy-order','unionpay','new-key'),/请核对原付款结果/)
+ assert.equal(calls,1)
+})
+
+async function paymentSetup({remote,storage=new Map()}){
+ const context=vm.createContext({console,Date,uni:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k)}})
+ const values={config:{useMock:false},getSession:()=>({token:'A',user:{id:'A'}}),request:remote,withBusinessContext:()=>{},getCachedBoundStore:()=>null,loadMeContext:async()=>null,storeDisplayAddress:()=>'',storePhotoUrl:()=>''}
+ const module=new vm.SourceTextModule(fs.readFileSync(path.resolve(__dirname,'../src/services/commerce.js'),'utf8'),{context})
+ await module.link(()=>new vm.SyntheticModule(Object.keys(values),function(){for(const [key,value] of Object.entries(values))this.setExport(key,value)},{context}))
+ await module.evaluate()
+ return {api:module.namespace,storage}
+}

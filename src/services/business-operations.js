@@ -32,7 +32,7 @@ export const parseAmount=parseBusinessAmount
 export const COMMIT_SUCCESS_STATUSES=['PENDING_PAYMENT','PENDING_REVIEW','PENDING_SETTLEMENT','DEMO_APPLIED','APPLIED','SUCCEEDED','COMPLETED','PAID','CREATED']
 export function commitPaymentRef(result){
   if(!result||typeof result!=='object')return ''
-  for(const key of ['orderId','orderNo']){
+  for(const key of ['orderId']){
     const value=result[key]
     if(typeof value==='string'&&value.trim())return value.trim()
   }

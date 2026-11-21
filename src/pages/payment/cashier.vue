@@ -32,7 +32,7 @@
         </template>
       </view>
     </view>
-    <view v-if="order" class="shop-footer">
+    <view v-if="order && (attemptId || order.allowedActions.includes('pay'))" class="shop-footer">
       <button class="shop-primary cashier-pay" :disabled="payDisabled" @click="attemptId ? check() : pay()">{{ payLabel }}</button>
     </view>
   </view>
@@ -42,19 +42,20 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { getCommerceOrder, getPaymentChannels, startPayment, queryPayment, commerceRequestKey, getPendingPayment, parseCommerceTime, shouldDisplayPaymentSuccess, isPlaceholderOrderId } from '../../services/commerce'
+import { invalidateGetRequestCache, invalidateEntitlementViews } from '../../services/api'
 import { money } from '../../features/exclusive/format'
 import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 useAuth()
 let id = '', active = true, timer, offset = 0, loaded = false, paymentKey = '', paymentChannel = ''
-const order = ref(null), channels = ref([]), channel = ref(''), platformLabel = ref(''), status = ref('loading'), error = ref(''), busy = ref(false), message = ref(''), attemptId = ref(''), now = ref(Date.now())
+const order = ref(null), channels = ref([]), channel = ref(''), platformLabel = ref(''), status = ref('loading'), error = ref(''), busy = ref(false), message = ref(''), attemptId = ref(''), now = ref(Date.now()), conflict = ref(false)
 const expired = computed(() => order.value && parseCommerceTime(order.value.expiresAt) <= now.value + offset)
 const remaining = computed(() => {
   const sec = Math.max(0, Math.ceil((parseCommerceTime(order.value?.expiresAt) - now.value - offset) / 1000))
   const seconds = sec % 60
   return `${Math.floor(sec / 60)}分${seconds < 10 ? '0' : ''}${seconds}秒`
 })
-const payDisabled = computed(() => busy.value || !channel.value || (attemptId.value ? false : expired.value || !order.value?.allowedActions.includes('pay')))
+const payDisabled = computed(() => busy.value || conflict.value || (attemptId.value ? false : !channel.value || expired.value || !order.value?.allowedActions.includes('pay')))
 const payLabel = computed(() => busy.value ? '处理中…' : attemptId.value ? '查询支付结果' : '确认支付')
 async function load() {
   status.value = 'loading'
@@ -68,14 +69,16 @@ async function load() {
       channel.value = pending.channel
       paymentKey = pending.key
       paymentChannel = pending.channel
+      conflict.value = !!pending.conflict
+      if (pending.conflict) message.value = pending.message
     }
     offset = parseCommerceTime(result.serverTime ?? Date.now()) - Date.now()
     channels.value = ways.items
     platformLabel.value = ways.platformLabel || ''
-    if (!channel.value) channel.value = ways.items[0]?.id || ''
+    if (!attemptId.value && !ways.items.some(item => item.id === channel.value)) channel.value = ways.items[0]?.id || ''
     status.value = 'ready'
   } catch (reason) {
-    if (active) { error.value = reason.message; status.value = 'error' }
+    if (active) { error.value = reason.message; status.value = 'error'; if (reason.statusCode === 409) { conflict.value = true; message.value = reason.message } }
   }
 }
 function details() { uni.redirectTo({ url: `/pages/order/detail?id=${encodeURIComponent(id)}` }) }
@@ -99,6 +102,8 @@ async function check() {
       if (!shouldDisplayPaymentSuccess(result, id, orderVerified)) {
         message.value = '支付结果无法核对，订单不存在或尚未入账'
       } else {
+        invalidateEntitlementViews()
+        invalidateGetRequestCache(['/orders', '/applications', '/partner', '/members', '/costore'])
         uni.showToast({ title: '支付成功', icon: 'success' })
         details()
       }
@@ -110,11 +115,11 @@ async function check() {
       paymentKey = ''
       await load()
     }
-  } catch (reason) { if (active) message.value = reason.message }
+  } catch (reason) { if (active) { message.value = reason.message; if (reason.statusCode === 409) conflict.value = true } }
   finally { if (active) busy.value = false }
 }
 async function pay() {
-  if (busy.value || attemptId.value) return
+  if (payDisabled.value || attemptId.value) return
   busy.value = true
   message.value = ''
   if (!paymentKey || paymentChannel !== channel.value) { paymentKey = commerceRequestKey(); paymentChannel = channel.value }
@@ -122,13 +127,13 @@ async function pay() {
     const attempt = await startPayment(id, channel.value, paymentKey)
     if (!active) return
     attemptId.value = attempt.id
-  } catch (reason) { if (active) message.value = reason.message }
+  } catch (reason) { if (active) { message.value = reason.message; if (reason.statusCode === 409) conflict.value = true } }
   finally { if (active) busy.value = false }
   if (attemptId.value) await check()
 }
 const paymentMark = value => ({ wechat: '微', alipay: '支', unionpay: '银', 'bank-card': '卡', bank_card: '卡' }[value] || '付')
 onLoad(query => { id = query.orderId || ''; loaded = true; timer = setInterval(() => { now.value = Date.now() }, 1000) })
-onShow(() => { if (loaded) { load(); if (attemptId.value) check() } })
+onShow(async () => { if (loaded) { await load(); if (attemptId.value && !conflict.value) check() } })
 onUnload(() => { active = false; clearInterval(timer) })
 </script>
 <style>@import '../../styles/commerce.css';</style>

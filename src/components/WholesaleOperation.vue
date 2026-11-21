@@ -201,7 +201,7 @@ async function commit(){if(busy.value||!quote.value||!canSubmit.value)return;if(
 function pay(){const id=commitPaymentRef(result.value);if(!id)return;uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(id)}`})}
 function records(){uni.navigateTo({url:`/pages/wallet/withdrawals?contextId=${encodeURIComponent(context.value.id)}`})}
 function back(){if(uncertain.value){uni.showToast({title:'操作结果确认中，请勿重复提交',icon:'none'});return}if(getCurrentPages().length>1)uni.navigateBack();else uni.switchTab({url:'/pages/partners/index'})}
-async function refresh(){if(busy.value)return;const paymentRef=commitPaymentRef(result.value);if(paymentRef){try{const value=await getCommerceOrder(paymentRef);if(value.order.status==='COMPLETED')result.value={...result.value,status:'PAID'};else if(value.order.status==='CANCELLED')result.value={...result.value,status:'CANCELLED'}}catch(e){operationError.value=e.message}return}if(!quote.value&&!result.value)load()}
+async function refresh(){if(busy.value)return;const paymentRef=commitPaymentRef(result.value);if(paymentRef){try{const value=await getCommerceOrder(paymentRef);if(['PAID','COMPLETED'].includes(value.order.status)){options.value=await getBusinessOperationOptions(props.kind,context.value.id,'',{targetAccountId:draft.value.targetAccountId});result.value={...result.value,status:'PAID'}}else if(value.order.status==='CANCELLED')result.value={...result.value,status:'CANCELLED'}}catch(e){operationError.value=e.message}return}if(!quote.value&&!result.value)load()}
 onUnmounted(()=>{clearTimeout(quoteTimer);active=false;++epoch});defineExpose({refresh})
 </script>
 <style>@import '../styles/wholesale.css';</style>

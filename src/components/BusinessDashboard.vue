@@ -96,7 +96,9 @@
         v-if="context.module === 'wholesale'"
         class="business-card rank-card"
         ><text class="business-badge">当前等级</text>
-        <view class="rank-title">{{ wholesaleLevelDisplay(overview.levelName) || overview.levelName }}</view
+        <view class="rank-title">{{
+          wholesaleLevelDisplay(overview.levelName) || overview.levelName
+        }}</view
         ><text class="business-muted">{{
           overview.rankDescription || "尊享合伙权益"
         }}</text>
@@ -104,19 +106,37 @@
           ><text class="business-muted">您暂未开通权益收益费</text></view
         >
         <view v-else-if="entitlementStatus === 'expired'" class="rank-footer"
-          ><text class="business-muted">{{ entitlementExpiredLabel }}</text>
+          ><view class="rank-expiry"
+            ><text class="business-muted">{{ entitlementExpiredLabel }}</text>
+            <view v-if="entitlementCanRenew" class="rank-links"
+              ><button :disabled="entitlementBusy" @click="openAnnualConfirm">
+                续费
+              </button></view
+            >
+          </view>
           <view v-if="canShowPromotion" class="rank-links"
             ><button @click="openId('promotion')">晋升任务</button></view
           >
         </view>
         <view v-else-if="annualExpiryLabel" class="rank-footer"
-          ><text class="business-muted">{{ annualExpiryLabel }}</text>
+          ><view class="rank-expiry"
+            ><text class="business-muted">{{ annualExpiryLabel }}</text>
+            <view v-if="entitlementCanRenew" class="rank-links"
+              ><button :disabled="entitlementBusy" @click="openAnnualConfirm">
+                续费
+              </button></view
+            >
+          </view>
           <view v-if="canShowPromotion" class="rank-links"
             ><button @click="openId('promotion')">晋升任务</button></view
           >
         </view> </view
       ><button
-        v-if="context.module === 'wholesale' && entitlementCanOpen"
+        v-if="
+          context.module === 'wholesale' &&
+          entitlementCanOpen &&
+          entitlementStatus === 'never_paid'
+        "
         class="annual-open"
         :disabled="entitlementBusy"
         @click="openAnnualConfirm"
@@ -391,9 +411,17 @@
     businessModuleLabel,
     sortBusinessModules,
   } from "../features/business/catalog";
-  import { isOrdinaryAccount, wholesaleLevelDisplay } from "../features/business/account-rank";
+  import {
+    isOrdinaryAccount,
+    wholesaleLevelDisplay,
+  } from "../features/business/account-rank";
   import { money } from "../features/exclusive/format";
-  import { getSession, entitlementDisplayState, entitlementExpiry, invalidateEntitlementViews } from "../services/api";
+  import {
+    getSession,
+    entitlementDisplayState,
+    entitlementExpiry,
+    invalidateEntitlementViews,
+  } from "../services/api";
   import {
     getBusinessContexts,
     getBusinessContext,
@@ -449,8 +477,8 @@
   );
   const annualOpenButtonLabel = computed(() => {
     if (overview.value?.annualOpenLabel) return overview.value.annualOpenLabel;
-    if (entitlementFeePending.value) return "开通/续费权益";
-    return `开通/续费 ${entitlementFeeLabel.value} 元权益`;
+    if (entitlementFeePending.value) return "开通权益";
+    return `开通 ${entitlementFeeLabel.value} 元权益`;
   });
   const isOrdinary = computed(
     () =>
@@ -499,6 +527,9 @@
     () => entitlementCanOpen.value && entitlementStatus.value !== "active",
   );
   const annualLocked = computed(() => needsEntitlementOpen.value);
+  const entitlementCanRenew = computed(
+    () => entitlementCanOpen.value && entitlementStatus.value !== "never_paid",
+  );
   function formatAnnualUntil(value) {
     if (value == null || value === "") return "";
     const time =
@@ -673,7 +704,8 @@
   }
   async function load(options = {}) {
     const force = options.force === true;
-    if (force || seenFreshness !== dataFreshness()) invalidateEntitlementViews();
+    if (force || seenFreshness !== dataFreshness())
+      invalidateEntitlementViews();
     const current = ++epoch;
     const silent = !force && status.value === "ready" && !!overview.value;
     error.value = "";
@@ -974,6 +1006,18 @@
   .wholesale-dashboard .rank-links button {
     font-size: 0.75em;
     color: #7bbcff;
+  }
+
+  .wholesale-dashboard .rank-expiry {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .wholesale-dashboard .rank-links button[disabled] {
+    opacity: 0.7;
   }
 
   .wholesale-dashboard .business-tool-grid {

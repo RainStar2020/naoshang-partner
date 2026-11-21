@@ -44,12 +44,12 @@ import EmptyState from '../../components/EmptyState.vue'
 useAuth()
 const items = ref([]), hasMore = ref(false), loadingMore = ref(false), moreError = ref('')
 let cursor = null, epoch = 0
-const { data, status, error, load } = useAsyncPage(() => getMyApplications())
+const { data, status, error, load } = useAsyncPage(() => getMyApplications(), { freshTtlMs: 0 })
 watch(status, value => { if (value === 'loading') { ++epoch; loadingMore.value = false; moreError.value = '' } })
 watch(data, result => { if (result) { items.value = result.items; hasMore.value = result.hasMore; cursor = result.nextCursor } })
 const dateLabel = value => value ? businessDateLabel(value) : ''
-function applicationOrderRef(item){const value=item?.orderId||item?.orderNo;return typeof value==='string'&&value.trim()?value.trim():''}
-function canPayApplication(item){return ['PENDING_PAYMENT','WAITING_PAYMENT'].includes(item?.applicationStatus)&&!!applicationOrderRef(item)}
+function applicationOrderRef(item){const value=item?.orderId;return typeof value==='string'&&value.trim()?value.trim():''}
+function canPayApplication(item){return item?.allowedActions?.includes('pay')&&!!applicationOrderRef(item)}
 function pay(orderId){if(!orderId)return;uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(orderId)}`})}
 const statusClass = value => ({ PENDING_REVIEW: 'pending', PENDING_PAYMENT: 'pending', WAITING_PAYMENT: 'pending', APPROVED: 'approved', REJECTED: 'rejected' }[value] || '')
 async function more() {
