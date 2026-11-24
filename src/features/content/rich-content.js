@@ -9,7 +9,7 @@ const typography = {
   blockquote: 'margin:12px 0;padding-left:12px;border-left:3px solid #8793b0;',
 }
 export const emptyContent = () => ({ version: 1, format: 'nodes', nodes: [] })
-export const isMediaUrl = value => typeof value === 'string' && (/^https:\/\/[^\s<>"'\\]+$/i.test(value) || /^\/assets\/[A-Za-z0-9_-]+\/file$/.test(value))
+export const isMediaUrl = value => typeof value === 'string' && (/^https:\/\/[^\s<>"'\\]+$/i.test(value) || /^\/assets\/[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)?\/file$/.test(value))
 
 /** Allowlisted node schema. The backend must also sanitize and authorize media. */
 export function normalizeContent(content) {
@@ -24,11 +24,15 @@ export function normalizeContent(content) {
       if (++count > 2000) throw new Error('内容过长')
       if (!node || typeof node !== 'object') return []
       if (node.type === 'text') return typeof node.text === 'string' ? [{ type: 'text', text: node.text }] : []
-      if (!tags.has(node.name)) return []
-      if (node.name === 'img' && !isMediaUrl(node.attrs?.src)) return []
-      const attrs = { style: typography[node.name] || 'word-break:break-word;' }
-      if (node.name === 'img') { attrs.src = assetUrl(node.attrs.src); attrs.alt = String(node.attrs.alt || '') }
-      return [{ name: node.name, attrs, children: clean(Array.isArray(node.children) ? node.children : [], depth + 1) }]
+      const tag = tags.has(node.name) ? node.name : (node.type !== 'text' && tags.has(node.type) ? node.type : '')
+      if (!tag) return []
+      const childNodes = Array.isArray(node.children)
+        ? node.children
+        : (typeof node.text === 'string' && node.text ? [{ type: 'text', text: node.text }] : [])
+      if (tag === 'img' && !isMediaUrl(node.attrs?.src)) return []
+      const attrs = { style: typography[tag] || 'word-break:break-word;' }
+      if (tag === 'img') { attrs.src = assetUrl(node.attrs.src); attrs.alt = String(node.attrs.alt || '') }
+      return [{ name: tag, attrs, children: clean(childNodes, depth + 1) }]
     })
   }
   return { version: 1, format: 'nodes', nodes: clean(content.nodes) }

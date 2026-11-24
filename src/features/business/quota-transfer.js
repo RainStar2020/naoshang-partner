@@ -71,10 +71,10 @@ export function hydrateQuotaTransferSnapshot(contextId, bootstrap) {
   const snap = getQuotaTransferSnapshot(contextId)
   if (!bootstrap || typeof bootstrap !== 'object') return snap
   const remaining = pickRemaining(
-    snap.standardRemaining,
     bootstrap.vipDetails?.standardRemaining,
     bootstrap.vipDetails?.remainingCount,
     bootstrap.quota,
+    snap.standardRemaining,
   )
   const members =
     snap.members.length
@@ -83,7 +83,7 @@ export function hydrateQuotaTransferSnapshot(contextId, bootstrap) {
         ? bootstrap.team.members
         : []
   return rememberQuotaTransferSnapshot(contextId, {
-    ...(snap.standardRemaining == null && remaining != null ? { standardRemaining: remaining } : {}),
+    ...(remaining != null ? { standardRemaining: remaining } : {}),
     ...(!snap.members.length && members.length ? { members } : {}),
   })
 }

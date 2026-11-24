@@ -1,7 +1,7 @@
 import {config} from '../config'
 import {getSession} from './api'
 
-export function isAssetPath(value){return typeof value==='string'&&/^\/assets\/[A-Za-z0-9_-]+\/file$/.test(value.trim())}
+export function isAssetPath(value){return typeof value==='string'&&/^\/assets\/[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)?\/file$/.test(value.trim())}
 function origin(){
   // #ifdef H5
   return typeof location!=='undefined'?location.origin:''

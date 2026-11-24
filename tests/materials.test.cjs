@@ -8,7 +8,7 @@ async function setup(useMock = true, request = () => { throw new Error('Unexpect
     if(cache.has(file)) return cache.get(file)
     let module
     if(file.endsWith('/config')) module = new vm.SyntheticModule(['config'], function(){ this.setExport('config',{useMock}) }, {context})
-    else if(file.endsWith('/api')) module = new vm.SyntheticModule(['request','getSession'], function(){ this.setExport('request',request);this.setExport('getSession',()=>session) }, {context})
+    else if(file.endsWith('/api')) module = new vm.SyntheticModule(['request','getSession','logout'], function(){ this.setExport('request',request);this.setExport('getSession',()=>session);this.setExport('logout',()=>{}) }, {context})
     else module = new vm.SourceTextModule(fs.readFileSync(file+'.js','utf8'),{context,identifier:file})
     cache.set(file,module)
     await module.link((specifier,parent)=>load(path.resolve(path.dirname(parent.identifier),specifier).replaceAll('\\','/')))
@@ -40,6 +40,26 @@ test('published material rich text and operation capabilities are preserved whil
   const row=await material.getMaterial('m1')
   assert.equal(row.mediaUrl,'');assert.equal(row.content.nodes[0].children[0].text,'客户上传文字')
   assert.equal(row.allowedOperations[0],'copy-link')
+  assert.equal(row.shareUrl,'https://example.com/material/m1')
+})
+test('share urls stay as invite links and string article content does not break detail loading',async()=>{
+  const {material}=await setup(false,async()=>({id:'m2',title:'公告',type:'article',allowedOperations:['upload-qr','copy-link'],shareUrl:'https://h5.naoshang.example.com/#/pages/register/index?inviteCode=ABC',content:'<p>公告正文</p>',qrSlotAtEnd:true,h5RouteReady:false}))
+  const row=await material.getMaterial('m2')
+  assert.equal(row.shareUrl,'https://h5.naoshang.example.com/#/pages/register/index?inviteCode=ABC')
+  assert.equal(row.content.format,'html')
+  assert.equal(row.content.html,'<p>公告正文</p>')
+  assert.equal(row.content.nodes.length,0)
+  assert.equal(row.qrSlotAtEnd,true)
+  assert.equal(row.h5RouteReady,false)
+})
+test('image compose helpers report missing qrRegion, jpeg bases, and official categories',async()=>{
+  const {material}=await setup(false,async()=>({id:'unused',title:'x',type:'image',allowedOperations:['upload-qr']}))
+  assert.equal(material.describeComposeBlocker({type:'image',allowedOperations:['upload-qr','copy-link']}),'该素材暂不支持合图保存')
+  assert.equal(material.describeComposeBlocker({type:'image',allowedOperations:['upload-qr','render','download']}),'该素材未配置二维码区域，暂时无法保存合图')
+  assert.equal(material.describeComposeBlocker({type:'image',allowedOperations:['upload-qr','render','download'],qrRegion:{x:10,y:10,width:80,height:80},mediaUrl:'https://cdn.example.com/poster.jpg'}),'该海报底图为 JPG，当前服务端暂不支持合图，请使用 PNG 模板')
+  const region=material.readQrRegion({qrRegion:{x:10,y:20,width:80,height:90}})
+  assert.equal(region.x,10);assert.equal(region.y,20);assert.equal(region.width,80);assert.equal(region.height,90)
+  assert.ok(material.categoriesForType('image').some(item=>item.id==='img-poster'))
 })
 test('real API errors and invalid pagination are reported rather than converted to empty success',async()=>{
   const {material}=await setup(false,async()=>{throw new Error('service unavailable')})
@@ -68,12 +88,36 @@ test('render request retains caller idempotency key and handles job statuses exp
   const missing=await setup(false,async()=>({status:'succeeded'}))
   await assert.rejects(missing.material.getMaterialJob('job1'),/缺少/)
 })
-test('unsupported QR upload mode cannot submit a local file to a guessed endpoint',async()=>{
+test('QR upload does not send a local file to a guessed endpoint when the API is unavailable',async()=>{
   let uploads=0,completes=0
   const {material}=await setup(false,async(url)=>{
     if(url.includes('/complete'))completes++
     return {assetId:'qr1',uploadUrl:'https://example.com/upload',mode:'put'}
   },{getImageInfo:options=>options.success({type:'png'}),uploadFile:()=>uploads++})
-  await assert.rejects(material.uploadMaterialQr({path:'local-test.png',size:500}),/上传方式/)
+  await assert.rejects(material.uploadMaterialQr({path:'local-test.png',size:500}),/服务暂不可用|上传方式/)
   assert.equal(uploads,0);assert.equal(completes,0)
+})
+
+test('partner API asset paths with file extensions and type/text article nodes stay usable',async()=>{
+  const {material}=await setup(false,async(url)=>{
+    if(url==='/materials') return {items:[{id:'pm_5013',title:'联调测试-宣传海报',type:'image',categoryId:'img-poster',coverUrl:'/assets/ast_c3a53ad118aa.png/file'}],hasMore:false,nextCursor:null}
+    return {id:'pm_5017',title:'联调测试-平台公告',type:'article',allowedOperations:['upload-qr','copy-link'],shareUrl:'https://h5.naoshang.example.com/#/pages/register/index?inviteCode=ABC',mediaUrl:'https://cdn.example.com/art-notice-media.png',content:{version:1,format:'nodes',nodes:[{type:'p',text:'联调测试-平台公告'}]},qrSlotAtEnd:true,h5RouteReady:false}
+  })
+  const rows=await material.getMaterials('image')
+  assert.equal(rows.items[0].coverUrl,'/assets/ast_c3a53ad118aa.png/file')
+  const detail=await material.getMaterial('pm_5017')
+  assert.equal(detail.content.format,'nodes')
+  assert.equal(detail.content.nodes[0].name,'p')
+  assert.equal(detail.content.nodes[0].children[0].text,'联调测试-平台公告')
+  assert.equal(detail.shareUrl,'https://h5.naoshang.example.com/#/pages/register/index?inviteCode=ABC')
+  assert.equal(detail.h5RouteReady,false)
+  assert.ok(material.categoriesForType('image').every(item=>['img-poster','img-qr'].includes(item.id)))
+  assert.deepEqual(material.categoriesForType('article').map(item=>item.id),['art-notice','art-course'])
+  assert.deepEqual(material.categoriesForType('video').map(item=>item.id),['vid-intro','vid-course'])
+})
+test('job download urls under /assets/*.png/file are treated as success media, not missing results',async()=>{
+  const {material}=await setup(false,async()=>({status:'succeeded',downloadUrl:'/assets/ast_result.png/file',shareUrl:'https://h5.naoshang.example.com/#/pages/register/index?inviteCode=ABC'}))
+  const result=await material.getMaterialJob('job1')
+  assert.equal(result.downloadUrl,'/assets/ast_result.png/file')
+  assert.equal(result.shareUrl,'https://h5.naoshang.example.com/#/pages/register/index?inviteCode=ABC')
 })

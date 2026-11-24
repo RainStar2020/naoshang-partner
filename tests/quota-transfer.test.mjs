@@ -75,7 +75,7 @@ test('modal state is built from the local team snapshot and page remaining, not 
   assert.equal(state.fields.some((field) => field.key === 'targetAccountId'), true)
 })
 
-test('bootstrap only fills missing remaining or members, and never overwrites live snapshot values', () => {
+test('fresh bootstrap replaces old remaining while retaining selected recipients', () => {
   clearQuotaTransferSnapshots()
   rememberQuotaTransferSnapshot('wholesale:A', { standardRemaining: 11 })
   hydrateQuotaTransferSnapshot('wholesale:A', {
@@ -83,7 +83,7 @@ test('bootstrap only fills missing remaining or members, and never overwrites li
     team: { members: [{ id: 'from-bootstrap', name: 'bootstrap', tier: 'vip' }] },
   })
   const snap = getQuotaTransferSnapshot('wholesale:A')
-  assert.equal(snap.standardRemaining, 11)
+  assert.equal(snap.standardRemaining, 99)
   assert.equal(snap.members[0].id, 'from-bootstrap')
   rememberQuotaTransferSnapshot('wholesale:A', {
     members: [{ id: 'live-member', name: 'live', levelLabel: '小批发商' }],
@@ -93,7 +93,7 @@ test('bootstrap only fills missing remaining or members, and never overwrites li
     team: { members: [{ id: 'from-bootstrap', name: 'bootstrap', tier: 'vip' }] },
   })
   const later = getQuotaTransferSnapshot('wholesale:A')
-  assert.equal(later.standardRemaining, 11)
+  assert.equal(later.standardRemaining, 99)
   assert.equal(later.members[0].id, 'live-member')
   assert.equal(later.members.length, 1)
 })
@@ -104,4 +104,14 @@ test('opening without a cached team or selected recipient is rejected instead of
   const person = normalizeTransferRecipient({ id: 'only-id', tier: 'none' })
   assert.equal(person.id, 'only-id')
   assert.equal(transferUnitAmountFor(person), 9980)
+})
+
+
+test('zero remaining from server replaces cached quota without leaking across stores',()=>{
+ clearQuotaTransferSnapshots()
+ rememberQuotaTransferSnapshot('wholesale:A',{standardRemaining:10})
+ rememberQuotaTransferSnapshot('wholesale:B',{standardRemaining:20})
+ hydrateQuotaTransferSnapshot('wholesale:A',{vipDetails:{standardRemaining:0},quota:10})
+ assert.equal(getQuotaTransferSnapshot('wholesale:A').standardRemaining,0)
+ assert.equal(getQuotaTransferSnapshot('wholesale:B').standardRemaining,20)
 })

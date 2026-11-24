@@ -182,3 +182,21 @@ test('global awards normalizes object summaries so loaded totals do not render a
   ])
   assert.ok(report.columns.length>0)
 })
+
+
+test('income classification uses business fields and leaves opaque ledger IDs intact',async()=>{
+ const context={id:'costore-ctx',module:'costore',accountId:'A',storeId:'s',contractId:'c',capabilities:['costore:income']}
+ const {service}=await setup({useMock:false,remote:async url=>{
+   if(url==='/me/bootstrap')return {businessContexts:[context]}
+   if(url==='/income/entries')return {items:[
+     {id:'div-ledger-abc',category:'software',title:'软件卡收益',amount:100,withdrawable:false},
+     {id:'global-opaque',category:'software',title:'软件卡收益',amount:20,withdrawable:true},
+     {id:'div-ledger-periodic',category:'global',title:'全球奖',amount:30},
+   ],hasMore:false,nextCursor:null,metrics:[]}
+   throw new Error(url)
+ }})
+ const report=await service.getBusinessReport('costore','income',context.id)
+ assert.deepEqual(Array.from(report.items,item=>item.id),['div-ledger-abc','global-opaque'])
+ assert.equal(report.items[0].withdrawable,false)
+ assert.equal(report.items[0].amount,100)
+})

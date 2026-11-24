@@ -62,7 +62,7 @@ export function normalizeIncomeEntry(item) {
 }
 
 function textTokens(item) {
-  return [item?.category, item?.bizType, item?.bizTypeLabel, item?.title, item?.type, item?.incomeChannel, item?.id]
+  return [item?.category, item?.bizType, item?.bizTypeLabel, item?.title, item?.type, item?.incomeChannel, item?.incomeRole]
     .map(value => String(value || '').trim())
     .filter(Boolean)
 }
@@ -70,10 +70,9 @@ function textTokens(item) {
 export function isPeriodicAwardOrPoolEntry(item) {
   if (!item || typeof item !== 'object') return false
   const tokens = textTokens(item)
-  const id = String(item.id || '')
-  const match = pattern => tokens.some(text => pattern.test(text)) || pattern.test(id)
-  if (match(/^(founding|founder)$/i) || match(/创始奖/) || /founder-award/i.test(id) || /^founding-/.test(id)) return true
-  if (match(/^(global)$/i) || match(/全球奖/) || /global-award/i.test(id) || /^global-/.test(id)) return true
+  const match = pattern => tokens.some(text => pattern.test(text))
+  if (match(/^(founding|founder)$/i) || match(/创始奖/)) return true
+  if (match(/^(global)$/i) || match(/全球奖/)) return true
   if (match(/分红池/) || match(/dividendPool/i) || match(/^dividend[_-]?pool$/i)) return true
   return false
 }

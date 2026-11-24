@@ -39,10 +39,11 @@ import {ref,computed,watch,onUnmounted} from 'vue'
 import {money,percent} from '../features/exclusive/format'
 import {nextWholesaleUpgradePlan,wholesaleLevelDisplay} from '../features/business/account-rank'
 import {resolveQuotaTransferModalState,transferUnitAmountFor} from '../features/business/quota-transfer'
-import {getBusinessContext,getMeBootstrapData} from '../services/business'
+import {getBusinessContext,getBusinessOverview} from '../services/business'
 import {getBusinessOperationOptions,previewBusinessOperation,commitBusinessOperation,getBusinessOperationIntent,rememberBusinessOperationIntent,commitPaymentRef,isCommitAwaitingPayment} from '../services/business-operations'
 import {getCommerceOrder} from '../services/commerce'
 import {storeBindingErrorMessage} from '../services/store-binding'
+import {invalidateGetRequestCache} from '../services/api'
 import {useAsyncPage} from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
 import EmptyState from './EmptyState.vue'
@@ -54,7 +55,7 @@ const {data:options,status,error,load}=useAsyncPage(async()=>{
   const targetAccountId=String(props.pageQuery?.targetAccountId || '').trim()
   let value
   if(props.kind==='quota-transfer'){
-    const bootstrap=await getMeBootstrapData().catch(()=>null)
+    const bootstrap=await getBusinessOverview('wholesale',ctx.id)
     value=resolveQuotaTransferModalState(ctx.id,targetAccountId,bootstrap)
   }else{
     value=await getBusinessOperationOptions(props.kind,ctx.id,'',{targetAccountId})
@@ -182,8 +183,17 @@ async function commitTransfer(){
   result.value=presentCommitResult(output)
   uncertain.value=false
   confirmation.value=false
+  try{await refreshQuotaOptions()}catch(e){operationError.value=e.message}
 }
-async function submit(){if(busy.value||!canConfirm.value||!upgradeQuotaReady.value)return;if(props.kind!=='quota-transfer'&&locked.value)return;clearTimeout(quoteTimer);++epoch;busy.value=true;operationError.value='';try{if(props.kind==='quota-transfer')await commitTransfer();else if(await prepare())confirmation.value=true}catch(e){if(props.kind==='quota-transfer'){uncertain.value=Boolean(getBusinessOperationIntent(props.kind,context.value.id,draft.value.targetAccountId)?.dispatched);if(!uncertain.value)key=''}operationError.value=operationErrorMessage(e)}finally{if(active)busy.value=false}}
+async function refreshQuotaOptions(){
+  if(!context.value||!['upgrade','quota-transfer'].includes(props.kind))return
+  invalidateGetRequestCache(['/partner','/me/bootstrap'])
+  const value=props.kind==='quota-transfer'
+    ?resolveQuotaTransferModalState(context.value.id,draft.value.targetAccountId,await getBusinessOverview('wholesale',context.value.id))
+    :await getBusinessOperationOptions(props.kind,context.value.id,'',{targetAccountId:draft.value.targetAccountId})
+  if(active)options.value=value
+}
+async function submit(){if(busy.value||!canConfirm.value||!upgradeQuotaReady.value)return;if(props.kind!=='quota-transfer'&&locked.value)return;clearTimeout(quoteTimer);++epoch;busy.value=true;operationError.value='';try{if(props.kind==='quota-transfer')await commitTransfer();else if(await prepare())confirmation.value=true}catch(e){if(props.kind==='quota-transfer'){uncertain.value=Boolean(getBusinessOperationIntent(props.kind,context.value.id,draft.value.targetAccountId)?.dispatched);if(!uncertain.value)key=''}operationError.value=operationErrorMessage(e);try{await refreshQuotaOptions()}catch{}}finally{if(active)busy.value=false}}
 async function chooseStore(store){if(locked.value)return;set('storeId',store.id);await submit()}
 function shouldOpenCashier(output){
   if(!isCommitAwaitingPayment(output))return false
@@ -197,7 +207,7 @@ function presentCommitResult(output){
   }
   return output
 }
-async function commit(){if(busy.value||!quote.value||!canSubmit.value)return;if(!uncertain.value && quote.value.expiresAt<=quote.value.serverTime+Date.now()-receivedAt){operationError.value='预览已失效，请重新确认';confirmation.value=false;quote.value=null;return}const current=epoch;busy.value=true;operationError.value='';if(!key)key=`wholesale-${Date.now()}-${Math.random().toString(36).slice(2)}`;try{rememberBusinessOperationIntent(props.kind,context.value.id,quote.value,key,{...draft.value});uncertain.value=true;const output=await commitBusinessOperation(props.kind,context.value.id,quote.value.id,key,'',draft.value);if(!active||current!==epoch)return;result.value=presentCommitResult(output);uncertain.value=false;confirmation.value=false;if(shouldOpenCashier(output))pay()}catch(e){if(active&&current===epoch){uncertain.value=Boolean(getBusinessOperationIntent(props.kind,context.value.id,draft.value.targetAccountId)?.dispatched);operationError.value=operationErrorMessage(e);if(!uncertain.value)key=''}}finally{if(active)busy.value=false}}
+async function commit(){if(busy.value||!quote.value||!canSubmit.value)return;if(!uncertain.value && quote.value.expiresAt<=quote.value.serverTime+Date.now()-receivedAt){operationError.value='预览已失效，请重新确认';confirmation.value=false;quote.value=null;return}const current=epoch;busy.value=true;operationError.value='';if(!key)key=`wholesale-${Date.now()}-${Math.random().toString(36).slice(2)}`;try{rememberBusinessOperationIntent(props.kind,context.value.id,quote.value,key,{...draft.value});uncertain.value=true;const output=await commitBusinessOperation(props.kind,context.value.id,quote.value.id,key,'',draft.value);if(!active||current!==epoch)return;result.value=presentCommitResult(output);uncertain.value=false;confirmation.value=false;if(shouldOpenCashier(output))pay();else{try{await refreshQuotaOptions()}catch(e){operationError.value=e.message}}}catch(e){if(active&&current===epoch){uncertain.value=Boolean(getBusinessOperationIntent(props.kind,context.value.id,draft.value.targetAccountId)?.dispatched);operationError.value=operationErrorMessage(e);if(!uncertain.value)key='';try{await refreshQuotaOptions()}catch{}}}finally{if(active)busy.value=false}}
 function pay(){const id=commitPaymentRef(result.value);if(!id)return;uni.navigateTo({url:`/pages/payment/cashier?orderId=${encodeURIComponent(id)}`})}
 function records(){uni.navigateTo({url:`/pages/wallet/withdrawals?contextId=${encodeURIComponent(context.value.id)}`})}
 function back(){if(uncertain.value){uni.showToast({title:'操作结果确认中，请勿重复提交',icon:'none'});return}if(getCurrentPages().length>1)uni.navigateBack();else uni.switchTab({url:'/pages/partners/index'})}

@@ -5,6 +5,7 @@
       <view v-if="result" class="exchange-result">
         <view class="exchange-result-title">{{ successTitle }}</view>
         <text class="exchange-result-note">{{ resultNote }}</text>
+        <text v-if="operationError" class="exchange-error">{{ operationError }}</text>
         <button class="exchange-submit" @click="records">查看兑换记录</button>
         <button class="exchange-secondary" @click="back">返回上一页</button>
       </view>
@@ -15,7 +16,7 @@
             class="exchange-input"
             type="digit"
             :value="amount"
-            :disabled="busy"
+            :disabled="busy || uncertain"
             maxlength="15"
             placeholder="请输入兑换积分"
             placeholder-class="exchange-placeholder"
@@ -28,11 +29,12 @@
         <text v-if="operationError" class="exchange-error" role="alert">{{ operationError }}</text>
         <button
           class="exchange-submit"
-          :disabled="busy || !canApply"
+          :disabled="busy || (!uncertain && !canApply)"
           @click="submit"
         >
-          {{ busy ? '处理中…' : '申请兑换' }}
+          {{ busy ? '处理中…' : uncertain ? '重试原兑换请求' : '申请兑换' }}
         </button>
+        <button v-if="uncertain" class="exchange-secondary" @click="records">查看兑换记录</button>
         <text v-if="!canApply" class="exchange-disabled">{{ options.disabledReason || '当前暂不可申请兑换' }}</text>
       </template>
     </template>
@@ -42,7 +44,7 @@
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { money } from '../features/exclusive/format'
 import { pickMetricNumber } from '../features/business/metric-display'
-import { getPartnerPointsOptions, exchangePartnerPoints } from '../services/partner-wallet'
+import { getPartnerPointsOptions, exchangePartnerPoints, getPendingPartnerExchange } from '../services/partner-wallet'
 import { useAsyncPage } from '../composables/useAsyncPage'
 import FeaturePageState from './FeaturePageState.vue'
 import MetricSkeleton from './MetricSkeleton.vue'
@@ -52,16 +54,19 @@ const amount = ref('')
 const result = ref(null)
 const busy = ref(false)
 const operationError = ref('')
+const uncertain = ref(false)
 let active = true
 let epoch = 0
 let attemptKey = ''
 
 const { data: options, status, error, load } = useAsyncPage(async () => {
   const output = await getPartnerPointsOptions(props.pageQuery?.contextId)
-  amount.value = ''
-  result.value = null
-  attemptKey = ''
-  operationError.value = ''
+  const pending = getPendingPartnerExchange(props.pageQuery?.contextId)
+  amount.value = pending ? String(pending.points) : ''
+  uncertain.value = !!pending
+  attemptKey = pending?.idempotencyKey || ''
+  if (!pending) result.value = null
+  operationError.value = pending ? '上次兑换结果待确认，请查看兑换记录或重试原请求' : ''
   return output
 }, false)
 
@@ -88,7 +93,7 @@ const resultNote = computed(() =>
 )
 
 function onAmount(event) {
-  if (busy.value) return
+  if (busy.value || uncertain.value) return
   amount.value = String(event.detail?.value ?? '').replace(/[^\d.]/g, '')
   attemptKey = ''
   operationError.value = ''
@@ -107,20 +112,29 @@ function validateAmount() {
 }
 
 async function submit() {
-  if (busy.value || !canApply.value) return
+  if (busy.value || (!uncertain.value && !canApply.value)) return
   const current = ++epoch
   busy.value = true
   operationError.value = ''
   try {
-    const points = validateAmount()
+    const points = uncertain.value ? Number(amount.value) : validateAmount()
     if (!attemptKey) attemptKey = `points-exchange-${Date.now()}-${Math.random().toString(36).slice(2)}`
     const output = await exchangePartnerPoints(points, attemptKey, props.pageQuery?.contextId)
     if (!active || current !== epoch) return
     result.value = output
+    uncertain.value = false
+    attemptKey = ''
+    try {
+      const latest = await getPartnerPointsOptions(props.pageQuery?.contextId)
+      if (active && current === epoch) options.value = latest
+    } catch (reason) {
+      if (active && current === epoch) operationError.value = `申请已提交，余额刷新失败：${reason.message}`
+    }
   } catch (reason) {
     if (active && current === epoch) {
       operationError.value = reason.message || '申请未完成，请稍后查看记录'
-      attemptKey = ''
+      uncertain.value = !!getPendingPartnerExchange(props.pageQuery?.contextId)
+      if (!uncertain.value) attemptKey = ''
     }
   } finally {
     if (active) busy.value = false

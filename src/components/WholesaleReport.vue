@@ -788,7 +788,7 @@
      { label: "本月VIP卖出", value: globalAwardRow.value?.vipSold ?? globalAwardRow.value?.salesAmount },
     { label: "个人业绩占比", value: globalAwardRow.value?.shareBps, kind: "percent" },
     { label: "参与人数", value: globalAwardRow.value?.people },
-    { label: "本月奖池累计", value: globalAwardRow.value?.poolAmount, kind: "money" },
+    { label: "奖池金额", value: globalAwardRow.value?.poolAmount, kind: "money" },
   ]);
   function summaryCount(primary, fallback, suffix = "") {
     return formatMetricCountOrNull(pickMetricNumber(primary, fallback), {

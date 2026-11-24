@@ -595,7 +595,7 @@ export async function getBusinessOverview(module,id){
   const inviteCode=String(merged.inviteCode||account.inviteCode||getCachedMyInviteCode()?.inviteCode||bootstrap?.inviteCode||'').trim()
   const name=String(merged.name||merged.nickname||merged.userName||account.name||account.nickname||'').trim()
   rememberQuotaTransferSnapshot(context.id,{
-    standardRemaining:pickCount(merged.quota,merged.vipDetails?.standardRemaining,merged.vipDetails?.remainingCount,merged.vipDetails?.quota),
+    standardRemaining:pickCount(merged.vipDetails?.standardRemaining,merged.vipDetails?.remainingCount,merged.quota,merged.vipDetails?.quota),
     members:merged.team?.members,
   })
   return {
@@ -646,7 +646,7 @@ function normalizeGlobalAwardsReport(report){
       {key:'vipSold',label:'本月VIP卖出'},
       {key:'shareBps',label:'个人业绩占比',kind:'percent'},
       {key:'people',label:'参与人数'},
-      {key:'poolAmount',label:'本月奖池累计',kind:'money'},
+      {key:'poolAmount',label:'奖池金额',kind:'money'},
     ]
   const items=report.items.map((item,index)=>({
     ...item,
@@ -674,7 +674,7 @@ function normalizeCostoreDividendReport(report,kind){
     {key:'performanceAmount',label:'业绩分红',kind:'money'},
     {key:'performanceValue',label:card?'本月会员卡业绩':'本月推广业绩',kind:'money'},
     {key:'shareBps',label:'个人业绩占比',kind:'percent'}, {key:'people',label:'合店老板总数量'},
-    {key:'poolAmount',label:'本月奖池累计',kind:'money'},
+    {key:'poolAmount',label:'奖池金额',kind:'money'},
   ]
   const currentMonth=current?normalizeRow(current,'current'):null
   const metrics=Array.isArray(report.metrics)&&report.metrics.length?report.metrics:[
@@ -686,7 +686,7 @@ function normalizeCostoreDividendReport(report,kind){
     {label:card?'本月会员卡业绩':'本月推广业绩',kind:'money',value:currentMonth?.performanceValue??0},
     {label:'个人业绩占比',kind:'percent',value:currentMonth?.shareBps??0},
     {label:'合店老板总数',value:currentMonth?.people??0},
-    {label:'本月奖池累计',kind:'money',value:currentMonth?.poolAmount??0},
+    {label:'奖池金额',kind:'money',value:currentMonth?.poolAmount??0},
   ]
   return {...report,title:report.title||`${currentMonth?.month||currentAwardMonth()}${card?'会员卡分红':'推广合店老板分红'}`,currentMonth,metrics,info,columns,items:report.items.map(normalizeRow)}
 }

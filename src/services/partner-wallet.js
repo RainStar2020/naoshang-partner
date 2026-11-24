@@ -68,6 +68,7 @@ export function redemptionNoOf(item) {
 }
 
 function points(value, { allowNegative = false } = {}) {
+  if (value == null || value === "") return null;
   const result = Number(value);
   return Number.isFinite(result) && (allowNegative || result >= 0)
     ? result
@@ -110,7 +111,7 @@ export async function getPartnerPointsOptions(contextId) {
   checkAccount(current);
   if (
     !result ||
-    points(result.totalPoints ?? result.totalAvailable, {
+    points(result.totalPoints, {
       allowNegative: true,
     }) == null ||
     points(result.availablePoints, { allowNegative: true }) == null ||
@@ -126,10 +127,9 @@ export async function getPartnerPointsOptions(contextId) {
       result.identityLabel ||
         withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel,
     ),
-    totalPoints: Number(result.totalPoints ?? result.totalAvailable),
+    totalPoints: Number(result.totalPoints),
     totalAvailable:
-      points(result.totalAvailable, { allowNegative: true }) ??
-      Number(result.totalPoints ?? 0),
+      points(result.totalAvailable, { allowNegative: true }),
     availablePoints: Number(result.availablePoints),
     exchangeRate: Number(result.exchangeRate) || 1,
     rateNote: String(result.rateNote || ""),
@@ -178,6 +178,11 @@ export async function getPartnerPointsOptions(contextId) {
   };
 }
 
+const exchangeIntentKey = (userId, contextId) => `naoshang-points-exchange:${userId}:${contextId}`;
+export function getPendingPartnerExchange(contextId) {
+  return uni.getStorageSync(exchangeIntentKey(account().id, redemptionContextIdOf(contextId))) || null;
+}
+
 export async function exchangePartnerPoints(
   pointsInput,
   idempotencyKey,
@@ -189,47 +194,60 @@ export async function exchangePartnerPoints(
   const amount = Number(pointsInput);
   if (!Number.isFinite(amount) || amount <= 0) fail("请输入兑换积分");
   if (!idempotencyKey) fail("提交编号缺失，请重试");
-  const result = await request("/wallet/withdrawals", {
-    method: "POST",
-    data: {
-      points: amount,
-      amount,
-      idempotencyKey,
-      contextId: resolvedContextId,
-      identity: identity || identityOfContextId(resolvedContextId),
-    },
-  });
-  checkAccount(current);
-  if (!result || typeof result !== "object")
-    fail("兑换结果异常，请稍后查看记录");
-  const status = String(result.status || "");
-  if (
-    ![
-      "PENDING_REVIEW",
-      "PENDING_SETTLEMENT",
-      "SUCCEEDED",
-      "COMPLETED",
-      "APPLIED",
-      "DEMO_APPLIED",
-    ].includes(status)
-  ) {
-    fail("兑换结果待确认，请稍后查看记录");
+  const storageKey = exchangeIntentKey(current.id, resolvedContextId);
+  const pending = uni.getStorageSync(storageKey);
+  const requestIdentity = identity || identityOfContextId(resolvedContextId);
+  if (pending && (pending.points !== amount || pending.idempotencyKey !== idempotencyKey || pending.identity !== requestIdentity))
+    fail("上一笔兑换结果待确认，请先查看记录或重试原请求");
+  uni.setStorageSync(storageKey, {points: amount, idempotencyKey, identity: requestIdentity});
+  try {
+    const result = await request("/wallet/withdrawals", {
+      method: "POST",
+      data: {
+        points: amount,
+        amount,
+        idempotencyKey,
+        contextId: resolvedContextId,
+        identity: identity || identityOfContextId(resolvedContextId),
+      },
+    });
+    checkAccount(current);
+    if (!result || typeof result !== "object")
+      fail("兑换结果异常，请稍后查看记录");
+    const status = String(result.status || "");
+    if (
+      ![
+        "PENDING_REVIEW",
+        "PENDING_SETTLEMENT",
+        "SUCCEEDED",
+        "COMPLETED",
+        "APPLIED",
+        "DEMO_APPLIED",
+      ].includes(status)
+    ) {
+      fail("兑换结果待确认，请稍后查看记录");
+    }
+    const id = result.redemptionId || result.withdrawalId || result.id;
+    if (!id) fail("兑换回执不完整，请稍后查看记录");
+    uni.removeStorageSync(storageKey);
+    return {
+      ...result,
+      status,
+      redemptionId: String(id),
+      redemptionNo: redemptionNoOf({ ...result, redemptionId: id }),
+      withdrawalId: String(id),
+      contextId: String(result.contextId || resolvedContextId),
+      identity: String(result.identity || identityOfContextId(resolvedContextId)),
+      identityLabel: partnerRoleDisplay(
+        result.identityLabel ||
+          withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel,
+      ),
+    };
+  } catch (error) {
+    checkAccount(current);
+    if ([400, 422].includes(error?.statusCode)) uni.removeStorageSync(storageKey);
+    throw error;
   }
-  const id = result.redemptionId || result.withdrawalId || result.id;
-  if (!id) fail("兑换回执不完整，请稍后查看记录");
-  return {
-    ...result,
-    status,
-    redemptionId: String(id),
-    redemptionNo: redemptionNoOf({ ...result, redemptionId: id }),
-    withdrawalId: String(id),
-    contextId: String(result.contextId || resolvedContextId),
-    identity: String(result.identity || identityOfContextId(resolvedContextId)),
-    identityLabel: partnerRoleDisplay(
-      result.identityLabel ||
-        withdrawalIdentityOf({ contextId: resolvedContextId }).identityLabel,
-    ),
-  };
 }
 
 export async function getPartnerStoreBindingOptions() {
