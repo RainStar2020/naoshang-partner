@@ -102,7 +102,7 @@ import { getSession } from '../../services/api'
 import { getMyProfile, uploadProfileImage } from '../../services/profile'
 import {assetUrl} from '../../services/asset-url'
 import { uploadAsset, discardAsset } from '../../services/asset-upload'
-import { getAgencyApplicationOptions, submitAgencyApplication, applyCityTier, checkAgencyRegionAvailability, agencyPayableLabel, agencyFeeNote } from '../../services/agency-application'
+import { getAgencyApplicationOptions, submitAgencyApplication, applyCityTier, checkAgencyRegionAvailability, agencyPayableLabel, agencyFeeNote, AGENCY_CODE_NOT_SUPERIOR_MESSAGE } from '../../services/agency-application'
 import { useAuth } from '../../composables/useAuth'
 import { useAsyncPage } from '../../composables/useAsyncPage'
 import { commerceRequestKey } from '../../services/commerce'
@@ -138,11 +138,31 @@ function resetRegionCheck() {
   regionOccupied.value = false
   regionAvailable.value = false
 }
+function leaveForProfile() {
+  uni.reLaunch({ url: '/pages/profile/index' })
+}
+function rejectForeignCode() {
+  uni.showModal({
+    title: '提示',
+    content: AGENCY_CODE_NOT_SUPERIOR_MESSAGE,
+    showCancel: false,
+    confirmText: '确认',
+    success: leaveForProfile,
+    fail: leaveForProfile,
+  })
+}
 const { data, status, error, load } = useAsyncPage(async () => {
-  const [options, profileResult] = await Promise.all([
-    getAgencyApplicationOptions(type, promotionId, draft.value.cityTierId || null, draft.value.promotionCode),
-    getMyProfile().catch(() => null),
-  ])
+  let options
+  try {
+    options = await getAgencyApplicationOptions(type, promotionId, draft.value.cityTierId || null, draft.value.promotionCode)
+  } catch (reason) {
+    if (reason?.code === 'AGENCY_CODE_NOT_SUPERIOR') {
+      rejectForeignCode()
+      return null
+    }
+    throw reason
+  }
+  const profileResult = await getMyProfile().catch(() => null)
   seedApplicant(profileResult?.profile)
   draft.value.cityTierId = options.cityTierId || ''
   draft.value.regionNames = []

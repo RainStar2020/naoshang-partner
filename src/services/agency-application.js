@@ -2,7 +2,68 @@ import { getSession,request } from './api'
 import {config} from '../config'
 import { mockAgencyApplicationOptions, mockCheckAgencyRegion, mockSubmitAgency } from './mock/agency-application'
 import { feeBreakdownNote, resolveAgencyFees, wanToYuan } from '../features/agency/pricing'
-import { assertUsableAgencyPromotionCode } from './agency-promotion-code'
+import { assertUsableAgencyPromotionCode, normalizeAgencyPromotionCode, MOCK_PARTNER_AGENCY_PROMOTION_CODE } from './agency-promotion-code'
+
+export const AGENCY_CODE_NOT_SUPERIOR_MESSAGE = '此码归属人不是您的上级合伙人，请联系您的上级合伙人扫码申请代理。'
+
+function agencyCodeOwnerError() {
+  const error = new Error(AGENCY_CODE_NOT_SUPERIOR_MESSAGE)
+  error.code = 'AGENCY_CODE_NOT_SUPERIOR'
+  return error
+}
+
+function identityKeys(person) {
+  if (!person || typeof person !== 'object') return []
+  return ['id', 'accountId', 'account_id', 'userId', 'user_id', 'ownerId', 'owner_id']
+    .map(key => String(person[key] || '').trim())
+    .filter(Boolean)
+}
+
+function promotionCodesOf(person) {
+  if (!person || typeof person !== 'object') return []
+  return ['agencyPromotionCode', 'promotionCode', 'promotionId']
+    .map(key => normalizeAgencyPromotionCode(person[key]))
+    .filter(Boolean)
+}
+
+function codeOwnerFromOptions(options, promotionCode) {
+  const source = options?.referredBy || options?.referrer || options?.codeOwner || options?.owner || null
+  if (source && typeof source === 'object') return source
+  if (typeof source === 'string' && source.trim()) return { id: source.trim() }
+  return { promotionCode }
+}
+
+function ownerMatchesSuperior(owner, superior, promotionCode) {
+  if (!superior || typeof superior !== 'object') return false
+  const ownerIds = identityKeys(owner)
+  const superiorIds = identityKeys(superior)
+  if (ownerIds.length && superiorIds.length && ownerIds.some(id => superiorIds.includes(id))) return true
+  const scanned = normalizeAgencyPromotionCode(promotionCode)
+  const superiorCodes = promotionCodesOf(superior)
+  if (scanned && superiorCodes.includes(scanned)) return true
+  const ownerCodes = promotionCodesOf(owner).filter(code => code !== scanned)
+  return ownerCodes.length > 0 && ownerCodes.some(code => superiorCodes.includes(code))
+}
+
+async function assertCodeBelongsToPartnerSuperior(user, options, promotionCode) {
+  if (config.useMock) {
+    if (normalizeAgencyPromotionCode(promotionCode) === MOCK_PARTNER_AGENCY_PROMOTION_CODE) return
+    throw agencyCodeOwnerError()
+  }
+  let contextId = `partner:${user.id}`
+  try {
+    const bootstrap = await request('/me/bootstrap')
+    const rows = Array.isArray(bootstrap?.businessContexts) ? bootstrap.businessContexts : []
+    const wholesale = rows.find(item => item?.module === 'wholesale' && item.id)
+    if (wholesale?.id) contextId = String(wholesale.id)
+  } catch {
+    // Fall back to the partner context id derived from the signed-in account.
+  }
+  const result = await request('/partner/superior', { data: { contextId } })
+  const superior = result?.superior || result?.relations?.superior || null
+  const owner = codeOwnerFromOptions(options, promotionCode)
+  if (!ownerMatchesSuperior(owner, superior, promotionCode)) throw agencyCodeOwnerError()
+}
 
 async function scoped(operation) {
   const session = getSession()
@@ -15,11 +76,17 @@ async function scoped(operation) {
 }
 
 const agencyTypeWire = { STORE: 'store', COUNTY: 'district', CITY: 'city', PROVINCE: 'province' }
+const canonicalAgencyType = { STORE: 'STORE', COUNTY: 'COUNTY', DISTRICT: 'COUNTY', CITY: 'CITY', PROVINCE: 'PROVINCE' }
 const cityTierIndex = { POP_GE_10M: 0, POP_5M_10M: 1, POP_LT_5M: 2 }
 
+function canonicalType(type) {
+  return canonicalAgencyType[String(type || '').trim().toUpperCase()] || ''
+}
+
 function wireAgencyRegionType(type) {
-  const key = String(type || '').trim()
-  return agencyTypeWire[key.toUpperCase()] || key.toLowerCase()
+  const canonical = canonicalType(type)
+  if (canonical) return agencyTypeWire[canonical]
+  return String(type || '').trim().toLowerCase()
 }
 
 function resolveDraftRegionCode(draft) {
@@ -138,21 +205,25 @@ export function getAgencyApplicationOptions(type, promotionId, cityTierId = null
   return scoped(async () => {
     const code = assertUsableAgencyPromotionCode(promotionCode || promotionId)
     const fallback = mockAgencyApplicationOptions(type, code, cityTierId)
-    if (config.useMock) return { ...fallback, promotionId: code, promotionCode: code }
+    if (config.useMock) {
+      await assertCodeBelongsToPartnerSuperior(getSession()?.user, fallback, code)
+      return { ...fallback, promotionId: code, promotionCode: code }
+    }
     const result = await request('/agency/application-options', {
       data: {
-        agencyType: agencyTypeWire[type] || 'store',
+        agencyType: wireAgencyRegionType(type) || 'store',
         tierIndex: cityTierIndex[cityTierId],
         promotionCode: code,
       },
     })
     const payableAmount = payableYuanFromOptions(result, fallback)
+    await assertCodeBelongsToPartnerSuperior(getSession()?.user, result, code)
     const output = {
       ...fallback,
       ...result,
       promotionId: code,
       promotionCode: code,
-      agencyType: String(result?.agencyType || type).toUpperCase(),
+      agencyType: canonicalType(result?.agencyType || type) || String(type || '').toUpperCase(),
       requiresStorefront: result?.requiresStorefrontPhoto === true || result?.requiresStorefront === true,
       payableAmount,
       agreement: agreementFromOptions(result, fallback),
@@ -188,7 +259,8 @@ export function submitAgencyApplication(options, draft, key) {
     if (!key) throw new Error('缺少申请编号')
     if (!draft.agreementAccepted) throw new Error('请先阅读并勾选代理协议')
     const promotionCode = assertUsableAgencyPromotionCode(draft.promotionCode || options.promotionCode || options.promotionId || draft.promotionId)
-    const agencyType = agencyTypeWire[options.agencyType] || 'store'
+    const agencyType = wireAgencyRegionType(options.agencyType)
+    if (!canonicalType(options.agencyType)) throw new Error('代理类型无效')
     const regionCode = resolveDraftRegionCode(draft)
     if (!regionCode) throw new Error('请选择代理地区')
     assertStoreName(agencyType, draft)
