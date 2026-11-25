@@ -7,7 +7,7 @@ import {useAppTabBar} from '../../composables/useAppTabBar'
 import {useFreshOnShow} from '../../composables/useFreshOnShow'
 import BusinessDashboard from '../../components/BusinessDashboard.vue'
 useAuth();useAppTabBar();const page=ref(null)
-useFreshOnShow(() => opts => page.value?.refresh?.(opts))
+useFreshOnShow(() => opts => page.value?.refresh?.(opts), { ttlMs: 0 })
 // Tab tap should land on wholesale home; keep current module when returning from subpages.
 onTabItemTap(()=>page.value?.enterWholesale?.())
 </script>

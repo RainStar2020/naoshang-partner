@@ -65,7 +65,7 @@ async function fetchPartnerGlobalAwards(account,context,params={}){
   const resource=findBusinessTool('wholesale','global-awards')
   const result=config.useMock
     ?mockBusinessReport(account,context,resource,{month,filter:params.filter||'promotion',keyword:params.keyword||''})
-    :await request('/partner/global-awards',{data:{contextId:context.id,month}})
+    :await request('/partner/global-awards',{data:{contextId:context.id,month},cache:false})
   checkBusinessAccount(account)
   const normalized=presentAwardCopy(normalizeGlobalAwardsReport(normalizeList(result)))
   const eligibility=cacheGlobalAwards(context.id,month,normalized)
@@ -94,7 +94,7 @@ function normalizePromotionReport(result){
 }
 async function fetchPartnerPromotionTasks(account,context){
   const resource=findBusinessTool('wholesale','promotion')
-  const result=config.useMock?mockBusinessReport(account,context,resource,{}):await request('/partner/promotion-tasks',{data:{contextId:context.id}})
+  const result=config.useMock?mockBusinessReport(account,context,resource,{}):await request('/partner/promotion-tasks',{data:{contextId:context.id},cache:false})
   checkBusinessAccount(account)
   const report=normalizePromotionReport(result)
   promotionCache.set(context.id,report)
@@ -194,7 +194,7 @@ async function loadWholesaleToolPayload(account,context,toolId,params={}){
   try{
     const result=config.useMock
       ?mockBusinessReport(account,context,resource,params)
-      :await request(resource.endpoint,{data:queryData({...params,contextId:context.id})})
+      :await request(resource.endpoint,{data:queryData({...params,contextId:context.id}),cache:false})
     checkBusinessAccount(account)
     return result&&typeof result==='object'?result:null
   }catch{
@@ -322,7 +322,7 @@ async function loadAgencyToolPayload(account,context,toolId,params={}){
   try{
     const result=config.useMock
       ?mockBusinessReport(account,context,resource,params)
-      :await request(resource.endpoint,{data:queryData({...params,contextId:context.id,assignmentId:context.assignmentId})})
+      :await request(resource.endpoint,{data:queryData({...params,contextId:context.id,assignmentId:context.assignmentId}),cache:false})
     checkBusinessAccount(account)
     return result&&typeof result==='object'?result:null
   }catch{
@@ -348,13 +348,12 @@ function pickAgencyIncomeAmount(income){
 }
 // Prefetch /income/entries on agency home; reuse for the income page.
 async function fetchAgencyIncomeReport(account,context,{force=false}={}){
-  if(!force&&agencyIncomeCache.has(context.id))return agencyIncomeCache.get(context.id)
   const resource=findBusinessTool('agency','income')
   if(!resource)return null
   try{
     const raw=config.useMock
       ?mockBusinessReport(account,context,resource,{filter:'',keyword:''})
-      :await request('/income/entries',{data:{contextId:context.id}})
+      :await request('/income/entries',{data:{contextId:context.id},cache:false})
     checkBusinessAccount(account)
     if(!raw||typeof raw!=='object')return null
     const report=presentAwardCopy(normalizeList(raw))
@@ -455,7 +454,7 @@ export function businessAccount(){const session=getSession();if(!session?.user?.
 export function checkBusinessAccount(account){const session=getSession();if(session?.user?.id!==account.id||session.token!==account.sessionToken)throw new Error('登录账号已变化，请重新加载')}
 export async function getMeBootstrapData(){
   const account=businessAccount()
-  const result=config.useMock?mockMeBootstrap(account):await request('/me/bootstrap')
+  const result=config.useMock?mockMeBootstrap(account):await request('/me/bootstrap',{cache:false})
   checkBusinessAccount(account)
   validateBusinessContexts(account,result)
   return result
@@ -541,7 +540,7 @@ export async function getBusinessOverview(module,id){
   const account=businessAccount()
   const [bootstrap,context]=await Promise.all([getMeBootstrapData(),getBusinessContext(module,id)])
   checkBusinessAccount(account)
-  let result=config.useMock?mockBusinessOverview(account,context):await request(module==='wholesale'?'/partner/workspace':module==='agency'?'/agency/overview':'/costore/overview',{data:{contextId:context.id,assignmentId:context.assignmentId,contractId:context.contractId}})
+  let result=config.useMock?mockBusinessOverview(account,context):await request(module==='wholesale'?'/partner/workspace':module==='agency'?'/agency/overview':'/costore/overview',{data:{contextId:context.id,assignmentId:context.assignmentId,contractId:context.contractId},cache:false})
   checkBusinessAccount(account)
   if(config.useMock&&module==='costore'){
     result={...result,store:result.store||context.store||null,earnings:result.earnings||{}}
@@ -787,20 +786,16 @@ export function getBusinessReport(module,id,contextId,params={}){
   return withBusinessContext(contextId,resource.capability,async(account,context)=>{
     if(context.module!==module)throw new Error('经营模块与身份不匹配')
     if(resource.id==='promotion'){
-      if(promotionCache.has(context.id))return promotionCache.get(context.id)
       return fetchPartnerPromotionTasks(account,context)
     }
     if(resource.id==='global-awards'){
       const month=params.month||currentAwardMonth()
-      const cached=globalAwardsCache.get(context.id)
-      if(cached?.month===month&&cached.report&&!params.cursor&&!params.offset&&!params.keyword&&!params.filter)return cached.report
       const loaded=await fetchPartnerGlobalAwards(account,context,{...params,month,force:true})
       return loaded.report
     }
     const filter=String(params.filter||'')
     const keyword=String(params.keyword||'').trim()
     const defaultIncomePage=module==='agency'&&resource.id==='income'&&!params.cursor&&!filter&&!keyword
-    if(defaultIncomePage&&agencyIncomeCache.has(context.id))return agencyIncomeCache.get(context.id)
     const bootstrap=module==='wholesale'?await getMeBootstrapData():null
     // Temporary: wholesale share codes are local register deep links; skip /promotion/share-code.
     if(resource.id==='share'||resource.type==='share'){
@@ -824,7 +819,7 @@ export function getBusinessReport(module,id,contextId,params={}){
       const fromBootstrap=reportFromBootstrap(resource,bootstrap)
       if(fromBootstrap)return fromBootstrap
     }
-    const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:queryData({...params,contextId:context.id,...(module==='agency'&&resource.id==='team'?{assignmentId:context.assignmentId}:{})})})
+    const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:queryData({...params,contextId:context.id,...(module==='agency'&&resource.id==='team'?{assignmentId:context.assignmentId}:{})}),cache:false})
     let normalized=normalizeList(result)
     if(module==='costore'&&['card-dividends','promotion-dividends'].includes(resource.id))normalized=normalizeCostoreDividendReport(normalized,resource.id)
     if(module==='agency'&&resource.id==='team'){
@@ -864,7 +859,7 @@ export function getBusinessReport(module,id,contextId,params={}){
 }
 export function getBusinessIncomeDetail(contextId,id){
   return withBusinessContext(contextId,context=>`${context.module}:income`,async(account,context)=>{
-    const result=config.useMock?mockClone(mockBusinessState(account,context).entries.find(item=>item.id===id)):await request(`/income/entries/${encodeURIComponent(id)}`,{data:{contextId:context.id}})
+    const result=config.useMock?mockClone(mockBusinessState(account,context).entries.find(item=>item.id===id)):await request(`/income/entries/${encodeURIComponent(id)}`,{data:{contextId:context.id},cache:false})
     if(!result?.id)throw new Error('收益记录不存在或无权访问')
     const entry=normalizeIncomeEntry(result)
     if(config.useMock)entry.presentation=incomePresentation(entry,context)
