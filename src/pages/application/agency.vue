@@ -15,6 +15,8 @@
               <RegionPicker
                 plain
                 :levels="data.regionLevels"
+                :hide-municipalities="data.agencyType === 'CITY'"
+                :flatten-municipalities="data.agencyType === 'COUNTY'"
                 :label="draft.regionNames.join('')"
                 :codes="draft.regionCodes"
                 @change="regionChanged"
@@ -120,6 +122,7 @@ const draft = ref({
   address: '',
   regionNames: [],
   regionCodes: [],
+  parentCode: '',
   storefrontFileId: '',
   cityTierId: '',
   agreementAccepted: false,
@@ -167,6 +170,7 @@ const { data, status, error, load } = useAsyncPage(async () => {
   draft.value.cityTierId = options.cityTierId || ''
   draft.value.regionNames = []
   draft.value.regionCodes = []
+  draft.value.parentCode = ''
   draft.value.address = ''
   draft.value.storeName = ''
   draft.value.storefrontFileId = ''
@@ -208,6 +212,7 @@ async function verifySelectedRegion() {
 function regionChanged(value) {
   draft.value.regionNames = value.names
   draft.value.regionCodes = value.codes
+  draft.value.parentCode = value.parentCode || ''
   actionError.value = ''
   verifySelectedRegion()
 }

@@ -6,7 +6,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import areas from 'china-area-data'
-import { resolveRegionNames } from '../features/region'
+import { resolveRegionNames, isMunicipalityProvince } from '../features/region'
 const props = defineProps({
   label: { type: String, default: '' },
   codes: { type: Array, default: () => [] },
@@ -15,6 +15,10 @@ const props = defineProps({
   levels: { type: Number, default: 3 },
   // Prepend an "全部" row that clears the selection
   allowAll: Boolean,
+  // City-agent applications cannot choose a municipality.
+  hideMunicipalities: Boolean,
+  // County-agent applications list districts directly under a municipality.
+  flattenMunicipalities: Boolean,
 })
 const emit = defineEmits(['change'])
 const ALL = { code: '', name: '全部' }
@@ -26,22 +30,37 @@ const depth = computed(() => {
 })
 const indices = ref([0, 0, 0])
 const entries = code => Object.entries(areas[code] || {}).map(([code, name]) => ({ code, name }))
+const realDistricts = code => entries(code).filter(item => item.name !== '市辖区')
 // Municipalities use a placeholder city named 市辖区. Skip it and list the real districts.
 function cityRows(provinceCode) {
   const rows = []
+  const flatten = props.flattenMunicipalities && isMunicipalityProvince(provinceCode)
+  const provinceName = areas['86']?.[provinceCode] || ''
   for (const city of entries(provinceCode)) {
-    if (city.name !== '市辖区') {
+    const municipalBucket = city.name === '市辖区' || (flatten && city.name === '县')
+    if (!municipalBucket && !flatten) {
       rows.push(city)
       continue
     }
-    for (const district of entries(city.code)) {
-      rows.push({ code: district.code, name: district.name, parentCode: city.code, parentName: city.name, flat: true })
+    if (!municipalBucket) {
+      rows.push(city)
+      continue
+    }
+    for (const district of realDistricts(city.code)) {
+      rows.push({
+        code: district.code,
+        name: district.name,
+        parentCode: flatten ? provinceCode : city.code,
+        parentName: flatten ? provinceName : city.name,
+        flat: true,
+      })
     }
   }
   return rows
 }
-const provinces = entries('86')
-const provinceOptions = computed(() => (props.allowAll ? [ALL, ...provinces] : provinces))
+const provinceSource = computed(() => entries('86').filter(item => !(props.hideMunicipalities && isMunicipalityProvince(item.code))))
+const provinceOptions = computed(() => (props.allowAll ? [ALL, ...provinceSource.value] : provinceSource.value))
+const municipalityFlat = computed(() => props.flattenMunicipalities && isMunicipalityProvince(provinceOptions.value[indices.value[0]]?.code))
 const cities = computed(() => {
   const province = provinceOptions.value[indices.value[0]]
   if (!province?.code) return props.allowAll ? [ALL] : []
@@ -51,12 +70,12 @@ const districts = computed(() => {
   const city = cities.value[indices.value[1]]
   if (!city?.code) return props.allowAll ? [ALL] : []
   if (city.flat) return [{ code: city.code, name: city.name, parentCode: city.parentCode, parentName: city.parentName, flat: true }]
-  return entries(city.code)
+  return realDistricts(city.code)
 })
 const ranges = computed(() => {
   const columns = [provinceOptions.value]
   if (depth.value > 1) columns.push(cities.value)
-  if (depth.value > 2) columns.push(districts.value)
+  if (depth.value > 2 && !municipalityFlat.value) columns.push(districts.value)
   return columns.map(list => list.map(item => item.name))
 })
 const displayLabel = computed(() => {
@@ -71,7 +90,7 @@ function restoreSelection() {
     return
   }
   const offset = props.allowAll ? 1 : 0
-  const firstRaw = provinces.findIndex(item => item.code === props.codes[0])
+  const firstRaw = provinceSource.value.findIndex(item => item.code === props.codes[0])
   const first = firstRaw < 0 ? 0 : firstRaw + offset
   if (depth.value === 1) {
     indices.value = [first]
@@ -82,12 +101,12 @@ function restoreSelection() {
   const districtCode = props.codes[2]
   const secondRaw = cityList.findIndex(item => item.code === (item.flat ? (districtCode || props.codes[1]) : props.codes[1]))
   const second = Math.max(0, secondRaw)
-  if (depth.value === 2) {
+  if (depth.value === 2 || (props.flattenMunicipalities && isMunicipalityProvince(province?.code))) {
     indices.value = [first, second]
     return
   }
   const city = cityList[second]
-  const districtList = !city?.code ? [] : city.flat ? [city] : entries(city.code)
+  const districtList = !city?.code ? [] : city.flat ? [city] : realDistricts(city.code)
   const third = city?.flat ? 0 : Math.max(0, districtList.findIndex(item => item.code === districtCode))
   indices.value = [first, second, third]
 }
@@ -102,17 +121,26 @@ function confirm({ detail }) {
   indices.value = detail.value.slice(0, depth.value)
   const selected = [provinceOptions.value[indices.value[0]]]
   if (depth.value > 1) selected.push(cities.value[indices.value[1]])
-  if (depth.value > 2) selected.push(districts.value[indices.value[2]])
+  if (depth.value > 2 && !(props.flattenMunicipalities && isMunicipalityProvince(selected[0]?.code))) selected.push(districts.value[indices.value[2]])
   if (props.allowAll && selected.some(item => !item?.code)) {
     emit('change', { names: [], codes: [] })
     return
   }
   if (!selected.every(Boolean)) return
   const city = selected[1]
+  if (city?.flat && props.flattenMunicipalities && isMunicipalityProvince(selected[0].code)) {
+    emit('change', {
+      names: [selected[0].name, city.name],
+      codes: [selected[0].code, city.code],
+      parentCode: selected[0].code,
+    })
+    return
+  }
   if (city?.flat && depth.value > 2) {
     emit('change', {
       names: [selected[0].name, city.parentName, city.name],
       codes: [selected[0].code, city.parentCode, city.code],
+      parentCode: city.parentCode,
     })
     return
   }

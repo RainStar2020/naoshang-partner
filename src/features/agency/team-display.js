@@ -1,5 +1,6 @@
 /** Agency team level / performance presentation helpers. */
 import areas from "china-area-data";
+import { isMunicipalityProvince } from "../region";
 import { storeDisplayAddress, storeFeeAmount, storePhotoUrl } from '../store-display'
 
 export function agencyTeamRegionLabel(item = {}) {
@@ -66,10 +67,22 @@ const levelLabels = Object.freeze({
   门店成员: "门店成员",
 });
 
+function municipalityCountyInsteadOfCity(item = {}) {
+  const code = String(item.regionCode || item.areaCode || item.code || "")
+    .trim()
+    .split("-")[0];
+  if (!/^\d{6}$/.test(code) || code.endsWith("0000")) return false;
+  return isMunicipalityProvince(`${code.slice(0, 2)}0000`);
+}
+
 export function agencyTeamLevelLabel(item = {}) {
   const raw = String(
     item.levelLabel || item.roleLabel || item.agencyType || item.kind || "",
   ).trim();
+  const rawType = raw.toUpperCase();
+  if ((rawType === "CITY" || raw === "市代") && municipalityCountyInsteadOfCity(item)) {
+    return "区县代理";
+  }
   if (!raw) return "区域代理";
   return (
     levelLabels[raw] ||
@@ -253,6 +266,9 @@ export function viewerScopedAgencyAreaLabel(area, context) {
       : area,
   );
   if (scope.agencyType === "PROVINCE" && code) {
+    if (isMunicipalityProvince(`${code.slice(0, 2)}0000`)) {
+      return agencyTeamRegionLabel({ regionCode: code, agencyType: "COUNTY" });
+    }
     return agencyTeamRegionLabel({ regionCode: `${code.slice(0, 4)}00` });
   }
   if (code) return agencyTeamRegionLabel({ regionCode: code });
@@ -446,12 +462,16 @@ export function normalizeAgencyStore(store) {
 export function normalizeAgencyTeamItem(item) {
   if (!item || typeof item !== "object" || !item.id) return null;
   const levelLabel = agencyTeamLevelLabel(item);
+  const agencyType = levelLabel === "区县代理" && municipalityCountyInsteadOfCity(item)
+    ? "COUNTY"
+    : item.agencyType;
   const stores = Array.isArray(item.stores)
     ? item.stores.map(normalizeAgencyStore).filter(Boolean)
     : [];
   const owners = Array.isArray(item.owners) ? item.owners : [];
   return {
     ...item,
+    agencyType,
     levelLabel,
     partnerLevel: item.partnerLevel || levelLabel,
     storeCount: agencyTeamStoreCount({ ...item, stores }),

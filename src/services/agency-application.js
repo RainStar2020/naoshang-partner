@@ -2,6 +2,7 @@ import { getSession,request } from './api'
 import {config} from '../config'
 import { mockAgencyApplicationOptions, mockCheckAgencyRegion, mockSubmitAgency } from './mock/agency-application'
 import { feeBreakdownNote, resolveAgencyFees, wanToYuan } from '../features/agency/pricing'
+import { isMunicipalityCityCode, isMunicipalityProvince } from '../features/region'
 import { assertUsableAgencyPromotionCode, normalizeAgencyPromotionCode, MOCK_PARTNER_AGENCY_PROMOTION_CODE } from './agency-promotion-code'
 
 export const AGENCY_CODE_NOT_SUPERIOR_MESSAGE = '此码归属人不是您的上级合伙人，请联系您的上级合伙人扫码申请代理。'
@@ -227,6 +228,13 @@ export function submitAgencyApplication(options, draft, key) {
     if (!canonicalType(options.agencyType)) throw new Error('代理类型无效')
     const regionCode = resolveDraftRegionCode(draft)
     if (!regionCode) throw new Error('请选择代理地区')
+    if (agencyType === 'city' && (isMunicipalityCityCode(regionCode) || isMunicipalityProvince(regionCode))) {
+      throw new Error('直辖市不设市代，请申请区县代理')
+    }
+    const parentCode = String(draft.parentCode || '').trim()
+    if (agencyType === 'district' && isMunicipalityProvince(draft.regionCodes?.[0]) && parentCode && parentCode !== draft.regionCodes[0]) {
+      throw new Error('直辖市区县代理请直接选择区县')
+    }
     assertStoreName(agencyType, draft)
     await assertAgencyRegionAvailable(agencyType, regionCode)
     if (config.useMock) return mockSubmitAgency(user, options, draft, key)
@@ -237,6 +245,7 @@ export function submitAgencyApplication(options, draft, key) {
       phone: String(draft.phone || '').trim(),
       regionCode,
       regionNames: draft.regionNames,
+      ...(parentCode ? { parentCode } : {}),
       address: String(draft.address || '').trim(),
       agreementAccepted: true,
       agreementVersion: options.agreement?.version || undefined,
