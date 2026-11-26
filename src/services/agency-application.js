@@ -12,57 +12,21 @@ function agencyCodeOwnerError() {
   return error
 }
 
-function identityKeys(person) {
-  if (!person || typeof person !== 'object') return []
-  return ['id', 'accountId', 'account_id', 'userId', 'user_id', 'ownerId', 'owner_id']
-    .map(key => String(person[key] || '').trim())
-    .filter(Boolean)
+function userId(person) {
+  return String(person?.id || '').trim()
 }
 
-function promotionCodesOf(person) {
-  if (!person || typeof person !== 'object') return []
-  return ['agencyPromotionCode', 'promotionCode', 'promotionId']
-    .map(key => normalizeAgencyPromotionCode(person[key]))
-    .filter(Boolean)
-}
-
-function codeOwnerFromOptions(options, promotionCode) {
-  const source = options?.referredBy || options?.referrer || options?.codeOwner || options?.owner || null
-  if (source && typeof source === 'object') return source
-  if (typeof source === 'string' && source.trim()) return { id: source.trim() }
-  return { promotionCode }
-}
-
-function ownerMatchesSuperior(owner, superior, promotionCode) {
-  if (!superior || typeof superior !== 'object') return false
-  const ownerIds = identityKeys(owner)
-  const superiorIds = identityKeys(superior)
-  if (ownerIds.length && superiorIds.length && ownerIds.some(id => superiorIds.includes(id))) return true
-  const scanned = normalizeAgencyPromotionCode(promotionCode)
-  const superiorCodes = promotionCodesOf(superior)
-  if (scanned && superiorCodes.includes(scanned)) return true
-  const ownerCodes = promotionCodesOf(owner).filter(code => code !== scanned)
-  return ownerCodes.length > 0 && ownerCodes.some(code => superiorCodes.includes(code))
-}
-
-async function assertCodeBelongsToPartnerSuperior(user, options, promotionCode) {
+function assertCodeBelongsToPartnerSuperior(options, promotionCode) {
   if (config.useMock) {
     if (normalizeAgencyPromotionCode(promotionCode) === MOCK_PARTNER_AGENCY_PROMOTION_CODE) return
     throw agencyCodeOwnerError()
   }
-  let contextId = `partner:${user.id}`
-  try {
-    const bootstrap = await request('/me/bootstrap')
-    const rows = Array.isArray(bootstrap?.businessContexts) ? bootstrap.businessContexts : []
-    const wholesale = rows.find(item => item?.module === 'wholesale' && item.id)
-    if (wholesale?.id) contextId = String(wholesale.id)
-  } catch {
-    // Fall back to the partner context id derived from the signed-in account.
-  }
-  const result = await request('/partner/superior', { data: { contextId } })
-  const superior = result?.superior || result?.relations?.superior || null
-  const owner = codeOwnerFromOptions(options, promotionCode)
-  if (!ownerMatchesSuperior(owner, superior, promotionCode)) throw agencyCodeOwnerError()
+  if (options?.promotionCodeMatchesUpline === false) throw agencyCodeOwnerError()
+  if (options?.promotionCodeMatchesUpline === true) return
+  const referredId = userId(options?.referredBy)
+  const uplineId = userId(options?.upline)
+  if (referredId && uplineId && referredId === uplineId) return
+  throw agencyCodeOwnerError()
 }
 
 async function scoped(operation) {
@@ -206,7 +170,7 @@ export function getAgencyApplicationOptions(type, promotionId, cityTierId = null
     const code = assertUsableAgencyPromotionCode(promotionCode || promotionId)
     const fallback = mockAgencyApplicationOptions(type, code, cityTierId)
     if (config.useMock) {
-      await assertCodeBelongsToPartnerSuperior(getSession()?.user, fallback, code)
+      assertCodeBelongsToPartnerSuperior(fallback, code)
       return { ...fallback, promotionId: code, promotionCode: code }
     }
     const result = await request('/agency/application-options', {
@@ -217,7 +181,7 @@ export function getAgencyApplicationOptions(type, promotionId, cityTierId = null
       },
     })
     const payableAmount = payableYuanFromOptions(result, fallback)
-    await assertCodeBelongsToPartnerSuperior(getSession()?.user, result, code)
+    assertCodeBelongsToPartnerSuperior(result, code)
     const output = {
       ...fallback,
       ...result,

@@ -26,16 +26,31 @@ const depth = computed(() => {
 })
 const indices = ref([0, 0, 0])
 const entries = code => Object.entries(areas[code] || {}).map(([code, name]) => ({ code, name }))
+// Municipalities use a placeholder city named 市辖区. Skip it and list the real districts.
+function cityRows(provinceCode) {
+  const rows = []
+  for (const city of entries(provinceCode)) {
+    if (city.name !== '市辖区') {
+      rows.push(city)
+      continue
+    }
+    for (const district of entries(city.code)) {
+      rows.push({ code: district.code, name: district.name, parentCode: city.code, parentName: city.name, flat: true })
+    }
+  }
+  return rows
+}
 const provinces = entries('86')
 const provinceOptions = computed(() => (props.allowAll ? [ALL, ...provinces] : provinces))
 const cities = computed(() => {
   const province = provinceOptions.value[indices.value[0]]
   if (!province?.code) return props.allowAll ? [ALL] : []
-  return entries(province.code)
+  return cityRows(province.code)
 })
 const districts = computed(() => {
   const city = cities.value[indices.value[1]]
   if (!city?.code) return props.allowAll ? [ALL] : []
+  if (city.flat) return [{ code: city.code, name: city.name, parentCode: city.parentCode, parentName: city.parentName, flat: true }]
   return entries(city.code)
 })
 const ranges = computed(() => {
@@ -45,9 +60,9 @@ const ranges = computed(() => {
   return columns.map(list => list.map(item => item.name))
 })
 const displayLabel = computed(() => {
-  if (props.label) return props.label
+  if (props.label) return String(props.label).split('市辖区').join('')
   if (props.allowAll && !props.codes?.length) return '全部'
-  const names = resolveRegionNames(props.codes).slice(0, depth.value)
+  const names = resolveRegionNames(props.codes).slice(0, depth.value).filter(name => name !== '市辖区')
   return names.length ? names.join(' · ') : ''
 })
 function restoreSelection() {
@@ -63,15 +78,17 @@ function restoreSelection() {
     return
   }
   const province = provinceOptions.value[first]
-  const cityList = province?.code ? entries(province.code) : []
-  const second = Math.max(0, cityList.findIndex(item => item.code === props.codes[1]))
+  const cityList = province?.code ? cityRows(province.code) : []
+  const districtCode = props.codes[2]
+  const secondRaw = cityList.findIndex(item => item.code === (item.flat ? (districtCode || props.codes[1]) : props.codes[1]))
+  const second = Math.max(0, secondRaw)
   if (depth.value === 2) {
     indices.value = [first, second]
     return
   }
   const city = cityList[second]
-  const districtList = city?.code ? entries(city.code) : []
-  const third = Math.max(0, districtList.findIndex(item => item.code === props.codes[2]))
+  const districtList = !city?.code ? [] : city.flat ? [city] : entries(city.code)
+  const third = city?.flat ? 0 : Math.max(0, districtList.findIndex(item => item.code === districtCode))
   indices.value = [first, second, third]
 }
 watch(() => props.codes, restoreSelection, { immediate: true, deep: true })
@@ -90,7 +107,23 @@ function confirm({ detail }) {
     emit('change', { names: [], codes: [] })
     return
   }
-  if (selected.every(Boolean)) emit('change', { names: selected.map(item => item.name), codes: selected.map(item => item.code) })
+  if (!selected.every(Boolean)) return
+  const city = selected[1]
+  if (city?.flat && depth.value > 2) {
+    emit('change', {
+      names: [selected[0].name, city.parentName, city.name],
+      codes: [selected[0].code, city.parentCode, city.code],
+    })
+    return
+  }
+  if (city?.flat && depth.value === 2) {
+    emit('change', {
+      names: [selected[0].name, city.name],
+      codes: [selected[0].code, city.code],
+    })
+    return
+  }
+  emit('change', { names: selected.map(item => item.name), codes: selected.map(item => item.code) })
 }
 </script>
 <style scoped>
