@@ -53,8 +53,11 @@
     <view v-if="storeOpen" class="apply-mask" @click="storeOpen = false">
       <view class="apply-sheet" role="dialog" aria-label="切换门店" @click.stop>
         <view class="sheet-heading">切换门店<button class="sheet-close" aria-label="关闭门店选择" @click="storeOpen = false"><image src="/static/common/icon-close.png" mode="aspectFit" /></button></view>
+        <view class="store-filter">
+          <RegionPicker allow-all :codes="regionCodes" :label="regionLabel" @change="setRegion" />
+        </view>
         <scroll-view scroll-y class="store-options">
-          <button v-for="store in data.stores" :key="store.id" class="store-option" @click="selectStore(store.id)">
+          <button v-for="store in filteredStores" :key="store.id" class="store-option" @click="selectStore(store.id)">
             <image :src="store.coverUrl || '/static/common/icon-store.png'" mode="aspectFill" />
             <view class="store-option-copy">
               <view class="store-title">{{ store.name }} <text v-if="store.number" class="store-no">{{ store.number }}</text></view>
@@ -67,7 +70,7 @@
               </view>
             </view>
           </button>
-          <EmptyState v-if="!data.stores.length" text="暂无可申请门店" />
+          <EmptyState v-if="!filteredStores.length" :text="regionCodes.length ? '该地区暂无可申请门店' : '暂无可申请门店'" />
         </scroll-view>
       </view>
     </view>
@@ -91,8 +94,34 @@ import BusinessPageHeader from '../../components/BusinessPageHeader.vue'
 import FeaturePageState from '../../components/FeaturePageState.vue'
 import ManagedRichContent from '../../components/ManagedRichContent.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import RegionPicker from '../../components/RegionPicker.vue'
 useAuth()
 const isMock = config.useMock, storeId = ref(''), durationId = ref(''), monthsText = ref('6'), storeOpen = ref(false), agreementOpen = ref(false), agreed = ref(false), quote = ref(null), quoting = ref(false), quoteError = ref(''), submitError = ref(''), submitting = ref(false)
+const regionCodes = ref([]), regionNames = ref([])
+const regionLabel = computed(() => regionNames.value.filter(Boolean).join('') || '全部地区')
+function regionPrefix(code) {
+  const text = String(code || '').trim()
+  if (text.endsWith('0000')) return text.slice(0, 2)
+  if (text.endsWith('00')) return text.slice(0, 4)
+  return text
+}
+function storeMatchesRegion(store, codes, names) {
+  if (!codes.length) return true
+  const prefix = regionPrefix(codes[codes.length - 1])
+  const storeCodes = Array.isArray(store.regionCodes) ? store.regionCodes.map(item => String(item || '').trim()).filter(Boolean) : []
+  const single = String(store.regionCode || store.region_code || '').trim()
+  if (single && !storeCodes.includes(single)) storeCodes.push(single)
+  if (storeCodes.some(code => code === codes[codes.length - 1] || (prefix && code.startsWith(prefix)))) return true
+  const storeNames = Array.isArray(store.regionNames) ? store.regionNames : []
+  const address = String(store.address || '')
+  if (!storeCodes.length && names.length && names.every(name => storeNames.includes(name) || address.includes(name))) return true
+  return false
+}
+const filteredStores = computed(() => (data.value?.stores || []).filter(store => storeMatchesRegion(store, regionCodes.value, regionNames.value)))
+function setRegion(value) {
+  regionCodes.value = Array.isArray(value?.codes) ? value.codes.filter(Boolean) : []
+  regionNames.value = Array.isArray(value?.names) ? value.names.filter(Boolean) : []
+}
 let epoch = 0, active = true, attemptKey = '', quoteReceivedAt = 0
 const pendingIntent=ref(getCostoreApplicationIntent())
 const { data, status, error, load } = useAsyncPage(async () => {
@@ -245,6 +274,8 @@ onUnload(() => { active = false; ++epoch })
 .apply-mask { position: fixed; inset: 0; z-index: 150; display: flex; align-items: flex-end; background: #0009; }
 .apply-sheet { width: min(750px, 100%); margin: 0 auto; max-height: 82vh; padding: 1em 1em calc(1em + env(safe-area-inset-bottom)); border-radius: 1.2em 1.2em 0 0; background: #343a5c; }
 .sheet-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: .8em; font-weight: 600; }
+.store-filter { margin-bottom: .7em; }
+.store-filter :deep(.region-input) { height: 2.6em; background: #484e6e; color: #fff; }
 .sheet-close { width: 1.8em; height: 1.8em; margin: 0; padding: 0; background: none; }
 .sheet-close image { width: 1.2em; height: 1.2em; }
 .store-options { max-height: 68vh; }
