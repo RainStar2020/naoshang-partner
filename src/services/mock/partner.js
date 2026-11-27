@@ -45,13 +45,16 @@ export function mockMaterialDetail(id) {
   const type = match[1], item = materialItem(type, Number(match[2]), Number(match[3]))
   return {
     ...item,
-    allowedOperations: type === 'image' ? ['upload-qr', 'render', 'download'] : ['upload-qr', 'copy-link'],
+    allowedOperations: type === 'image' ? ['upload-qr', 'render', 'download'] : ['upload-qr', 'create-content-share', 'copy-link'],
     mediaUrl: type === 'video' ? 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' : materialCover,
     posterUrl: '/static/media/video-poster-background.png',
-    shareUrl: 'http://localhost:5173/#/pages/register/index?inviteCode=LXYA023',
+    inviteUrl: 'http://localhost:5173/#/pages/register/index?inviteCode=LXYA023',
+    shareUrl: null,
+    contentShareId: null,
     content: emptyContent(),
     qrRegion: type === 'image' ? { x: 0.7, y: 0.7, width: 0.22, height: 0.22 } : null,
     qrSlotAtEnd: type === 'article',
+    videoDeliveryMode: type === 'video' ? 'INTERACTIVE_H5' : null,
     h5RouteReady: false,
   }
 }

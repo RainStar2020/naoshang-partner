@@ -20,6 +20,8 @@ export default defineConfig({
     },
     proxy: {
       "/backend-api": {
+        // DEV 代理会去掉 /backend-api 前缀，公开接口请请求 /backend-api/api/public/...
+        // 以便打到生产的 /api/public/promo-shares/{shareId}，不要写成 /backend-api/public/...
         target: apiTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/backend-api/, ""),

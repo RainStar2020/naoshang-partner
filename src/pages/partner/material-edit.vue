@@ -15,16 +15,20 @@
         <button v-else-if="canUpload" class="article-qr" aria-label="二维码" @click="qrOpen = true"></button>
       </view>
       <view v-if="shareHint" class="share-hint">{{ shareHint }}</view>
+      <view v-if="contentShareUrl" class="share-url" role="status">内容页链接：{{ contentShareUrl }}</view>
+      <view v-if="inviteLink" class="share-url invite-url" role="status">邀请注册链接：{{ inviteLink }}</view>
       <view v-if="composeHint" class="compose-hint" role="status">{{ composeHint }}</view>
       <view v-if="jobStatus" class="job-status" role="status">{{ jobStatus }}</view>
       <text v-if="operationError" class="operation-error" role="alert">{{ operationError }}</text>
       <view class="editor-footer">
         <button v-if="canUpload" class="secondary" :disabled="busy" @click="chooseQr">{{ uploading ? '上传中…' : (qrAssetId ? '重新上传二维码' : '上传二维码') }}</button>
         <button v-if="canSavePoster" class="primary" :disabled="busy || !qrAssetId" @click="savePoster">{{ saveButtonLabel }}</button>
-        <button v-if="canCopy" class="secondary" :disabled="busy || !shareLink" @click="copyLink">复制邀请链接</button>
+        <button v-if="canCreateShare" class="primary" :disabled="busy || !qrAssetId || !!contentShareBlocker" @click="generateContentShare">{{ creatingShare ? '正在生成内容页…' : '生成内容页分享' }}</button>
+        <button v-if="canCopyContent" class="secondary" :disabled="busy || !contentShareUrl" @click="copyContentLink">复制内容页链接</button>
+        <button v-if="canCopyInvite" class="secondary" :disabled="busy || !inviteLink" @click="copyInviteLink">复制邀请注册链接</button>
       </view>
     </template>
-    <view v-if="qrOpen" class="qr-mask" @click="qrOpen = false"><view class="qr-dialog" @click.stop role="dialog" aria-modal="true" aria-label="二维码预览"><image v-if="qrPreview" class="qr-image" :src="qrPreview" mode="aspectFit" /><BusinessQrCode v-else :value="detail?.shareUrl || detail?.id" :show-save="false" /></view></view>
+    <view v-if="qrOpen" class="qr-mask" @click="qrOpen = false"><view class="qr-dialog" @click.stop role="dialog" aria-modal="true" aria-label="二维码预览"><image v-if="qrPreview" class="qr-image" :src="qrPreview" mode="aspectFit" /><text v-else class="qr-empty">请先上传自己的二维码</text></view></view>
   </view>
 </template>
 <script setup>
@@ -32,31 +36,36 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import { getSession } from '../../services/api'
 import { useAuth } from '../../composables/useAuth'
-import { getMaterial, renderMaterial, getMaterialJob, uploadMaterialQr, materialTypes, describeComposeBlocker } from '../../services/materials'
+import { getMaterial, renderMaterial, getMaterialJob, uploadMaterialQr, materialTypes, describeComposeBlocker, describeContentShareBlocker, describeContentShareError, createContentShare, getCurrentContentShare, isNotFoundError, copyLinkTarget, keepInviteUrl } from '../../services/materials'
 import { discardAsset } from '../../services/asset-upload'
 import ManagedRichContent from '../../components/ManagedRichContent.vue'
-import BusinessQrCode from '../../components/BusinessQrCode.vue'
 useAuth()
-const detail = ref(null), status = ref('loading'), error = ref(''), uploading = ref(false), generating = ref(false), saving = ref(false)
+const detail = ref(null), status = ref('loading'), error = ref(''), uploading = ref(false), generating = ref(false), saving = ref(false), creatingShare = ref(false)
 const operationError = ref(''), jobStatus = ref(''), qrAssetId = ref(''), qrPreview = ref(''), qrOpen = ref(false), resultImage = ref('')
-const busy = computed(() => uploading.value || generating.value || saving.value)
+const busy = computed(() => uploading.value || generating.value || saving.value || creatingShare.value)
 const canUpload = computed(() => detail.value?.allowedOperations.includes('upload-qr'))
 const canSavePoster = computed(() => detail.value?.type === 'image' && detail.value?.allowedOperations.includes('render') && detail.value?.allowedOperations.includes('download'))
-const shareLink = computed(() => detail.value?.shareUrl || '')
-const canCopy = computed(() => detail.value?.allowedOperations.includes('copy-link') && !!shareLink.value)
+const canCreateShare = computed(() => detail.value && detail.value.type !== 'image' && (detail.value.allowedOperations.includes('create-content-share') || canUpload.value))
+const contentShareUrl = computed(() => copyLinkTarget(detail.value))
+const inviteLink = computed(() => keepInviteUrl(detail.value?.inviteUrl))
+const canCopyContent = computed(() => !!contentShareUrl.value)
+const canCopyInvite = computed(() => !!inviteLink.value)
 const articleHtml = computed(() => detail.value?.content?.format === 'html' && detail.value?.content?.html ? detail.value.content.html : '')
 const composeHint = computed(() => detail.value?.type === 'image' ? describeComposeBlocker(detail.value) : '')
+const contentShareBlocker = computed(() => detail.value && detail.value.type !== 'image' ? describeContentShareBlocker(detail.value) : '')
 const shareHint = computed(() => {
   if (!detail.value || detail.value.type === 'image') return ''
-  if (!canCopy.value && !canUpload.value) return ''
-  return '邀请链接是注册邀请，不会把上传的二维码嵌入图文或视频内容。当前还不能生成带二维码的内容访问链接。'
+  if (contentShareBlocker.value) return contentShareBlocker.value
+  if (contentShareUrl.value) return '内容页链接给未登录用户查看图文或视频；邀请注册链接只用于注册，不要把邀请页当成内容页分享。'
+  if (canUpload.value || canCreateShare.value) return '请先上传自己的二维码并生成内容页分享。没有内容页时不能用邀请注册页代替。'
+  return ''
 })
 const saveButtonLabel = computed(() => {
   if (saving.value) return '正在保存…'
   if (generating.value) return '正在生成…'
   return '保存素材'
 })
-let id = '', epoch = 0, timer = null, active = true, jobId = '', attempts = 0, attemptKey = '', polling = false
+let id = '', epoch = 0, timer = null, active = true, jobId = '', attempts = 0, attemptKey = '', contentAttemptKey = '', polling = false
 onLoad(options => { id = options.id || '' })
 async function load() {
   if (!getSession()) return
@@ -67,7 +76,20 @@ async function load() {
     detail.value = result; resultImage.value = ''; jobStatus.value = ''; operationError.value = ''; status.value = 'ready'
     const typeLabel = materialTypes.find(item => item.id === result.type)?.label || '素材'
     uni.setNavigationBarTitle({ title: `${typeLabel}编辑` })
+    if (result.type !== 'image') await backfillContentShare(current)
   } catch(reason) { if (current === epoch) { status.value = 'error'; error.value = reason.message || '素材加载失败' } }
+}
+async function backfillContentShare(current = epoch) {
+  if (!id || !detail.value || detail.value.type === 'image') return
+  try {
+    const currentShare = await getCurrentContentShare(id)
+    if (current !== epoch || !detail.value) return
+    detail.value = { ...detail.value, shareUrl: currentShare.shareUrl, contentShareId: currentShare.shareId, qrImageUrl: currentShare.qrImageUrl || detail.value.qrImageUrl }
+    if (currentShare.qrImageUrl) qrPreview.value = qrPreview.value || currentShare.qrImageUrl
+  } catch (reason) {
+    if (current !== epoch) return
+    if (!isNotFoundError(reason)) operationError.value = reason.message || '查询内容页分享失败'
+  }
 }
 async function chooseQr() {
   if (busy.value || !canUpload.value) return
@@ -80,7 +102,8 @@ async function chooseQr() {
     const file = selected.tempFiles[0] || {}
     const result = await uploadMaterialQr({ path: file.path || selected.tempFilePaths[0], size: file.size, name: file.name || '', type: file.type || file.mimeType || '' })
     if (current !== epoch) return
-    const previous = qrAssetId.value; qrAssetId.value = result.assetId; qrPreview.value = selected.tempFilePaths[0]; attemptKey = ''; jobId = ''; resultImage.value = ''; jobStatus.value = ''; if (previous && previous !== result.assetId) discardAsset(previous)
+    const previous = qrAssetId.value; qrAssetId.value = result.assetId; qrPreview.value = selected.tempFilePaths[0]; attemptKey = ''; jobId = ''; resultImage.value = ''; jobStatus.value = ''; contentAttemptKey = ''; if (previous && previous !== result.assetId) discardAsset(previous)
+    if (detail.value && detail.value.type !== 'image') await generateContentShare()
   } catch(reason) { if(current === epoch) operationError.value = reason.message || '二维码上传失败' }
   finally { if (current === epoch) uploading.value = false }
 }
@@ -125,9 +148,40 @@ async function poll() {
     if (current === epoch && active && jobId && generating.value && attempts < 40) timer = setTimeout(poll, 1500)
   }
 }
-function copyLink() {
-  if(!canCopy.value || !shareLink.value) return
-  uni.setClipboardData({ data: shareLink.value, fail: () => { operationError.value = '复制失败，请重试' } })
+async function generateContentShare() {
+  if (busy.value && !uploading.value) return
+  if (!canCreateShare.value || !qrAssetId.value || !detail.value || detail.value.type === 'image') return
+  const blocker = describeContentShareBlocker(detail.value)
+  if (blocker) { operationError.value = blocker; return }
+  const current = epoch
+  creatingShare.value = true
+  operationError.value = ''
+  jobStatus.value = '正在生成内容页分享…'
+  if (!contentAttemptKey) contentAttemptKey = `content-share-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  try {
+    const result = await createContentShare(id, { qrAssetId: qrAssetId.value, idempotencyKey: contentAttemptKey })
+    if (current !== epoch || !detail.value) return
+    detail.value = { ...detail.value, shareUrl: result.shareUrl, contentShareId: result.shareId, qrImageUrl: result.qrImageUrl || detail.value.qrImageUrl }
+    jobStatus.value = '已生成内容页分享'
+  } catch (reason) {
+    if (current === epoch) { jobStatus.value = ''; operationError.value = describeContentShareError(reason) }
+  } finally {
+    if (current === epoch) creatingShare.value = false
+  }
+}
+function copyText(value, failMessage) {
+  if (!value) return
+  uni.setClipboardData({ data: value, fail: () => { operationError.value = failMessage } })
+}
+function copyContentLink() {
+  const url = contentShareUrl.value
+  if (!url) { operationError.value = '请先上传二维码并生成内容页分享，不能用邀请注册页代替'; return }
+  copyText(url, '复制内容页链接失败，请重试')
+}
+function copyInviteLink() {
+  const url = inviteLink.value
+  if (!url) { operationError.value = '暂无邀请注册链接'; return }
+  copyText(url, '复制邀请注册链接失败，请重试')
 }
 async function saveImage() {
   if (!resultImage.value) { operationError.value = '生成结果缺少可下载的图片，无法保存到相册'; jobStatus.value = ''; return }
@@ -153,7 +207,7 @@ onHide(() => { active = false; clearTimeout(timer) })
 onUnload(() => { active = false; ++epoch; clearTimeout(timer) })
 </script>
 <style scoped>
-.material-detail-page{min-height:100vh;max-width:750px;margin:auto;background:#272c47;color:#e4ebfa;padding:24rpx 24rpx calc(190rpx + env(safe-area-inset-bottom))}.editor-state{display:flex;flex-direction:column;gap:24rpx;padding:80rpx 24rpx;color:#a3b1cb;text-align:center}.editor-state button{padding:0 30rpx;margin:auto}.material-heading{font-size:30rpx;line-height:1.7;margin:0 4rpx 24rpx;overflow-wrap:anywhere}.poster-preview{width:100%;display:block;border-radius:20rpx}.video-preview{width:100%;height:900rpx;max-height:65vh;background:#10162b}.material-rich-body,.article-rich{background:#343a5b;border-radius:24rpx;padding:28rpx;min-height:380rpx}.job-status{text-align:center;font-size:24rpx;color:#71d5ff;margin:24rpx 0}.share-hint,.compose-hint{display:block;text-align:center;font-size:24rpx;line-height:1.7;color:#a3b1cb;margin:24rpx 0 0}.compose-hint{color:#ffd39a}.operation-error{display:block;color:#ffa2b6;font-size:24rpx;line-height:1.7;margin:24rpx 0}.editor-footer{position:fixed;bottom:0;left:0;right:0;z-index:10;padding:20rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));background:#272c47;display:flex;gap:20rpx;flex-wrap:wrap;justify-content:center}.editor-footer button{flex:1;min-width:240rpx;max-width:600rpx;font-size:28rpx;margin:0;padding:0 20rpx;line-height:80rpx}.qr-mask{position:fixed;inset:0;z-index:100;background:#000b;display:flex;align-items:center;justify-content:center;padding:60rpx}.qr-dialog{position:relative;width:100%;max-width:560rpx;background:#fff;border-radius:28rpx;padding:48rpx}.qr-image{width:100%;height:420rpx}
+.material-detail-page{min-height:100vh;max-width:750px;margin:auto;background:#272c47;color:#e4ebfa;padding:24rpx 24rpx calc(190rpx + env(safe-area-inset-bottom))}.editor-state{display:flex;flex-direction:column;gap:24rpx;padding:80rpx 24rpx;color:#a3b1cb;text-align:center}.editor-state button{padding:0 30rpx;margin:auto}.material-heading{font-size:30rpx;line-height:1.7;margin:0 4rpx 24rpx;overflow-wrap:anywhere}.poster-preview{width:100%;display:block;border-radius:20rpx}.video-preview{width:100%;height:900rpx;max-height:65vh;background:#10162b}.material-rich-body,.article-rich{background:#343a5b;border-radius:24rpx;padding:28rpx;min-height:380rpx}.job-status{text-align:center;font-size:24rpx;color:#71d5ff;margin:24rpx 0}.share-hint,.compose-hint,.share-url{display:block;text-align:center;font-size:24rpx;line-height:1.7;color:#a3b1cb;margin:24rpx 0 0;overflow-wrap:anywhere}.share-url{color:#9fd6ff}.qr-empty{color:#5c6788;font-size:24rpx}.compose-hint{color:#ffd39a}.operation-error{display:block;color:#ffa2b6;font-size:24rpx;line-height:1.7;margin:24rpx 0}.editor-footer{position:fixed;bottom:0;left:0;right:0;z-index:10;padding:20rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));background:#272c47;display:flex;gap:20rpx;flex-wrap:wrap;justify-content:center}.editor-footer button{flex:1;min-width:240rpx;max-width:600rpx;font-size:28rpx;margin:0;padding:0 20rpx;line-height:80rpx}.qr-mask{position:fixed;inset:0;z-index:100;background:#000b;display:flex;align-items:center;justify-content:center;padding:60rpx}.qr-dialog{position:relative;width:100%;max-width:560rpx;background:#fff;border-radius:28rpx;padding:48rpx}.qr-image{width:100%;height:420rpx}
 </style>
 
 <style scoped>

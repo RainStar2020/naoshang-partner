@@ -289,6 +289,9 @@ export function getCachedMyInviteCode() {
   if (!session?.user?.id || cached?.accountId !== session.user.id) return null
   return cached
 }
+export function requestPublic(path, options = {}) {
+  return sendRequest(path, { ...options, public: true, method: options.method || 'GET' })
+}
 export function request(path, options = {}) {
   options = compactGetOptions(options)
   const method = requestMethod(options)
@@ -319,9 +322,10 @@ export function request(path, options = {}) {
 }
 function sendRequest(path, options = {}) {
   if (!config.baseURL) return Promise.reject(new Error('服务暂不可用，请稍后重试'))
+  const isPublic = options.public === true
   return new Promise((resolve, reject) => uni.request({
     url: /^https?:\/\//i.test(path) ? path : config.baseURL + path, method: options.method || 'GET', data: options.data,
-    timeout: config.timeout, header: { ...(getSession()?.token ? { Authorization: `Bearer ${getSession().token}` } : {}), ...options.header },
+    timeout: config.timeout, header: { ...(!isPublic && getSession()?.token ? { Authorization: `Bearer ${getSession().token}` } : {}), ...options.header },
     success: res => {
       const body = res.data || {}
       const traceId = Object.entries(res.header || {}).find(([name]) => name.toLowerCase() === 'x-trace-id')?.[1]
@@ -332,12 +336,12 @@ function sendRequest(path, options = {}) {
           traceId, errors: body.errors, fieldErrors: body.errors ?? body.fieldErrors,
           verifyFailCount: body.verifyFailCount, verifyLocked: body.verifyLocked,
           serverMessage: body.message || body.error, data: body,
-          offlinePayHint: body.offlinePayHint, ...extra
+          errorCode: body.errorCode, offlinePayHint: body.offlinePayHint, ...extra
         })
         console.error('API request failed', { path, statusCode: res.statusCode, code: body.code, traceId })
         reject(error)
       }
-      if (res.statusCode === 401) { logout({ revoke: false }); rejectResponse(body.message || '登录已过期'); return }
+      if (res.statusCode === 401) { if (!isPublic) logout({ revoke: false }); rejectResponse(body.message || body.error || (isPublic ? '公开内容暂不可用' : '登录已过期'), { errorCode: body.errorCode }); return }
       if (res.statusCode >= 200 && res.statusCode < 300) {
         if (isV2) {
           if (body.status === 1) resolve(body.response)

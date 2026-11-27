@@ -19,6 +19,20 @@
       }
     },
     {
+      "path": "pages/promo-content/article/index",
+      "style": {
+        "navigationBarTitleText": "推广图文",
+        "navigationBarBackgroundColor": "#272c47"
+      }
+    },
+    {
+      "path": "pages/promo-content/video/index",
+      "style": {
+        "navigationBarTitleText": "推广视频",
+        "navigationBarBackgroundColor": "#10162b"
+      }
+    },
+    {
       "path": "pages/member/index",
       "style": {
         "navigationStyle": "custom",
