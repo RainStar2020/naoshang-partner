@@ -737,7 +737,7 @@ export const getAgencyOverview = (input = {}) => callEndpoint("GET /agency/overv
  * GET /partner/income
  * 参数：contextId, keyword?
  * 返回：{available, metrics, items[]}
- * - **`/partner/income`**：管理收益；keyword 可选。返回 `available,metrics,items`，items 含收益条目及 sourceName/details；详情见第 11 节。
+ * - **`/partner/income`**：管理收益；keyword 可选。`available` 与指标「可兑换积分」等于批发入口 `availablePoints`（不含全球奖、创始奖）。`listTotal` 是本页明细合计，`incomeSummary` 是分类，二者可以和可兑换积分不同。items 含收益条目及 sourceName/details；详情见第 11 节。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */
@@ -1137,7 +1137,7 @@ export const getWalletWithdrawals = (input = {}) => callEndpoint("GET /wallet/wi
  * GET /wallet/withdrawal-options
  * 参数：contextId
  * 返回：{availablePoints,identity,identityLabel,identityBalances,minPoints,maxPoints}
- * - **GET `/wallet/withdrawal-options`**：contextId 必填；availablePoints/maxPoints 仅为当前身份钱包，另返回 identity、identityLabel、identityBalances、totalAvailable 及带身份的 pointRecords。
+ * - **GET `/wallet/withdrawal-options`**：contextId 必填。`availablePoints`/`maxPoints` 只含当前入口钱包：wholesale 为合伙人已结算收益，agency 为该用户全部代理收益（多任命共用一个钱包），costore 为合店收益；不含全球奖、创始奖。`totalPoints`、分类、`pointRecords` 同一批记录。`totalAvailable` 是三个钱包之和，有 contextId 时不要当作按钮金额。
  * @param {import("./types").EndpointInput} [input] 路径参数与 query/body 分开传递。
  * @returns {Promise<import("./types").DocumentedResponse>} 具体 DTO 见上方契约；未冻结字段为 unknown。
  */

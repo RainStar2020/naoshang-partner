@@ -17,6 +17,22 @@ const awardCopy={平级奖:'孵化补贴',复购奖:'运维补贴',全球奖:'�
 function awardDisplay(value){return typeof value==='string'?Object.entries(awardCopy).reduce((text,[source,target])=>text.replaceAll(source,target),value):value}
 function incomeDisplay(value){return typeof value==='string'?awardDisplay(value).replaceAll('收益','积分').replaceAll('提点','').replace(/订单金额|开通金额|计件金额|待分配金额|实付金额|计价金额/g,'有效值'):value}
 function queryData(data){return Object.fromEntries(Object.entries(data||{}).filter(([,value])=>value!==undefined&&value!==null&&value!==''))}
+function incomeIdentity(module){return {wholesale:'partner',agency:'agent',costore:'costore'}[module]||''}
+function entryIdentity(item){
+  const raw=String(item?.identity||item?.beneficiaryIdentity||item?.earnerIdentity||item?.incomeIdentity||'').trim().toLowerCase()
+  if(raw==='partner'||raw==='agent'||raw==='costore')return raw
+  if(raw.includes('partner')||raw.includes('批发')||raw.includes('联创'))return 'partner'
+  if(raw.includes('costore')||raw.includes('合店'))return 'costore'
+  if(raw.includes('agent')||raw.includes('代理'))return 'agent'
+  return ''
+}
+function keepIncomeForIdentity(items,identity){
+  if(!identity||!Array.isArray(items))return items
+  return items.filter(item=>{
+    const tagged=entryIdentity(item)
+    return !tagged||tagged===identity
+  })
+}
 function currentAwardMonth(){return new Date().toISOString().slice(0,7)}
 function parseGlobalAwardEligibility(report){
   if(!report||typeof report!=='object')return {eligible:false,reason:''}
@@ -353,11 +369,11 @@ async function fetchAgencyIncomeReport(account,context,{force=false}={}){
   try{
     const raw=config.useMock
       ?mockBusinessReport(account,context,resource,{filter:'',keyword:''})
-      :await request('/income/entries',{data:{contextId:context.id},cache:false})
+      :await request('/income/entries',{data:{contextId:context.id,identity:'agent'},cache:false})
     checkBusinessAccount(account)
     if(!raw||typeof raw!=='object')return null
     const report=presentAwardCopy(normalizeList(raw))
-    const incomeReport={...report,items:presentIncomeEntries(report.items)}
+    const incomeReport={...report,items:keepIncomeForIdentity(presentIncomeEntries(report.items),'agent')}
     agencyIncomeCache.set(context.id,incomeReport)
     return incomeReport
   }catch{
@@ -819,7 +835,8 @@ export function getBusinessReport(module,id,contextId,params={}){
       const fromBootstrap=reportFromBootstrap(resource,bootstrap)
       if(fromBootstrap)return fromBootstrap
     }
-    const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:queryData({...params,contextId:context.id,...(module==='agency'&&resource.id==='team'?{assignmentId:context.assignmentId}:{})}),cache:false})
+    const incomeIdentityValue=resource.type==='income'?incomeIdentity(module):''
+    const result=config.useMock?mockBusinessReport(account,context,resource,params):await request(resource.endpoint,{data:queryData({...params,contextId:context.id,identity:incomeIdentityValue||undefined,...(module==='agency'&&resource.id==='team'?{assignmentId:context.assignmentId}:{})}),cache:false})
     let normalized=normalizeList(result)
     if(module==='costore'&&['card-dividends','promotion-dividends'].includes(resource.id))normalized=normalizeCostoreDividendReport(normalized,resource.id)
     if(module==='agency'&&resource.id==='team'){
@@ -848,7 +865,8 @@ export function getBusinessReport(module,id,contextId,params={}){
     }
     let presented=(resource.type==='income'||resource.id==='global-awards')?presentAwardCopy(normalized):normalized
     if(resource.type==='income'){
-      presented={...presented,items:presentIncomeEntries(presented.items)}
+      const identity=incomeIdentity(module)
+      presented={...presented,items:keepIncomeForIdentity(presentIncomeEntries(presented.items),identity)}
     }
     const payload={...presented,qrUrl:result.promotionId&&isMediaUrl(result.qrUrl)?result.qrUrl:'',posterUrl:result.promotionId&&isMediaUrl(result.posterUrl)?result.posterUrl:'',shareUrl:result.promotionId&&isMediaUrl(result.shareUrl)?result.shareUrl:''}
     if(defaultIncomePage)agencyIncomeCache.set(context.id,payload)

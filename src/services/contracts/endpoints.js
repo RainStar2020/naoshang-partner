@@ -820,7 +820,7 @@ export const endpoints = [
     "response": "{available, metrics, items[]}",
     "source": "前端API接口清单（功能标注）(1).md",
     "serverOnly": false,
-    "notes": "- **`/partner/income`**：管理收益；keyword 可选。返回 `available,metrics,items`，items 含收益条目及 sourceName/details；详情见第 11 节。",
+    "notes": "- **`/partner/income`**：管理收益；keyword 可选。`available` 与「可兑换积分」等于批发入口 availablePoints。`listTotal`、`incomeSummary` 可以和可兑换积分不同。items 含收益条目及 sourceName/details。",
     "pathParams": [],
     "name": "getPartnerIncome"
   },
@@ -1262,7 +1262,7 @@ export const endpoints = [
     "response": "{availablePoints,hasNegativeBalance,negativeBalanceHint,identity,identityLabel,identityBalances,minPoints,maxPoints,allowedActions,pointRecords[]}",
     "source": "前端API接口清单（功能标注）(1).md",
     "serverOnly": false,
-    "notes": "- **GET `/wallet/withdrawal-options`**：contextId 必填；`availablePoints` 可为负。欠款时 `hasNegativeBalance:true`、`maxPoints:0`、`allowedActions:[]`；明细可用 `pointsLabel`、`isNegative`、`direction` 展示扣回。",
+    "notes": "- **GET `/wallet/withdrawal-options`**：contextId 必填。按钮金额只用 `availablePoints`（当前入口钱包，不含全球奖、创始奖）。`totalAvailable` 是合伙人+代理+合店之和，不要当按钮金额。`availablePoints` 可为负。欠款时 `hasNegativeBalance:true`、`maxPoints:0`、`allowedActions:[]`；明细可用 `pointsLabel`、`isNegative`、`direction` 展示扣回。",
     "pathParams": [],
     "name": "getWalletWithdrawalOptions"
   },

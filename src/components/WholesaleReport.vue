@@ -567,7 +567,7 @@
         <template v-else-if="toolId === 'income'">
           <view class="income-hero">
             <view
-              ><text>可提现积分</text
+              ><text>可兑换积分</text>
               ><view v-if="!incomeTotalPending">{{ money(incomeTotal) }}</view
               ><MetricSkeleton v-else size="block" :inline="false"/></view
             >
@@ -784,8 +784,20 @@
     { label: "加权分红", value: globalAwardRow.value?.weightedAmount, kind: "money" },
     { label: "业绩分红", value: globalAwardRow.value?.performanceAmount, kind: "money" },
   ]);
+  function globalAwardCount(...keys) {
+    const current = globalAwardRow.value || {};
+    const monthRow = (report.value?.items || []).find((item) => item.month === month.value);
+    const values = [];
+    for (const key of keys) {
+      values.push(current[key]);
+      if (monthRow) values.push(monthRow[key]);
+    }
+    const number = pickMetricNumber(...values);
+    if (number != null) return number;
+    return status.value === "ready" ? 0 : null;
+  }
   const globalAwardMonthMetrics = computed(() => [
-     { label: "本月VIP卖出", value: globalAwardRow.value?.vipSold ?? globalAwardRow.value?.salesAmount },
+     { label: "本月VIP卖出", value: globalAwardCount("vipSold", "salesAmount") },
     { label: "个人业绩占比", value: globalAwardRow.value?.shareBps, kind: "percent" },
     { label: "参与人数", value: globalAwardRow.value?.people },
     { label: "奖池金额", value: globalAwardRow.value?.poolAmount, kind: "money" },
@@ -849,29 +861,18 @@
   }
   const incomeMetric = (label) =>
     report.value?.metrics?.find((item) => item.label === label)?.value;
+  // Redeemable amount matches wholesale withdrawal-options.availablePoints.
+  // listTotal / incomeSummary / line items can differ and are not the button amount.
   const incomeTotalRaw = computed(() =>
     pickMetricNumber(
       report.value?.available,
+      incomeMetric("可兑换积分"),
       incomeMetric("可提现积分"),
       incomeMetric("可提现金额"),
-      incomeMetric("积分合计"),
-      incomeMetric("收益合计"),
     ),
   );
-  const incomeTotalPending = computed(
-    () =>
-      incomeTotalRaw.value == null &&
-      !(items.value || []).length &&
-      !report.value?.metrics,
-  );
-  const incomeTotal = computed(
-    () =>
-      incomeTotalRaw.value ??
-      (items.value || []).reduce(
-        (sum, item) => sum + (Number(item.amount) || 0),
-        0,
-      ),
-  );
+  const incomeTotalPending = computed(() => incomeTotalRaw.value == null);
+  const incomeTotal = computed(() => incomeTotalRaw.value ?? 0);
   // Match awardDisplay() rename: 复购奖→运维补贴, 平级奖→孵化补贴
   const incomeChannelLabels = ["直推奖", "运维补贴", "孵化补贴"];
   const incomeChannels = computed(() => {

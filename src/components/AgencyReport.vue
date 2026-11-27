@@ -80,8 +80,9 @@ const scopeSummary=item=>agencyTeamScopeSummary(item)
 const metric=label=>report.value?.metrics?.find(item=>item.label===label)?.value
 const channelMetrics=computed(()=>['B端','C端','供应链'].map(label=>{const apiValue=metric(label);if(apiValue!=null)return {label,value:apiValue,fromApi:true};const rows=(items.value||[]).filter(item=>channelLabel(item)===label);const itemValue=rows.reduce((sum,item)=>sum+(Number(item.amount)||0),0);return {label,value:itemValue,fromApi:false,pending:report.value?.metrics==null&&!rows.length}}))
 const channelPending=item=>item?.pending===true||pickMetricNumber(item?.value)==null&&item?.fromApi!==true&&!(items.value||[]).length
-const totalAmountRaw=computed(()=>pickMetricNumber(metric('收益合计'),metric('积分合计'),metric('可提现金额')))
-const totalAmountPending=computed(()=>totalAmountRaw.value==null&&!(items.value||[]).length&&!report.value?.metrics)
+// Page detail total. Withdraw uses withdrawal-options.availablePoints, not this figure.
+const totalAmountRaw=computed(()=>pickMetricNumber(report.value?.listTotal,metric('积分合计'),metric('收益合计')))
+const totalAmountPending=computed(()=>totalAmountRaw.value==null&&!(items.value||[]).length)
 const totalAmount=computed(()=>totalAmountRaw.value??(items.value||[]).reduce((sum,item)=>sum+(Number(item.amount)||0),0))
 const signedAmount=value=>formatSignedMetricMoney(value,money)
 const channelLabel=item=>item.bizChannelLabel||item.incomeChannelLabel||item.incomeChannel||item.channel||({supply:'供应链',b:'B端',c:'C端'}[String(item.category||'').toLowerCase()]||'C端')
